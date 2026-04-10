@@ -5,7 +5,9 @@ import { type DropdownItem } from '@lobehub/ui';
 import { FilePenIcon, Maximize2, PanelRightOpen } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 
+import { SESSION_CHAT_PAGE_URL } from '@/const/url';
 import { useChatStore } from '@/store/chat';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -15,6 +17,8 @@ import { labPreferSelectors } from '@/store/user/selectors';
 export const useMenu = (): { menuItems: DropdownItem[] } => {
   const { t } = useTranslation('chat');
   const { t: tPortal } = useTranslation('portal');
+  const navigate = useNavigate();
+  const params = useParams<{ aid?: string; topicId?: string }>();
 
   const [wideScreen, toggleRightPanel, toggleWideScreen] = useGlobalStore((s) => [
     systemStatusSelectors.wideScreen(s),
@@ -31,7 +35,14 @@ export const useMenu = (): { menuItems: DropdownItem[] } => {
         icon: <Icon icon={FilePenIcon} />,
         key: 'notebook',
         label: tPortal('notebook.title'),
-        onClick: () => toggleNotebook(),
+        onClick: () => {
+          if (params.aid) {
+            navigate(SESSION_CHAT_PAGE_URL(params.aid));
+            return;
+          }
+
+          toggleNotebook();
+        },
       },
     ];
 
@@ -56,6 +67,8 @@ export const useMenu = (): { menuItems: DropdownItem[] } => {
     return items;
   }, [
     enableAgentWorkingPanel,
+    navigate,
+    params.aid,
     t,
     tPortal,
     toggleNotebook,

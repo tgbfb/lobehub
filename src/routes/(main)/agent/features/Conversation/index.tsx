@@ -15,6 +15,7 @@ import ChatHeader from './Header';
 import AgentWorkingSidebar from './WorkingSidebar';
 
 const wrapperStyle: React.CSSProperties = {
+  flex: 1,
   height: '100%',
   minWidth: 300,
   width: '100%',
