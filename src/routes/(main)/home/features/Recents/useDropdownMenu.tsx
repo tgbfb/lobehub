@@ -5,11 +5,11 @@ import { PencilLineIcon, Trash } from 'lucide-react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { mutate } from '@/libs/swr';
 import { type RecentItem } from '@/server/routers/lambda/recent';
 import { fileService } from '@/services/file';
 import { topicService } from '@/services/topic';
 import { useChatStore } from '@/store/chat';
+import { useHomeStore } from '@/store/home';
 
 export const useRecentItemDropdownMenu = (
   item: RecentItem,
@@ -18,9 +18,18 @@ export const useRecentItemDropdownMenu = (
   const { t } = useTranslation('common');
   const { modal } = App.useApp();
   const removeTopic = useChatStore((s) => s.removeTopic);
+  const [updateRecentTitle, removeRecent, refreshRecents] = useHomeStore((s) => [
+    s.updateRecentTitle,
+    s.removeRecent,
+    s.refreshRecents,
+  ]);
 
   const handleRename = useCallback(
     async (newTitle: string) => {
+      // Optimistic update
+      updateRecentTitle(item.id, newTitle);
+
+      // Persist to server
       switch (item.type) {
         case 'topic': {
           await topicService.updateTopic(item.id, { title: newTitle });
@@ -32,10 +41,8 @@ export const useRecentItemDropdownMenu = (
           break;
         }
       }
-      // Refresh recents list
-      await mutate((key: any) => Array.isArray(key) && key[0] === 'fetchRecents');
     },
-    [item],
+    [item, updateRecentTitle],
   );
 
   const handleDelete = useCallback(() => {
@@ -43,6 +50,10 @@ export const useRecentItemDropdownMenu = (
       centered: true,
       okButtonProps: { danger: true },
       onOk: async () => {
+        // Optimistic remove
+        removeRecent(item.id);
+
+        // Persist to server
         switch (item.type) {
           case 'topic': {
             await removeTopic(item.id);
@@ -54,11 +65,12 @@ export const useRecentItemDropdownMenu = (
             break;
           }
         }
-        await mutate((key: any) => Array.isArray(key) && key[0] === 'fetchRecents');
+        // Refresh to get accurate data from server
+        await refreshRecents();
       },
       title: t('delete'),
     });
-  }, [item, modal, t, removeTopic]);
+  }, [item, modal, t, removeTopic, removeRecent, refreshRecents]);
 
   const dropdownMenu = useCallback((): MenuProps['items'] => {
     const canRename = item.type !== 'task';

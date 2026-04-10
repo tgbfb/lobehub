@@ -1,7 +1,7 @@
 import isEqual from 'fast-deep-equal';
 import { type SWRResponse } from 'swr';
 
-import { useClientDataSWRWithSync } from '@/libs/swr';
+import { mutate, useClientDataSWRWithSync } from '@/libs/swr';
 import { type RecentItem } from '@/server/routers/lambda/recent';
 import { fileService } from '@/services/file';
 import { recentService } from '@/services/recent';
@@ -33,13 +33,27 @@ export class RecentActionImpl {
     this.#get = get;
   }
 
+  updateRecentTitle = (id: string, title: string): void => {
+    const recents = this.#get().recents.map((item) => (item.id === id ? { ...item, title } : item));
+    this.#set({ recents }, false, n('updateRecentTitle'));
+  };
+
+  removeRecent = (id: string): void => {
+    const recents = this.#get().recents.filter((item) => item.id !== id);
+    this.#set({ recents }, false, n('removeRecent'));
+  };
+
+  refreshRecents = async (): Promise<void> => {
+    await mutate((key: unknown) => Array.isArray(key) && key[0] === FETCH_RECENTS_KEY);
+  };
+
   useFetchRecents = (
     isLogin: boolean | undefined,
     limit: number = 10,
   ): SWRResponse<RecentItem[]> => {
     return useClientDataSWRWithSync<RecentItem[]>(
-      isLogin === true ? [FETCH_RECENTS_KEY, isLogin] : null,
-      async () => recentService.getAll(Math.max(limit, 50)),
+      isLogin === true ? [FETCH_RECENTS_KEY, isLogin, limit] : null,
+      async () => recentService.getAll(limit + 1),
       {
         onData: (data) => {
           if (this.#get().isRecentsInit && isEqual(this.#get().recents, data)) return;

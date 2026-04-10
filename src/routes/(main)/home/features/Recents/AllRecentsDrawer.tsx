@@ -7,8 +7,8 @@ import { Link } from 'react-router-dom';
 
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
 import SideBarDrawer from '@/features/NavPanel/SideBarDrawer';
-import { useHomeStore } from '@/store/home';
-import { homeRecentSelectors } from '@/store/home/selectors';
+import { useClientDataSWR } from '@/libs/swr';
+import { recentService } from '@/services/recent';
 
 import RecentListItem from './Item';
 
@@ -19,13 +19,15 @@ interface AllRecentsDrawerProps {
 
 const AllRecentsDrawer = memo<AllRecentsDrawerProps>(({ open, onClose }) => {
   const { t } = useTranslation('common');
-  const recents = useHomeStore(homeRecentSelectors.recents);
-  const isInit = useHomeStore(homeRecentSelectors.isRecentsInit);
+
+  const { data: recents, isLoading } = useClientDataSWR(open ? ['allRecents', open] : null, () =>
+    recentService.getAll(50),
+  );
 
   return (
     <SideBarDrawer open={open} title={t('recents')} onClose={onClose}>
       <Flexbox gap={1} paddingBlock={1} paddingInline={4}>
-        {!isInit ? (
+        {isLoading || !recents ? (
           <SkeletonList rows={5} />
         ) : (
           recents.map((item) => (
