@@ -3,11 +3,13 @@ import { z } from 'zod';
 import { RecentModel } from '@/database/models/recent';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
+import type { ChatTopicMetadata } from '@/types/topic';
 
 export interface RecentItem {
   agentId?: string | null;
   icon: string;
   id: string;
+  metadata?: ChatTopicMetadata;
   routePath: string;
   title: string;
   type: 'topic' | 'document' | 'file' | 'task';
@@ -59,6 +61,7 @@ export const recentRouter = router({
           agentId: item.routeId,
           icon: item.type,
           id: item.id,
+          metadata: item.metadata as ChatTopicMetadata | undefined,
           routePath,
           title: item.title,
           type: item.type,

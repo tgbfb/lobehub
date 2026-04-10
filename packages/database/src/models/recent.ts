@@ -5,6 +5,7 @@ import type { LobeChatDatabase } from '../type';
 
 export interface RecentDbItem {
   id: string;
+  metadata?: any;
   routeGroupId: string | null;
   routeId: string | null;
   title: string;
@@ -30,7 +31,8 @@ export class RecentModel {
           'topic' as type,
           ${topics.agentId} as route_id,
           ${topics.groupId} as route_group_id,
-          ${topics.updatedAt} as updated_at
+          ${topics.updatedAt} as updated_at,
+          ${topics.metadata} as metadata
         FROM ${topics}
         LEFT JOIN ${agents} ON ${topics.agentId} = ${agents.id}
         WHERE ${topics.userId} = ${this.userId}
@@ -48,7 +50,8 @@ export class RecentModel {
           'document' as type,
           NULL as route_id,
           NULL as route_group_id,
-          ${documents.updatedAt} as updated_at
+          ${documents.updatedAt} as updated_at,
+          NULL as metadata
         FROM ${documents}
         WHERE ${documents.userId} = ${this.userId}
           AND ${documents.sourceType} != 'file'
@@ -63,7 +66,8 @@ export class RecentModel {
           'file' as type,
           NULL as route_id,
           NULL as route_group_id,
-          ${files.updatedAt} as updated_at
+          ${files.updatedAt} as updated_at,
+          NULL as metadata
         FROM ${files}
         WHERE ${files.userId} = ${this.userId}
           AND ${files.fileType} != 'custom/document'
@@ -80,7 +84,8 @@ export class RecentModel {
           'task' as type,
           ${tasks.assigneeAgentId} as route_id,
           NULL as route_group_id,
-          ${tasks.updatedAt} as updated_at
+          ${tasks.updatedAt} as updated_at,
+          NULL as metadata
         FROM ${tasks}
         WHERE ${tasks.createdByUserId} = ${this.userId}
       ) AS combined
@@ -92,6 +97,7 @@ export class RecentModel {
 
     return result.rows.map((row: any) => ({
       id: row.id,
+      metadata: row.metadata ?? undefined,
       routeGroupId: row.route_group_id,
       routeId: row.route_id,
       title: row.title,
