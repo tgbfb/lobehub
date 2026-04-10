@@ -1,7 +1,7 @@
 import { type MenuProps } from '@lobehub/ui';
 import { AccordionItem, ActionIcon, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
-import { Hash, LucideCheck, MoreHorizontalIcon } from 'lucide-react';
-import { memo, Suspense, useMemo } from 'react';
+import { ArrowDownIcon, ArrowUpIcon, Hash, LucideCheck, MoreHorizontalIcon } from 'lucide-react';
+import { memo, Suspense, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NeuralNetworkLoading from '@/components/NeuralNetworkLoading';
@@ -27,10 +27,26 @@ const Recents = memo<RecentsProps>(({ itemKey }) => {
   const isLogin = useUserStore(authSelectors.isLogin);
   const { isRevalidating } = useInitRecents();
 
-  const [recentPageSize, updateSystemStatus] = useGlobalStore((s) => [
+  const [recentPageSize, sidebarSectionOrder, updateSystemStatus] = useGlobalStore((s) => [
     systemStatusSelectors.recentPageSize(s),
+    systemStatusSelectors.sidebarSectionOrder(s),
     s.updateSystemStatus,
   ]);
+
+  const sectionIndex = sidebarSectionOrder.indexOf('recents');
+  const isFirst = sectionIndex === 0;
+  const isLast = sectionIndex === sidebarSectionOrder.length - 1;
+
+  const moveSection = useCallback(
+    (direction: 'up' | 'down') => {
+      const newOrder = [...sidebarSectionOrder];
+      const idx = newOrder.indexOf('recents');
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+      updateSystemStatus({ sidebarSectionOrder: newOrder });
+    },
+    [sidebarSectionOrder, updateSystemStatus],
+  );
 
   const dropdownMenu = useMemo(() => {
     const pageSizeOptions = [5, 10, 15, 20];
@@ -45,13 +61,28 @@ const Recents = memo<RecentsProps>(({ itemKey }) => {
 
     return [
       {
+        disabled: isFirst,
+        icon: <Icon icon={ArrowUpIcon} />,
+        key: 'moveUp',
+        label: t('navPanel.moveUp'),
+        onClick: () => moveSection('up'),
+      },
+      {
+        disabled: isLast,
+        icon: <Icon icon={ArrowDownIcon} />,
+        key: 'moveDown',
+        label: t('navPanel.moveDown'),
+        onClick: () => moveSection('down'),
+      },
+      { type: 'divider' as const },
+      {
         children: pageSizeItems,
         icon: <Icon icon={Hash} />,
         key: 'displayItems',
         label: t('navPanel.displayItems'),
       },
     ] as MenuProps['items'];
-  }, [recentPageSize, updateSystemStatus, t]);
+  }, [recentPageSize, updateSystemStatus, t, isFirst, isLast, moveSection]);
 
   if (!isLogin) return null;
   if (isInit && (!recents || recents.length === 0)) return null;

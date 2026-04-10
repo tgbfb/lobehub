@@ -175,6 +175,10 @@ export interface SystemStatus {
   showSystemRole?: boolean;
   showVideoPanel?: boolean;
   showVideoTopicPanel?: boolean;
+  /**
+   * Order of sidebar sections (e.g. ['recents', 'agent'])
+   */
+  sidebarSectionOrder?: string[];
   systemRoleExpandedMap: Record<string, boolean>;
   /**
    * Whether to display tokens in short format

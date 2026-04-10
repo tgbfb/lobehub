@@ -18,6 +18,8 @@ const recentPageSize = (s: GlobalState): number => s.status.recentPageSize || 10
 
 const pagePageSize = (s: GlobalState): number => s.status.pagePageSize || 20;
 
+const sidebarSectionOrder = (s: GlobalState): string[] =>
+  s.status.sidebarSectionOrder || ['recents', 'agent'];
 const showSystemRole = (s: GlobalState) => s.status.showSystemRole;
 const mobileShowTopic = (s: GlobalState) => s.status.mobileShowTopic;
 const mobileShowPortal = (s: GlobalState) => s.status.mobileShowPortal;
@@ -104,6 +106,7 @@ export const systemStatusSelectors = {
   pagePageSize,
   portalWidth,
   recentPageSize,
+  sidebarSectionOrder,
   sessionGroupKeys,
   showChatHeader,
   showFilePanel,

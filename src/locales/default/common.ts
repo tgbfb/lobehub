@@ -420,6 +420,8 @@ export default {
   'more': 'More',
   'navPanel.agent': 'Agents',
   'navPanel.displayItems': 'Display Items',
+  'navPanel.moveDown': 'Move down',
+  'navPanel.moveUp': 'Move up',
   'navPanel.library': 'Library',
   'navPanel.searchAgent': 'Search Agent...',
   'navPanel.searchResultEmpty': 'No search results found',

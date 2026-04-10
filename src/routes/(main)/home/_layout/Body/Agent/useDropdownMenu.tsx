@@ -1,7 +1,7 @@
 import { type MenuProps } from '@lobehub/ui';
 import { Icon } from '@lobehub/ui';
-import { Hash, LucideCheck } from 'lucide-react';
-import { useMemo } from 'react';
+import { ArrowDownIcon, ArrowUpIcon, Hash, LucideCheck } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useGlobalStore } from '@/store/global';
@@ -18,10 +18,26 @@ export const useAgentActionsDropdownMenu = ({
 }: AgentActionsDropdownMenuProps): MenuProps['items'] => {
   const { t } = useTranslation('common');
 
-  const [agentPageSize, updateSystemStatus] = useGlobalStore((s) => [
+  const [agentPageSize, sidebarSectionOrder, updateSystemStatus] = useGlobalStore((s) => [
     systemStatusSelectors.agentPageSize(s),
+    systemStatusSelectors.sidebarSectionOrder(s),
     s.updateSystemStatus,
   ]);
+
+  const sectionIndex = sidebarSectionOrder.indexOf('agent');
+  const isFirst = sectionIndex === 0;
+  const isLast = sectionIndex === sidebarSectionOrder.length - 1;
+
+  const moveSection = useCallback(
+    (direction: 'up' | 'down') => {
+      const newOrder = [...sidebarSectionOrder];
+      const idx = newOrder.indexOf('agent');
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+      updateSystemStatus({ sidebarSectionOrder: newOrder });
+    },
+    [sidebarSectionOrder, updateSystemStatus],
+  );
 
   // Create menu items
   const {
@@ -52,6 +68,21 @@ export const useAgentActionsDropdownMenu = ({
       createGroupChatItem,
       { type: 'divider' as const },
       {
+        disabled: isFirst,
+        icon: <Icon icon={ArrowUpIcon} />,
+        key: 'moveUp',
+        label: t('navPanel.moveUp'),
+        onClick: () => moveSection('up'),
+      },
+      {
+        disabled: isLast,
+        icon: <Icon icon={ArrowDownIcon} />,
+        key: 'moveDown',
+        label: t('navPanel.moveDown'),
+        onClick: () => moveSection('down'),
+      },
+      { type: 'divider' as const },
+      {
         children: pageSizeItems,
         icon: <Icon icon={Hash} />,
         key: 'displayItems',
@@ -69,6 +100,9 @@ export const useAgentActionsDropdownMenu = ({
     createSessionGroupMenuItem,
     configMenuItem,
     openConfigGroupModal,
+    isFirst,
+    isLast,
+    moveSection,
     t,
   ]);
 };

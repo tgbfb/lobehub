@@ -345,6 +345,8 @@
   "navPanel.agent": "助理",
   "navPanel.displayItems": "显示条目",
   "navPanel.library": "资源库",
+  "navPanel.moveDown": "下移",
+  "navPanel.moveUp": "上移",
   "navPanel.searchAgent": "搜索助理…",
   "navPanel.searchResultEmpty": "暂无搜索结果",
   "new": "新",
