@@ -1,14 +1,8 @@
-import { ActionIcon, Flexbox } from '@lobehub/ui';
-import { PanelRightCloseIcon } from 'lucide-react';
+import { Flexbox } from '@lobehub/ui';
 import { memo } from 'react';
 
-import { DESKTOP_HEADER_ICON_SIZE } from '@/const/layoutTokens';
-import NavHeader from '@/features/NavHeader';
 import RightPanel from '@/features/RightPanel';
-import { useGlobalStore } from '@/store/global';
 
-import AgentSummary from './AgentSummary';
-import ProgressSection from './ProgressSection';
 import ResourcesSection from './ResourcesSection';
 
 interface AgentWorkspaceRightPanelProps {
@@ -18,12 +12,12 @@ interface AgentWorkspaceRightPanelProps {
 
 const AgentWorkspaceRightPanel = memo<AgentWorkspaceRightPanelProps>(
   ({ onSelectDocument, selectedDocumentId }) => {
-    const toggleRightPanel = useGlobalStore((s) => s.toggleRightPanel);
+    // const toggleRightPanel = useGlobalStore((s) => s.toggleRightPanel);
 
     return (
       <RightPanel defaultWidth={360} maxWidth={520} minWidth={300}>
         <Flexbox height={'100%'} width={'100%'}>
-          <NavHeader
+          {/* <NavHeader
             showTogglePanelButton={false}
             style={{ paddingBlock: 8, paddingInline: 8 }}
             right={
@@ -33,10 +27,10 @@ const AgentWorkspaceRightPanel = memo<AgentWorkspaceRightPanelProps>(
                 onClick={() => toggleRightPanel(false)}
               />
             }
-          />
+          /> */}
           <Flexbox gap={8} height={'100%'} style={{ overflowY: 'auto' }} width={'100%'}>
-            <AgentSummary />
-            <ProgressSection />
+            {/* <AgentSummary /> */}
+            {/* <ProgressSection /> */}
             <ResourcesSection
               selectedDocumentId={selectedDocumentId}
               onSelectDocument={onSelectDocument}
