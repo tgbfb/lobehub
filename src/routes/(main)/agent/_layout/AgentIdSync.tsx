@@ -1,22 +1,28 @@
-import { useMount, usePrevious, useUnmount } from 'ahooks';
+import { usePrevious, useUnmount } from 'ahooks';
 import { useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { createStoreUpdater } from 'zustand-utils';
 
 import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
 
 const AgentIdSync = () => {
-  const useStoreUpdater = createStoreUpdater(useAgentStore);
-  const useChatStoreUpdater = createStoreUpdater(useChatStore);
   const params = useParams<{ aid?: string }>();
   const [searchParams] = useSearchParams();
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const prevAgentId = usePrevious(params.aid);
 
-  useStoreUpdater('activeAgentId', params.aid);
-  useChatStoreUpdater('activeAgentId', params.aid ?? '');
+  // Sync URL agentId to the stores synchronously during render so sibling
+  // components (e.g. Sidebar → TopicList → useFetchTopics) read the correct
+  // value on their first render after a page refresh. Equality guards keep
+  // this idempotent and avoid render loops.
+  const chatAgentId = params.aid ?? '';
+  if (params.aid !== undefined && useAgentStore.getState().activeAgentId !== params.aid) {
+    useAgentStore.setState({ activeAgentId: params.aid }, false, 'AgentIdSync/syncAgentId');
+  }
+  if (useChatStore.getState().activeAgentId !== chatAgentId) {
+    useChatStore.setState({ activeAgentId: chatAgentId }, false, 'AgentIdSync/syncAgentId');
+  }
 
   // Reset activeTopicId when switching to a different agent
   // This prevents messages from being saved to the wrong topic bucket
@@ -37,10 +43,6 @@ const AgentIdSync = () => {
       useChatStore.getState().clearUnreadCompletedAgent(params.aid);
     }
   }, [params.aid, prevAgentId]);
-
-  useMount(() => {
-    useChatStore.setState({ activeAgentId: params.aid }, false, 'AgentIdSync/mountAgentId');
-  });
 
   // Clear activeAgentId when unmounting (leaving chat page)
   useUnmount(() => {

@@ -16,13 +16,14 @@ const Layout: FC = () => {
 
   return (
     <>
+      {/* Render AgentIdSync first so URL → store sync happens before Sidebar reads activeAgentId */}
+      <AgentIdSync />
       <Sidebar />
       <Flexbox className={styles.mainContainer} flex={1} height={'100%'}>
         <Outlet />
       </Flexbox>
       <RegisterHotkeys />
       {isDesktop && <ProtocolUrlHandler />}
-      <AgentIdSync />
     </>
   );
 };

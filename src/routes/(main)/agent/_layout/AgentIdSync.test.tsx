@@ -4,6 +4,7 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useAgentStore } from '@/store/agent';
 import { initialState as initialChatState } from '@/store/chat/initialState';
 import { PortalViewType } from '@/store/chat/slices/portal/initialState';
 import { useChatStore } from '@/store/chat/store';
@@ -68,5 +69,19 @@ describe('AgentIdSync', () => {
 
     expect(useChatStore.getState().portalStack).toEqual([]);
     expect(useChatStore.getState().showPortal).toBe(false);
+  });
+
+  it('syncs chat store activeAgentId synchronously on first render (LOBE-7052)', () => {
+    // Simulate a fresh page load where chat store has the initial empty agentId
+    useChatStore.setState({ ...initialChatState }, false);
+    useAgentStore.setState({ activeAgentId: undefined }, false);
+
+    useParamsMock.mockReturnValue({ aid: 'agent-from-url' });
+    useSearchParamsMock.mockReturnValue([new URLSearchParams(''), vi.fn()]);
+
+    render(<AgentIdSync />);
+
+    expect(useChatStore.getState().activeAgentId).toBe('agent-from-url');
+    expect(useAgentStore.getState().activeAgentId).toBe('agent-from-url');
   });
 });
