@@ -2,52 +2,60 @@ import { serve, serveMany } from '@upstash/workflow/hono';
 import { Hono } from 'hono';
 
 import { createWorkflowQstashClient } from './qstashClient';
-import { hourlyWorkflowHandler, hourlyWorkflowOptions } from './workflows/hourly';
-import { personaUpdateHandler } from './workflows/personaUpdate';
-import { processTopicWorkflow } from './workflows/processTopic';
-import { processTopicsHandler } from './workflows/processTopics';
-import { processUsersHandler } from './workflows/processUsers';
-import { processUserTopicsHandler } from './workflows/processUserTopics';
+import { hourlyCronHandler } from './workflows/cron/hourly';
+import { executeUserHandler as personaExecuteUserHandler } from './workflows/persona/executeUser';
+import { paginateUsersHandler as personaPaginateUsersHandler } from './workflows/persona/paginateUsers';
+import { processUsersHandler as personaProcessUsersHandler } from './workflows/persona/processUsers';
+import { executeUserHandler as topicsExecuteUserHandler } from './workflows/topics/executeUser';
+import { extractTopicWorkflow } from './workflows/topics/extractTopic';
+import { paginateUsersHandler as topicsPaginateUsersHandler } from './workflows/topics/paginateUsers';
+import { processUsersHandler as topicsProcessUsersHandler } from './workflows/topics/processUsers';
 
 const app = new Hono().basePath('/api/workflows/memory-user-memory');
 
+// ─── External cron entry ───────────────────────────────────────────────
+app.post('/cron/hourly', serve(hourlyCronHandler, { qstashClient: createWorkflowQstashClient() }));
+
+// ─── Topics pipeline (3 layers + inner extract-topic workflow) ─────────
 app.post(
-  '/call-cron-hourly-analysis',
-  serve(hourlyWorkflowHandler, {
-    ...hourlyWorkflowOptions,
-    qstashClient: createWorkflowQstashClient(),
-  }),
+  '/topics/process-users',
+  serve(topicsProcessUsersHandler, { qstashClient: createWorkflowQstashClient() }),
 );
 
 app.post(
-  '/pipelines/persona/update-writing',
-  serve(personaUpdateHandler, { qstashClient: createWorkflowQstashClient() }),
+  '/topics/paginate-users',
+  serve(topicsPaginateUsersHandler, { qstashClient: createWorkflowQstashClient() }),
 );
 
 app.post(
-  '/pipelines/chat-topic/process-users',
-  serve(processUsersHandler, { qstashClient: createWorkflowQstashClient() }),
+  '/topics/execute-user',
+  serve(topicsExecuteUserHandler, { qstashClient: createWorkflowQstashClient() }),
 );
 
+// NOTICE: `context.invoke(extractTopicWorkflow)` in topics/execute-user rewrites the URL last
+// segment to the workflowId (`extract-topic`); serveMany dispatches that to the right workflow.
 app.post(
-  '/pipelines/chat-topic/process-user-topics',
-  serve(processUserTopicsHandler, { qstashClient: createWorkflowQstashClient() }),
-);
-
-app.post(
-  '/pipelines/chat-topic/process-topics',
-  serve(processTopicsHandler, { qstashClient: createWorkflowQstashClient() }),
-);
-
-// NOTICE: Must use serveMany here. The `context.invoke(processTopicWorkflow)` call in
-// process-topics rewrites the URL last segment to the workflowId ("process-topic"). serveMany
-// multiplexes by that final segment to dispatch to the right workflow.
-app.post(
-  '/pipelines/chat-topic/process-topic',
+  '/topics/extract-topic',
   serveMany(
-    { 'process-topic': processTopicWorkflow },
+    { 'extract-topic': extractTopicWorkflow },
     { qstashClient: createWorkflowQstashClient() },
   ),
+);
+
+// ─── Persona pipeline (3 layers) ───────────────────────────────────────
+app.post(
+  '/persona/process-users',
+  serve(personaProcessUsersHandler, { qstashClient: createWorkflowQstashClient() }),
+);
+
+app.post(
+  '/persona/paginate-users',
+  serve(personaPaginateUsersHandler, { qstashClient: createWorkflowQstashClient() }),
+);
+
+app.post(
+  '/persona/execute-user',
+  serve(personaExecuteUserHandler, { qstashClient: createWorkflowQstashClient() }),
 );
 
 export default app;

@@ -2264,12 +2264,34 @@ export class MemoryExtractionExecutor {
   }
 }
 
-const WORKFLOW_PATHS = {
-  hourly: '/api/workflows/memory-user-memory/call-cron-hourly-analysis',
-  personaUpdate: '/api/workflows/memory-user-memory/pipelines/persona/update-writing',
-  topicBatch: '/api/workflows/memory-user-memory/pipelines/chat-topic/process-topics',
-  userTopics: '/api/workflows/memory-user-memory/pipelines/chat-topic/process-user-topics',
-  users: '/api/workflows/memory-user-memory/pipelines/chat-topic/process-users',
+export interface PersonaWorkflowCursor {
+  createdAt: string;
+  id: string;
+}
+
+export interface PersonaProcessUsersWorkflowPayload {
+  baseUrl?: string;
+  cursor?: PersonaWorkflowCursor;
+  dryRun?: boolean;
+  userIds?: string[];
+}
+
+export interface PersonaExecuteUserWorkflowPayload {
+  userId: string;
+}
+
+export const WORKFLOW_PATHS = {
+  hourlyCron: '/api/workflows/memory-user-memory/cron/hourly',
+
+  personaExecuteUser: '/api/workflows/memory-user-memory/persona/execute-user',
+  personaPaginateUsers: '/api/workflows/memory-user-memory/persona/paginate-users',
+  personaProcessUsers: '/api/workflows/memory-user-memory/persona/process-users',
+
+  topicsExecuteUser: '/api/workflows/memory-user-memory/topics/execute-user',
+  // Invoked internally via context.invoke from topics/execute-user; workflowId must match the last path segment.
+  topicsExtractTopic: '/api/workflows/memory-user-memory/topics/extract-topic',
+  topicsPaginateUsers: '/api/workflows/memory-user-memory/topics/paginate-users',
+  topicsProcessUsers: '/api/workflows/memory-user-memory/topics/process-users',
 } as const;
 
 const getWorkflowUrl = (path: string, baseUrl: string) => {
@@ -2291,6 +2313,13 @@ const getWorkflowClient = () => {
   return new Client(config);
 };
 
+type TriggerOptions = { extraHeaders?: Record<string, string> };
+
+const requireBaseUrl = (baseUrl: string | undefined): string => {
+  if (!baseUrl) throw new Error('Missing baseUrl for workflow trigger');
+  return baseUrl;
+};
+
 export class MemoryExtractionWorkflowService {
   private static client: Client;
 
@@ -2302,87 +2331,80 @@ export class MemoryExtractionWorkflowService {
     return this.client;
   }
 
-  static triggerProcessUsers(
-    payload: MemoryExtractionPayloadInput,
-    options?: { extraHeaders?: Record<string, string> },
-  ) {
-    if (!payload.baseUrl) {
-      throw new Error('Missing baseUrl for workflow trigger');
-    }
+  // ─── External cron entry ──────────────────────────────────────────────
 
-    const url = getWorkflowUrl(WORKFLOW_PATHS.users, payload.baseUrl);
-    return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
-  }
-
-  static triggerHourly(
+  static triggerHourlyCron(
     payload: MemoryExtractionHourlyWorkflowPayload,
-    options?: { extraHeaders?: Record<string, string> },
+    options?: TriggerOptions,
   ) {
-    if (!payload.baseUrl) {
-      throw new Error('Missing baseUrl for workflow trigger');
-    }
-
-    const url = getWorkflowUrl(WORKFLOW_PATHS.hourly, payload.baseUrl);
+    const url = getWorkflowUrl(WORKFLOW_PATHS.hourlyCron, requireBaseUrl(payload.baseUrl));
     return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
   }
 
-  static triggerProcessUserTopics(
-    payload: UserTopicWorkflowPayload,
-    options?: { extraHeaders?: Record<string, string> },
-  ) {
-    if (!payload.baseUrl) {
-      throw new Error('Missing baseUrl for workflow trigger');
-    }
+  // ─── Topics pipeline (3 layers + inner extract-topic workflow) ────────
 
-    const url = getWorkflowUrl(WORKFLOW_PATHS.userTopics, payload.baseUrl);
-    return this.getClient().trigger({
-      body: payload,
-      headers: options?.extraHeaders,
-      url,
-    });
+  static triggerTopicsProcessUsers(
+    payload: MemoryExtractionPayloadInput,
+    options?: TriggerOptions,
+  ) {
+    const url = getWorkflowUrl(WORKFLOW_PATHS.topicsProcessUsers, requireBaseUrl(payload.baseUrl));
+    return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
   }
 
-  static triggerProcessTopics(
+  static triggerTopicsPaginateUsers(
+    payload: MemoryExtractionPayloadInput,
+    options?: TriggerOptions,
+  ) {
+    const url = getWorkflowUrl(WORKFLOW_PATHS.topicsPaginateUsers, requireBaseUrl(payload.baseUrl));
+    return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
+  }
+
+  static triggerTopicsExecuteUser(
     userId: string,
     payload: MemoryExtractionPayloadInput,
-    options?: { extraHeaders?: Record<string, string> },
+    options?: TriggerOptions,
   ) {
-    if (!payload.baseUrl) {
-      throw new Error('Missing baseUrl for workflow trigger');
-    }
-
-    const url = getWorkflowUrl(WORKFLOW_PATHS.topicBatch, payload.baseUrl);
+    const url = getWorkflowUrl(WORKFLOW_PATHS.topicsExecuteUser, requireBaseUrl(payload.baseUrl));
     return this.getClient().trigger({
       body: payload,
       flowControl: {
-        key: `memory-user-memory.pipelines.chat-topic.process-topics.user.${userId}`,
-        // NOTICE: if modified the parallelism of
-        // src/server/workflows-hono/memory-user-memory/workflows/processTopics.ts
-        // or added new memory layer, make sure to update the number below.
-        //
-        // Currently, CEPA (context, experience, preference, activity) + identity = 5 layers.
-        // and since identity requires sequential processing, we set parallelism to 5.
+        key: `memory-user-memory.topics.execute-user.${userId}`,
+        // NOTICE: one execute-user run invokes extract-topic per topic in parallel.
+        // Keep this conservative so a single user with many topics does not starve the queue.
         parallelism: 5,
-      },
+      } satisfies FlowControl,
       headers: options?.extraHeaders,
       url,
     });
   }
 
-  static triggerPersonaUpdate(
-    userId: string,
-    baseUrl: string,
-    options?: { extraHeaders?: Record<string, string> },
-  ) {
-    if (!baseUrl) {
-      throw new Error('Missing baseUrl for workflow trigger');
-    }
+  // ─── Persona pipeline (3 layers) ──────────────────────────────────────
 
-    const url = getWorkflowUrl(WORKFLOW_PATHS.personaUpdate, baseUrl);
+  static triggerPersonaProcessUsers(
+    payload: PersonaProcessUsersWorkflowPayload,
+    options?: TriggerOptions,
+  ) {
+    const url = getWorkflowUrl(WORKFLOW_PATHS.personaProcessUsers, requireBaseUrl(payload.baseUrl));
+    return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
+  }
+
+  static triggerPersonaPaginateUsers(
+    payload: PersonaProcessUsersWorkflowPayload,
+    options?: TriggerOptions,
+  ) {
+    const url = getWorkflowUrl(
+      WORKFLOW_PATHS.personaPaginateUsers,
+      requireBaseUrl(payload.baseUrl),
+    );
+    return this.getClient().trigger({ body: payload, headers: options?.extraHeaders, url });
+  }
+
+  static triggerPersonaExecuteUser(userId: string, baseUrl: string, options?: TriggerOptions) {
+    const url = getWorkflowUrl(WORKFLOW_PATHS.personaExecuteUser, requireBaseUrl(baseUrl));
     return this.getClient().trigger({
-      body: { userIds: [userId] },
+      body: { userId } satisfies PersonaExecuteUserWorkflowPayload,
       flowControl: {
-        key: `memory-user-memory.pipelines.persona.update-write.${userId}`,
+        key: `memory-user-memory.persona.execute-user.${userId}`,
         parallelism: 1,
       } satisfies FlowControl,
       headers: options?.extraHeaders,

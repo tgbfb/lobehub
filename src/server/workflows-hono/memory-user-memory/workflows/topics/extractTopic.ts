@@ -17,7 +17,7 @@ import {
   normalizeMemoryExtractionPayload,
 } from '@/server/services/memory/userMemory/extract';
 
-import { createWorkflowQstashClient } from '../qstashClient';
+import { createWorkflowQstashClient } from '../../qstashClient';
 
 const CEPA_LAYERS: LayersEnum[] = [
   LayersEnum.Context,
@@ -28,9 +28,9 @@ const CEPA_LAYERS: LayersEnum[] = [
 
 const IDENTITY_LAYERS: LayersEnum[] = [LayersEnum.Identity];
 
-const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloadInput>) =>
+const extractTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloadInput>) =>
   upstashWorkflowTracer.startActiveSpan(
-    'workflow:memory-user-memory:process-topic',
+    'workflow:memory-user-memory:topics:extract-topic',
     async (span) => {
       const payload = normalizeMemoryExtractionPayload(context.requestPayload || {});
 
@@ -40,7 +40,7 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
         'workflow.memory_user_memory.source': payload.sources.join(','),
         'workflow.memory_user_memory.topic_id': payload.topicIds[0],
         'workflow.memory_user_memory.user_id': payload.userIds[0],
-        'workflow.name': 'memory-user-memory:process-topic',
+        'workflow.name': 'memory-user-memory:topics:extract-topic',
       });
 
       const topicId = payload.topicIds[0];
@@ -48,12 +48,12 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
 
       if (!userId || !topicId) {
         span.setStatus({ code: SpanStatusCode.OK });
-        return { message: 'Missing userId or topicId for topic workflow.' };
+        return { message: 'Missing userId or topicId for extract-topic workflow.' };
       }
 
       if (!payload.sources.includes(MemorySourceType.ChatTopic)) {
         span.setStatus({ code: SpanStatusCode.OK });
-        return { message: 'Source not supported in topic workflow.' };
+        return { message: 'Source not supported in extract-topic workflow.' };
       }
 
       const executor = await MemoryExtractionExecutor.create();
@@ -63,7 +63,7 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
           // NOTICE: Cooperative cascading cancellation for the workflow tree.
           // Check before CEPA extraction so cancelled tasks stop at the earliest safe boundary.
           const cancelled = await context.run(
-            `memory:user-memory:extract:users:${userId}:topics:${topicId}:cancel-check:before`,
+            `memory:topics:extract-topic:${userId}:${topicId}:cancel-check:before`,
             () =>
               getServerDB().then((db) =>
                 new AsyncTaskModel(db, userId).isUserMemoryExtractionCancellationRequested(
@@ -83,21 +83,19 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
             layers = payload.layers.filter((layer) => CEPA_LAYERS.includes(layer));
           }
 
-          await context.run(
-            `memory:user-memory:extract:users:${userId}:topics:${topicId}:cepa`,
-            () =>
-              executor.extractTopic({
-                asyncTaskId: payload.asyncTaskId,
-                forceAll: payload.forceAll,
-                forceTopics: payload.forceTopics,
-                from: payload.from,
-                layers,
-                source: MemorySourceType.ChatTopic,
-                to: payload.to,
-                topicId,
-                userId,
-                userInitiated: payload.userInitiated,
-              }),
+          await context.run(`memory:topics:extract-topic:${userId}:${topicId}:cepa`, () =>
+            executor.extractTopic({
+              asyncTaskId: payload.asyncTaskId,
+              forceAll: payload.forceAll,
+              forceTopics: payload.forceTopics,
+              from: payload.from,
+              layers,
+              source: MemorySourceType.ChatTopic,
+              to: payload.to,
+              topicId,
+              userId,
+              userInitiated: payload.userInitiated,
+            }),
           );
         }
         {
@@ -105,7 +103,7 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
             // NOTICE: Cooperative cascading cancellation for the workflow tree.
             // Re-check before identity extraction to avoid running sequential identity step after cancel.
             const cancelled = await context.run(
-              `memory:user-memory:extract:users:${userId}:topics:${topicId}:cancel-check:identity`,
+              `memory:topics:extract-topic:${userId}:${topicId}:cancel-check:identity`,
               () =>
                 getServerDB().then((db) =>
                   new AsyncTaskModel(db, userId).isUserMemoryExtractionCancellationRequested(
@@ -126,21 +124,19 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
             layers = payload.layers.filter((layer) => IDENTITY_LAYERS.includes(layer));
           }
 
-          await context.run(
-            `memory:user-memory:extract:users:${userId}:topics:${topicId}:identity`,
-            () =>
-              executor.extractTopic({
-                asyncTaskId: payload.asyncTaskId,
-                forceAll: payload.forceAll,
-                forceTopics: payload.forceTopics,
-                from: payload.from,
-                layers,
-                source: MemorySourceType.ChatTopic,
-                to: payload.to,
-                topicId,
-                userId,
-                userInitiated: payload.userInitiated,
-              }),
+          await context.run(`memory:topics:extract-topic:${userId}:${topicId}:identity`, () =>
+            executor.extractTopic({
+              asyncTaskId: payload.asyncTaskId,
+              forceAll: payload.forceAll,
+              forceTopics: payload.forceTopics,
+              from: payload.from,
+              layers,
+              source: MemorySourceType.ChatTopic,
+              to: payload.to,
+              topicId,
+              userId,
+              userInitiated: payload.userInitiated,
+            }),
           );
         }
 
@@ -158,12 +154,11 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
         span.recordException(error as Error);
         span.setStatus({
           code: SpanStatusCode.ERROR,
-          message: errorMessageFrom(error) || 'process-topic workflow failed',
+          message: errorMessageFrom(error) || 'extract-topic workflow failed',
         });
 
-        // Avoid infinite retries on non-retry-able errors
         throw new WorkflowNonRetryableError(
-          errorMessageFrom(error) || 'process-topic workflow failed',
+          errorMessageFrom(error) || 'extract-topic workflow failed',
         );
       } finally {
         span.end();
@@ -171,8 +166,8 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
     },
   );
 
-export const processTopicWorkflow = createWorkflow<MemoryExtractionPayloadInput, unknown>(
-  processTopicRoute,
+export const extractTopicWorkflow = createWorkflow<MemoryExtractionPayloadInput, unknown>(
+  extractTopicRoute,
   {
     failureFunction: async ({ context, failStatus, failResponse }) => {
       try {
@@ -189,7 +184,7 @@ export const processTopicWorkflow = createWorkflow<MemoryExtractionPayloadInput,
 
         await asyncTaskModel.incrementUserMemoryExtractionProgress(payload.asyncTaskId);
         console.error(
-          `[process-topic][failureFunction] marking async task as failed for user ${userId}, topic ${topicId}`,
+          `[extract-topic][failureFunction] marking async task as failed for user ${userId}, topic ${topicId}`,
           {
             failResponse,
             failStatus,
@@ -198,7 +193,7 @@ export const processTopicWorkflow = createWorkflow<MemoryExtractionPayloadInput,
 
         return 'async-task-updated';
       } catch (error) {
-        console.error('[process-topic][failureFunction] failed to record async task error', error);
+        console.error('[extract-topic][failureFunction] failed to record async task error', error);
         return 'async-task-update-failed';
       }
     },
@@ -206,4 +201,6 @@ export const processTopicWorkflow = createWorkflow<MemoryExtractionPayloadInput,
   },
 );
 
-processTopicWorkflow.workflowId = 'process-topic';
+// NOTICE: workflowId must match the last path segment of WORKFLOW_PATHS.topicsExtractTopic,
+// because Upstash `context.invoke` rewrites the URL last segment to the target workflowId.
+extractTopicWorkflow.workflowId = 'extract-topic';

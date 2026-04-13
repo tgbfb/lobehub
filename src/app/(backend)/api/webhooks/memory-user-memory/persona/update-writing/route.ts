@@ -63,7 +63,7 @@ export const POST = async (req: Request) => {
     if (params.mode === 'workflow') {
       const results = await Promise.all(
         params.userIds.map(async (userId) => {
-          const { workflowRunId } = await MemoryExtractionWorkflowService.triggerPersonaUpdate(
+          const { workflowRunId } = await MemoryExtractionWorkflowService.triggerPersonaExecuteUser(
             userId,
             params.baseUrl,
             { extraHeaders: upstashWorkflowExtraHeaders },

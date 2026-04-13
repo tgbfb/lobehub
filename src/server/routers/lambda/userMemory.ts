@@ -275,7 +275,7 @@ export const userMemoryRouter = router({
       const baseUrl = webhook.baseUrl || appEnv.INTERNAL_APP_URL || appEnv.APP_URL;
 
       try {
-        const { workflowRunId } = await MemoryExtractionWorkflowService.triggerProcessUsers(
+        const { workflowRunId } = await MemoryExtractionWorkflowService.triggerTopicsProcessUsers(
           buildWorkflowPayloadInput(
             normalizeMemoryExtractionPayload({
               asyncTaskId: taskId,

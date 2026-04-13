@@ -41,7 +41,7 @@ export const POST = async (req: Request) => {
 
     const params = normalizeMemoryExtractionPayload(payload, origin);
     if (params.mode === 'workflow') {
-      const { workflowRunId } = await MemoryExtractionWorkflowService.triggerProcessUsers(
+      const { workflowRunId } = await MemoryExtractionWorkflowService.triggerTopicsProcessUsers(
         buildWorkflowPayloadInput(params),
         { extraHeaders: upstashWorkflowExtraHeaders },
       );

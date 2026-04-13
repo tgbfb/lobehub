@@ -10,6 +10,9 @@ const { upstashWorkflowExtraHeaders } = parseMemoryExtractionConfig();
 // https://upstash.com/docs/workflow/troubleshooting/vercel#step-2-pass-header-when-triggering
 export const createWorkflowQstashClient = () =>
   new Client({
+    // QStash Client reads QSTASH_URL/QSTASH_TOKEN from env automatically; explicit baseUrl here
+    // keeps local-dev behavior visible and avoids any config-shape confusion with `url`.
+    ...(process.env.QSTASH_URL ? { baseUrl: process.env.QSTASH_URL } : {}),
     headers: { ...upstashWorkflowExtraHeaders },
     token: process.env.QSTASH_TOKEN!,
   });

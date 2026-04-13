@@ -12,8 +12,8 @@ const mockFindById = vi.fn();
 
 const mockCountTopicsForMemoryExtractor = vi.fn();
 const mockDeleteAll = vi.fn();
-const { mockTriggerProcessUsers } = vi.hoisted(() => ({
-  mockTriggerProcessUsers: vi.fn(),
+const { mockTriggerTopicsProcessUsers } = vi.hoisted(() => ({
+  mockTriggerTopicsProcessUsers: vi.fn(),
 }));
 
 vi.mock('@/database/models/asyncTask', () => ({
@@ -59,7 +59,7 @@ vi.mock('@/server/globalConfig/parseMemoryExtractionConfig', () => ({
 
 vi.mock('@/server/services/memory/userMemory/extract', () => ({
   MemoryExtractionWorkflowService: {
-    triggerProcessUsers: mockTriggerProcessUsers,
+    triggerTopicsProcessUsers: mockTriggerTopicsProcessUsers,
   },
   buildWorkflowPayloadInput: (payload: any) => payload,
   normalizeMemoryExtractionPayload: (payload: any) => payload,
@@ -78,7 +78,7 @@ const createCaller = (ctxOverrides: Partial<any> = {}) => {
 describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTriggerProcessUsers.mockResolvedValue({ workflowRunId: 'workflow-run-1' });
+    mockTriggerTopicsProcessUsers.mockResolvedValue({ workflowRunId: 'workflow-run-1' });
   });
 
   it('dedupes when an active task exists', async () => {
@@ -98,7 +98,7 @@ describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
       status: AsyncTaskStatus.Pending,
     });
     expect(mockCreate).not.toHaveBeenCalled();
-    expect(mockTriggerProcessUsers).not.toHaveBeenCalled();
+    expect(mockTriggerTopicsProcessUsers).not.toHaveBeenCalled();
   });
 
   it('creates task and triggers workflow with user context and dates', async () => {
@@ -124,7 +124,7 @@ describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
       status: AsyncTaskStatus.Pending,
       type: AsyncTaskType.UserMemoryExtractionWithChatTopic,
     });
-    expect(mockTriggerProcessUsers).toHaveBeenCalledWith(
+    expect(mockTriggerTopicsProcessUsers).toHaveBeenCalledWith(
       expect.objectContaining({
         asyncTaskId: 'new-task',
         baseUrl: 'https://internal.example.com',
@@ -170,7 +170,7 @@ describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
       },
       status: AsyncTaskStatus.Success,
     });
-    expect(mockTriggerProcessUsers).not.toHaveBeenCalled();
+    expect(mockTriggerTopicsProcessUsers).not.toHaveBeenCalled();
   });
 
   it('throws on invalid date range', async () => {
