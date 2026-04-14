@@ -54,6 +54,7 @@ export const useGroupActions = ({
 
   // Get state from ConversationStore
   const isCollapsed = useConversationStore(messageStateSelectors.isMessageCollapsed(id));
+  const isGenerating = useConversationStore(messageStateSelectors.isMessageGenerating(id));
   const isRegenerating = useConversationStore(messageStateSelectors.isMessageRegenerating(id));
   const lastBlockId = useConversationStore(dataSelectors.findLastMessageId(id));
   const isContinuing = useConversationStore((s) =>
@@ -99,13 +100,14 @@ export const useGroupActions = ({
       },
       del: {
         danger: true,
+        disabled: isGenerating,
         handleClick: () => deleteMessage(id),
         icon: Trash,
         key: 'del',
         label: t('delete'),
       },
       delAndRegenerate: {
-        disabled: isRegenerating,
+        disabled: isGenerating || isRegenerating,
         handleClick: () => delAndRegenerateMessage(id),
         icon: ListRestart,
         key: 'delAndRegenerate',
@@ -153,6 +155,7 @@ export const useGroupActions = ({
       id,
       contentBlock,
       data.error,
+      isGenerating,
       isRegenerating,
       isContinuing,
       isCollapsed,

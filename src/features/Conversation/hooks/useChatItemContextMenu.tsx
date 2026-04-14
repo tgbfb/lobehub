@@ -59,21 +59,25 @@ export const useChatItemContextMenu = ({
 
   const storeApi = useConversationStoreApi();
 
-  const [role, error, isCollapsed, hasThread, isRegenerating] = useConversationStore((s) => {
-    const item = dataSelectors.getDisplayMessageById(id)(s);
-    return [
-      item?.role,
-      item?.error,
-      messageStateSelectors.isMessageCollapsed(id)(s),
-      messageStateSelectors.hasThreadBySourceMsgId(id)(s),
-      messageStateSelectors.isMessageRegenerating(id)(s),
-    ];
-  }, isEqual);
+  const [role, error, isCollapsed, hasThread, isGenerating, isRegenerating] = useConversationStore(
+    (s) => {
+      const item = dataSelectors.getDisplayMessageById(id)(s);
+      return [
+        item?.role,
+        item?.error,
+        messageStateSelectors.isMessageCollapsed(id)(s),
+        messageStateSelectors.hasThreadBySourceMsgId(id)(s),
+        messageStateSelectors.isMessageGenerating(id)(s),
+        messageStateSelectors.isMessageRegenerating(id)(s),
+      ];
+    },
+    isEqual,
+  );
 
   const isThreadMode = useConversationStore(messageStateSelectors.isThreadMode);
   const isGroupSession = useSessionStore(sessionSelectors.isCurrentSessionGroupSession);
   const isDevMode = useUserStore((s) => userGeneralSettingsSelectors.config(s).isDevMode);
-  const actionsBar = useChatListActionsBar({ hasThread, isRegenerating });
+  const actionsBar = useChatListActionsBar({ hasThread, isGenerating, isRegenerating });
   const inThread = isThreadMode || inPortalThread;
 
   const [

@@ -65,6 +65,7 @@ export const useAssistantActions = ({
 
   // Get state from ConversationStore
   const isCollapsed = useConversationStore(messageStateSelectors.isMessageCollapsed(id));
+  const isGenerating = useConversationStore(messageStateSelectors.isMessageGenerating(id));
   const isRegenerating = useConversationStore(messageStateSelectors.isMessageRegenerating(id));
 
   // Get actions from ConversationStore
@@ -105,13 +106,14 @@ export const useAssistantActions = ({
       },
       del: {
         danger: true,
+        disabled: isGenerating,
         handleClick: () => deleteMessage(id),
         icon: Trash,
         key: 'del',
         label: t('delete'),
       },
       delAndRegenerate: {
-        disabled: isRegenerating,
+        disabled: isGenerating || isRegenerating,
         handleClick: () => delAndRegenerateMessage(id),
         icon: ListRestart,
         key: 'delAndRegenerate',
@@ -174,6 +176,7 @@ export const useAssistantActions = ({
       id,
       data.content,
       data.error,
+      isGenerating,
       isRegenerating,
       isCollapsed,
       toggleMessageEditing,

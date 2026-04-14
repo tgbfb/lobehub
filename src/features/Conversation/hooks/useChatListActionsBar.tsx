@@ -46,10 +46,12 @@ interface ChatListActionsBar {
 
 export const useChatListActionsBar = ({
   hasThread,
+  isGenerating,
   isContinuing,
   isRegenerating,
 }: {
   hasThread?: boolean;
+  isGenerating?: boolean;
   isContinuing?: boolean;
   isRegenerating?: boolean;
 } = {}): ChatListActionsBar => {
@@ -81,13 +83,13 @@ export const useChatListActionsBar = ({
       },
       del: {
         danger: true,
-        disabled: hasThread,
+        disabled: hasThread || isGenerating,
         icon: Trash,
         key: 'del',
         label: hasThread ? t('messageAction.deleteDisabledByThreads', { ns: 'chat' }) : t('delete'),
       },
       delAndRegenerate: {
-        disabled: hasThread || isRegenerating,
+        disabled: hasThread || isGenerating || isRegenerating,
         icon: ListRestart,
         key: 'delAndRegenerate',
         label: t('messageAction.delAndRegenerate', {
@@ -140,6 +142,6 @@ export const useChatListActionsBar = ({
         label: t('tts.action', { ns: 'chat' }),
       },
     }),
-    [hasThread, isContinuing, isRegenerating],
+    [hasThread, isGenerating, isContinuing, isRegenerating, t],
   );
 };
