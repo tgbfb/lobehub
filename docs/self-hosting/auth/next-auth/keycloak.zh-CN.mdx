@@ -106,7 +106,7 @@ tags:
   | 环境变量                      | 类型 | 描述                                                                                               |
   | ------------------------- | -- | ------------------------------------------------------------------------------------------------ |
   | `AUTH_SECRET`             | 必选 | 用于加密 Auth.js 会话令牌的密钥。您可以使用以下命令生成秘钥： `openssl rand -base64 32`                                    |
-  | `NEXT_AUTH_SSO_PROVIDERS` | 必选 | 选择 LoboChat 的单点登录提供商。使用 Keycloak 请填写 `keycloak`。                                                 |
+  | `NEXT_AUTH_SSO_PROVIDERS` | 必选 | 选择 LobeHub 的单点登录提供商。使用 Keycloak 请填写 `keycloak`。                                                  |
   | `AUTH_KEYCLOAK_ID`        | 必选 | Keycloak 客户端 ID                                                                                  |
   | `AUTH_KEYCLOAK_SECRET`    | 必选 | Keycloak 客户端密钥                                                                                   |
   | `AUTH_KEYCLOAK_ISSUER`    | 必选 | Keycloak 提供程序的 OpenID Connect 颁发者 URL，格式为 `{keycloak_url}/realms/{realm_name}`                   |
@@ -115,6 +115,15 @@ tags:
   <Callout type={'tip'}>
     前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#keycloak) 可查阅相关变量详情。
   </Callout>
+
+  <Callout type={'warning'}>
+    更新环境变量后，如果你使用的是 Docker，必须**删除并重新创建**容器，仅重启容器不会使新的环境变量生效。请执行 `docker rm
+    <容器名>` 再重新启动（或使用 Docker Compose 时执行 `docker compose down && docker compose up -d`）。若登录页面未显示
+    Keycloak 登录选项，这是最常见的原因。
+  </Callout>
 </Steps>
 
-<Callout type={'info'}>部署成功后，用户将可以通过 Keycloak 身份认证并使用 LobeHub。</Callout>
+<Callout type={'info'}>
+  部署成功后，用户将可以通过 Keycloak 身份认证并使用 LobeHub。若登录页面未显示 Keycloak 登录选项，请确认已设置
+  `NEXT_AUTH_SSO_PROVIDERS=keycloak`，并确保在修改环境变量后已完全重新创建容器。
+</Callout>

@@ -119,8 +119,17 @@ If you deploy using a public network, this guide assumes:
   <Callout type={'tip'}>
     Visit [📘 Environment Variables](/zh/docs/self-hosting/environment-variables/auth#keycloak) for details on related variables.
   </Callout>
+
+  <Callout type={'warning'}>
+    After updating environment variables, if you are using Docker, you must **remove and recreate** the
+    container for the changes to take effect — a simple restart is not enough. Run `docker rm <container>`
+    followed by `docker run ...` (or `docker compose down && docker compose up -d` if using Docker Compose).
+    If Keycloak does not appear as a login option on the login page, this is the most common cause.
+  </Callout>
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate through Keycloak and use LobeHub.
+  After successful deployment, users will be able to authenticate through Keycloak and use LobeHub. If
+  Keycloak is not shown as a login option, verify that `NEXT_AUTH_SSO_PROVIDERS=keycloak` is set and that
+  the container has been fully recreated after the environment variable change.
 </Callout>
