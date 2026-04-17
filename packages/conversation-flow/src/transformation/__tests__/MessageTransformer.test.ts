@@ -61,6 +61,28 @@ describe('MessageTransformer', () => {
       expect(result.usage).toBeUndefined();
       expect(result.performance).toBeUndefined();
     });
+
+    it('should preserve search and chunksList on content blocks', () => {
+      const message: Message = {
+        chunksList: [{ id: 'chunk-1', similarity: 0.9, text: 'chunk text' } as any],
+        content: 'Hello',
+        createdAt: 0,
+        id: 'msg-1',
+        role: 'assistant',
+        search: {
+          citations: [{ title: 'Doc', url: 'https://example.com' }],
+          imageResults: [],
+          imageSearchQueries: [],
+          searchQueries: ['query'],
+        } as any,
+        updatedAt: 0,
+      };
+
+      const result = transformer.messageToContentBlock(message);
+
+      expect(result.chunksList).toEqual(message.chunksList);
+      expect(result.search).toEqual(message.search);
+    });
   });
 
   describe('splitMetadata', () => {

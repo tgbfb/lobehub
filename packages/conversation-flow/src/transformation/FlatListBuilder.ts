@@ -832,6 +832,8 @@ export class FlatListBuilder {
         id: assistant.id,
       } as AssistantContentBlock;
 
+      if (assistant.chunksList && assistant.chunksList.length > 0)
+        childBlock.chunksList = assistant.chunksList;
       if (assistant.error) childBlock.error = assistant.error;
       if (assistant.fileList && assistant.fileList.length > 0)
         childBlock.fileList = assistant.fileList;
@@ -839,6 +841,7 @@ export class FlatListBuilder {
         childBlock.imageList = assistant.imageList;
       if (msgPerformance) childBlock.performance = msgPerformance;
       if (assistant.reasoning) childBlock.reasoning = assistant.reasoning;
+      if (assistant.search) childBlock.search = assistant.search;
       if (toolsWithResults.length > 0) childBlock.tools = toolsWithResults;
       if (msgUsage) childBlock.usage = msgUsage;
       if (Object.keys(otherMetadata).length > 0) {
@@ -976,11 +979,13 @@ export class FlatListBuilder {
       id: message.id,
     };
 
+    if (message.chunksList && message.chunksList.length > 0) childBlock.chunksList = message.chunksList;
     if (message.error) childBlock.error = message.error;
     if (message.fileList && message.fileList.length > 0) childBlock.fileList = message.fileList;
     if (message.imageList && message.imageList.length > 0) childBlock.imageList = message.imageList;
     if (msgPerformance) childBlock.performance = msgPerformance;
     if (message.reasoning) childBlock.reasoning = message.reasoning;
+    if (message.search) childBlock.search = message.search;
     if (msgUsage) childBlock.usage = msgUsage;
     if (Object.keys(otherMetadata).length > 0) {
       childBlock.metadata = otherMetadata;

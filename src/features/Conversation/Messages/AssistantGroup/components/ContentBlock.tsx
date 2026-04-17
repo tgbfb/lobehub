@@ -8,8 +8,10 @@ import { type AssistantContentBlock } from '@/types/index';
 
 import ErrorContent from '../../../ChatItem/components/ErrorContent';
 import { messageStateSelectors, useConversationStore } from '../../../store';
+import FileChunks from '../../components/FileChunks';
 import ImageFileListViewer from '../../components/ImageFileListViewer';
 import Reasoning from '../../components/Reasoning';
+import SearchGrounding from '../../components/SearchGrounding';
 import { Tools } from '../Tools';
 import MessageContent from './MessageContent';
 
@@ -18,7 +20,18 @@ interface ContentBlockProps extends AssistantContentBlock {
   disableEditing?: boolean;
 }
 const ContentBlock = memo<ContentBlockProps>(
-  ({ id, tools, content, imageList, reasoning, error, assistantId, disableEditing }) => {
+  ({
+    id,
+    tools,
+    content,
+    chunksList,
+    imageList,
+    reasoning,
+    search,
+    error,
+    assistantId,
+    disableEditing,
+  }) => {
     const errorContent = useErrorContent(error);
     const showImageItems = !!imageList && imageList.length > 0;
     const [isReasoning, deleteMessage, continueGeneration] = useConversationStore((s) => [
@@ -27,6 +40,8 @@ const ContentBlock = memo<ContentBlockProps>(
       s.continueGeneration,
     ]);
     const hasTools = tools && tools.length > 0;
+    const showSearch = !!search && (!!search.citations?.length || !!search.imageResults?.length);
+    const showFileChunks = !!chunksList && chunksList.length > 0;
     const showReasoning =
       (!!reasoning && reasoning.content?.trim() !== '') || (!reasoning && isReasoning);
     const hasContent = !!content && content !== LOADING_FLAT;
@@ -65,6 +80,23 @@ const ContentBlock = memo<ContentBlockProps>(
 
     return (
       <Flexbox gap={8} id={id}>
+        {showSearch && (
+          <SafeBoundary>
+            <SearchGrounding
+              citations={search?.citations}
+              imageResults={search?.imageResults}
+              imageSearchQueries={search?.imageSearchQueries}
+              searchQueries={search?.searchQueries}
+            />
+          </SafeBoundary>
+        )}
+
+        {showFileChunks && (
+          <SafeBoundary>
+            <FileChunks data={chunksList} />
+          </SafeBoundary>
+        )}
+
         {showReasoning && (
           <SafeBoundary>
             <Reasoning {...reasoning} id={id} />

@@ -13,6 +13,7 @@ const mockDoubleClickEdit = vi.fn();
 
 const mockItem = {
   agentId: 'agent-1',
+  chunksList: [{ id: 'chunk-1', similarity: 0.9, text: 'chunk text' }],
   content: 'assistant-content',
   createdAt: 123,
   id: 'assistant-1',
@@ -23,6 +24,12 @@ const mockItem = {
   performance: { completionTokens: 1, promptTokens: 1, totalTokens: 2 },
   provider: 'openai',
   role: 'assistant',
+  search: {
+    citations: [{ title: 'Doc', url: 'https://example.com' }],
+    imageResults: [],
+    imageSearchQueries: [],
+    searchQueries: ['query'],
+  },
   usage: { completionTokens: 1, promptTokens: 1, totalTokens: 2 },
 } as any;
 
@@ -209,10 +216,12 @@ describe('AssistantGroupMessage', () => {
     expect(screen.getByTestId('group')).toHaveAttribute('data-content-id', 'assistant-1');
     expect(blocks).toEqual([
       {
+        chunksList: mockItem.chunksList,
         content: 'assistant-content',
         id: 'assistant-1',
         metadata: mockItem.metadata,
         performance: mockItem.performance,
+        search: mockItem.search,
         usage: mockItem.usage,
       },
     ]);

@@ -57,7 +57,9 @@ const synthesizeSingleBlock = (item: UIChatMessage): AssistantContentBlock[] => 
   };
 
   if (item.error) block.error = item.error;
+  if (item.chunksList?.length) block.chunksList = item.chunksList;
   if (item.reasoning) block.reasoning = item.reasoning;
+  if (item.search) block.search = item.search;
   if (item.imageList?.length) block.imageList = item.imageList;
   if (item.fileList?.length) block.fileList = item.fileList;
   if (item.tools?.length) block.tools = item.tools;

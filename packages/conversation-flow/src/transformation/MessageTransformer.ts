@@ -18,6 +18,7 @@ export class MessageTransformer {
     const { usage, performance } = this.splitMetadata(message.metadata);
 
     return {
+      chunksList: message.chunksList,
       content: message.content || '',
       error: message.error,
       fileList: message.fileList,
@@ -25,6 +26,7 @@ export class MessageTransformer {
       imageList: message.imageList,
       performance,
       reasoning: message.reasoning || undefined,
+      search: message.search,
       tools: message.tools as any,
       usage,
     };

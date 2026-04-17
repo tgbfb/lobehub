@@ -42,6 +42,7 @@ export interface ChatFileItem {
 }
 
 export interface AssistantContentBlock {
+  chunksList?: ChatFileChunk[];
   content: string;
   error?: ChatMessageError | null;
   fileList?: ChatFileItem[];
@@ -50,6 +51,7 @@ export interface AssistantContentBlock {
   metadata?: Record<string, any>;
   performance?: ModelPerformance;
   reasoning?: ModelReasoning;
+  search?: GroundingSearch | null;
   tools?: ChatToolPayloadWithResult[];
   usage?: ModelUsage;
 }
