@@ -4,7 +4,7 @@ import { Flexbox } from '@lobehub/ui';
 import { memo } from 'react';
 
 import { messageStateSelectors, useConversationStore } from '../../../store';
-import { useMarkdown } from '../../Assistant/useMarkdown';
+import { useMarkdown } from '../../useMarkdown';
 import { CollapsedMessage } from '../../AssistantGroup/components/CollapsedMessage';
 import DisplayContent from '../../components/DisplayContent';
 import FileChunks from '../../components/FileChunks';

@@ -6,20 +6,19 @@ import { memo, useCallback } from 'react';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 
-import { ReactionDisplay } from '../../../components/Reaction';
-import { messageStateSelectors, useConversationStore } from '../../../store';
-import { CollapsedMessage } from '../../AssistantGroup/components/CollapsedMessage';
-import DisplayContent from '../../components/DisplayContent';
-import FileChunks from '../../components/FileChunks';
-import ImageFileListViewer from '../../components/ImageFileListViewer';
-import Reasoning from '../../components/Reasoning';
-import SearchGrounding from '../../components/SearchGrounding';
+import { ReactionDisplay } from '../../components/Reaction';
+import { messageStateSelectors, useConversationStore } from '../../store';
+import { CollapsedMessage } from '../AssistantGroup/components/CollapsedMessage';
+import DisplayContent from './DisplayContent';
+import FileChunks from './FileChunks';
+import ImageFileListViewer from './ImageFileListViewer';
+import Reasoning from './Reasoning';
+import SearchGrounding from './SearchGrounding';
 import { useMarkdown } from '../useMarkdown';
 
-const MessageContent = memo<UIChatMessage>(
+const AssistantMessageContent = memo<UIChatMessage>(
   ({ id, tools, content, chunksList, search, imageList, metadata, ...props }) => {
     const markdownProps = useMarkdown(id);
-    // Use ConversationStore instead of ChatStore
     const generating = useConversationStore(messageStateSelectors.isMessageGenerating(id));
     const isCreating = useConversationStore(messageStateSelectors.isMessageCreating(id));
     const isCollapsed = useConversationStore(messageStateSelectors.isMessageCollapsed(id));
@@ -33,13 +32,9 @@ const MessageContent = memo<UIChatMessage>(
 
     const showSearch = !!search && (!!search.citations?.length || !!search.imageResults?.length);
     const showImageItems = !!imageList && imageList.length > 0;
-
-    // remove \n to avoid empty content
-    // refs: https://github.com/lobehub/lobe-chat/pull/6153
     const showReasoning =
       (!!props.reasoning && props.reasoning.content?.trim() !== '') ||
       (!props.reasoning && isReasoning);
-
     const showFileChunks = !!chunksList && chunksList.length > 0;
 
     const reactions = metadata?.reactions || [];
@@ -53,7 +48,7 @@ const MessageContent = memo<UIChatMessage>(
           addReaction(id, emoji);
         }
       },
-      [id, reactions, addReaction, removeReaction],
+      [id, reactions, addReaction, removeReaction, userId],
     );
 
     const isActive = useCallback(
@@ -61,7 +56,7 @@ const MessageContent = memo<UIChatMessage>(
         const reaction = reactions.find((r) => r.emoji === emoji);
         return !!reaction && reaction.users.includes(userId);
       },
-      [reactions],
+      [reactions, userId],
     );
 
     if (isCollapsed) return <CollapsedMessage content={content} id={id} />;
@@ -102,4 +97,4 @@ const MessageContent = memo<UIChatMessage>(
   },
 );
 
-export default MessageContent;
+export default AssistantMessageContent;

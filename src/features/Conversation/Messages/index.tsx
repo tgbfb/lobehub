@@ -14,7 +14,6 @@ import History from '../components/History';
 import { useChatItemContextMenu } from '../hooks/useChatItemContextMenu';
 import { dataSelectors, messageStateSelectors, useConversationStore } from '../store';
 import AgentCouncilMessage from './AgentCouncil';
-import AssistantMessage from './Assistant';
 import AssistantGroupMessage from './AssistantGroup';
 import CompressedGroupMessage from './CompressedGroup';
 import GroupTasksMessage from './GroupTasks';
@@ -117,17 +116,7 @@ const MessageItem = memo<MessageItemProps>(
           return <UserMessage disableEditing={disableEditing} id={id} index={index} />;
         }
 
-        case 'assistant': {
-          return (
-            <AssistantMessage
-              disableEditing={disableEditing}
-              id={id}
-              index={index}
-              isLatestItem={isLatestItem}
-            />
-          );
-        }
-
+        case 'assistant':
         case 'assistantGroup': {
           return (
             <AssistantGroupMessage

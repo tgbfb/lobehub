@@ -1,6 +1,7 @@
 'use client';
 
-import type { AssistantContentBlock, EmojiReaction } from '@lobechat/types';
+import { LOADING_FLAT } from '@lobechat/const';
+import type { AssistantContentBlock, EmojiReaction, UIChatMessage } from '@lobechat/types';
 import isEqual from 'fast-deep-equal';
 import type { MouseEventHandler } from 'react';
 import { memo, Suspense, useCallback, useMemo } from 'react';
@@ -15,11 +16,14 @@ import { useGlobalStore } from '@/store/global';
 import { useUserStore } from '@/store/user';
 import { userGeneralSettingsSelectors, userProfileSelectors } from '@/store/user/selectors';
 
+import ErrorMessageExtra, { useErrorContent } from '../../Error';
 import { ReactionDisplay } from '../../components/Reaction';
-import { useAgentMeta } from '../../hooks';
+import { useAgentMeta, useDoubleClickEdit } from '../../hooks';
 import { dataSelectors, messageStateSelectors, useConversationStore } from '../../store';
-import InterruptedHint from '../Assistant/components/InterruptedHint';
+import { normalizeThinkTags, processWithArtifact } from '../../utils/markdown';
 import Usage from '../components/Extras/Usage';
+import { AssistantMessageExtra } from '../components/Extras/AssistantMessageExtra';
+import InterruptedHint from '../components/InterruptedHint';
 import MessageBranch from '../components/MessageBranch';
 import {
   useSetMessageItemActionElementPortialContext,
@@ -32,12 +36,6 @@ const EditState = dynamic(() => import('./components/EditState'), {
   ssr: false,
 });
 
-const actionBarHolder = (
-  <div
-    {...{ [MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES.assistantGroup]: '' }}
-    style={{ height: '28px' }}
-  />
-);
 interface GroupMessageProps {
   defaultWorkflowExpanded?: boolean;
   disableEditing?: boolean;
@@ -46,20 +44,59 @@ interface GroupMessageProps {
   isLatestItem?: boolean;
 }
 
+const createActionBarHolder = (actionBarPortalAttribute: string) => (
+  <div {...{ [actionBarPortalAttribute]: '' }} style={{ height: '28px' }} />
+);
+
+const synthesizeSingleBlock = (item: UIChatMessage): AssistantContentBlock[] => {
+  if (item.role === 'assistantGroup') return item.children ?? [];
+
+  const block: AssistantContentBlock = {
+    content: item.content || '',
+    id: item.id,
+  };
+
+  if (item.error) block.error = item.error;
+  if (item.reasoning) block.reasoning = item.reasoning;
+  if (item.imageList?.length) block.imageList = item.imageList;
+  if (item.fileList?.length) block.fileList = item.fileList;
+  if (item.tools?.length) block.tools = item.tools;
+  if (item.usage) block.usage = item.usage;
+  if (item.performance) block.performance = item.performance;
+  if (item.metadata) block.metadata = item.metadata;
+
+  return [block];
+};
+
 const GroupMessage = memo<GroupMessageProps>(
   ({ defaultWorkflowExpanded, id, index, disableEditing }) => {
     // Get message and actionsConfig from ConversationStore
     const item = useConversationStore(dataSelectors.getDisplayMessageById(id), isEqual)!;
 
-    const { agentId, usage, createdAt, children, performance, model, provider, branch, metadata } =
-      item;
+    const {
+      agentId,
+      usage,
+      createdAt,
+      performance,
+      model,
+      provider,
+      branch,
+      metadata,
+      error,
+      role,
+      content,
+      extra,
+      tools,
+    } = item;
     const avatar = useAgentMeta(agentId);
+    const isSingleBlockMode = item.role === 'assistant';
+    const blocks = useMemo(() => synthesizeSingleBlock(item), [item]);
 
     // Collect fileList from all children blocks
     const aggregatedFileList = useMemo(() => {
-      if (!children || children.length === 0) return [];
-      return children.flatMap((child: AssistantContentBlock) => child.fileList || []);
-    }, [children]);
+      if (blocks.length === 0) return [];
+      return blocks.flatMap((child: AssistantContentBlock) => child.fileList || []);
+    }, [blocks]);
 
     const isInbox = useAgentStore(builtinAgentSelectors.isInboxAgent);
     const [toggleSystemRole] = useGlobalStore((s) => [s.toggleSystemRole]);
@@ -70,10 +107,14 @@ const GroupMessage = memo<GroupMessageProps>(
       dataSelectors.getGroupLatestMessageWithoutTools(id),
     );
 
-    const contentId = lastAssistantMsg?.id;
+    const contentId = isSingleBlockMode ? item.id : lastAssistantMsg?.id;
 
     // Get editing and interrupted state from ConversationStore
     const editing = useConversationStore(messageStateSelectors.isMessageEditing(contentId || ''));
+    const generating = useConversationStore(
+      messageStateSelectors.isMessageGenerating(contentId || ''),
+    );
+    const isCreating = useConversationStore(messageStateSelectors.isMessageCreating(contentId || ''));
     // Check interrupted on both the group root and the active block, because
     // continuation runs attach their operations to lastBlockId (contentId),
     // not the group root.
@@ -88,6 +129,25 @@ const GroupMessage = memo<GroupMessageProps>(
     const removeReaction = useConversationStore((s) => s.removeReaction);
     const userId = useUserStore(userProfileSelectors.userId)!;
     const reactions: EmojiReaction[] = metadata?.reactions || [];
+    const errorContent = useErrorContent(error);
+    const shouldForceShowError =
+      error?.type === 'ProviderBizError' &&
+      (error?.body as any)?.provider === 'google' &&
+      !!(
+        (error?.body as any)?.context?.promptFeedback?.blockReason ||
+        (error?.body as any)?.context?.finishReason
+      );
+    const message = !editing ? normalizeThinkTags(processWithArtifact(content)) : content;
+    const onDoubleClick = useDoubleClickEdit({
+      disableEditing,
+      error,
+      id: contentId || id,
+      role,
+    });
+    const actionType = isSingleBlockMode ? 'assistant' : 'assistantGroup';
+    const actionBarPortalAttribute = isSingleBlockMode
+      ? MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES.assistant
+      : MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES.assistantGroup;
 
     const handleReactionClick = useCallback(
       (emoji: string) => {
@@ -115,14 +175,16 @@ const GroupMessage = memo<GroupMessageProps>(
 
     const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
       (e) => {
-        if (disableEditing) return;
+        if (!isSingleBlockMode && disableEditing) return;
         setMessageItemActionElementPortialContext(e.currentTarget);
-        setMessageItemActionTypeContext({ id, index, type: 'assistantGroup' });
+        setMessageItemActionTypeContext({ id, index, type: actionType });
       },
       [
+        actionType,
         disableEditing,
         id,
         index,
+        isSingleBlockMode,
         setMessageItemActionElementPortialContext,
         setMessageItemActionTypeContext,
       ],
@@ -139,11 +201,18 @@ const GroupMessage = memo<GroupMessageProps>(
     return (
       <ChatItem
         showTitle
+        aboveMessage={isSingleBlockMode ? null : undefined}
         avatar={avatar}
+        customErrorRender={
+          isSingleBlockMode ? (error) => <ErrorMessageExtra data={item} error={error} /> : undefined
+        }
+        editing={isSingleBlockMode ? editing : undefined}
         placement={'left'}
         time={createdAt}
+        loading={isSingleBlockMode ? generating || isCreating : undefined}
+        message={isSingleBlockMode ? message : undefined}
         actions={
-          !disableEditing && (
+          (isSingleBlockMode || !disableEditing) && (
             <>
               {isDevMode && branch && (
                 <MessageBranch
@@ -152,17 +221,43 @@ const GroupMessage = memo<GroupMessageProps>(
                   messageId={id}
                 />
               )}
-              {actionBarHolder}
+              {createActionBarHolder(actionBarPortalAttribute)}
             </>
           )
         }
-        onAvatarClick={onAvatarClick}
+        error={
+          isSingleBlockMode &&
+          errorContent &&
+          error &&
+          (message === LOADING_FLAT || !message || shouldForceShowError)
+            ? errorContent
+            : undefined
+        }
+        messageExtra={
+          isSingleBlockMode ? (
+            <>
+              {interrupted && <InterruptedHint />}
+              <AssistantMessageExtra
+                content={content}
+                extra={extra}
+                id={id}
+                model={model}
+                performance={performance || metadata}
+                provider={provider}
+                tools={tools}
+                usage={usage || metadata}
+              />
+            </>
+          ) : undefined
+        }
+        onAvatarClick={isSingleBlockMode ? undefined : onAvatarClick}
+        onDoubleClick={isSingleBlockMode ? onDoubleClick : undefined}
         onMouseEnter={onMouseEnter}
       >
-        {children && children.length > 0 && (
+        {blocks.length > 0 && (
           <Group
-            blocks={children}
-            content={lastAssistantMsg?.content}
+            blocks={blocks}
+            content={isSingleBlockMode ? content : lastAssistantMsg?.content}
             contentId={contentId}
             defaultWorkflowExpanded={defaultWorkflowExpanded}
             disableEditing={disableEditing}
@@ -175,8 +270,8 @@ const GroupMessage = memo<GroupMessageProps>(
             <FileListViewer items={aggregatedFileList} />
           </div>
         )}
-        {interrupted && <InterruptedHint />}
-        {isDevMode && model && (
+        {!isSingleBlockMode && interrupted && <InterruptedHint />}
+        {!isSingleBlockMode && isDevMode && model && (
           <Usage model={model} performance={performance} provider={provider!} usage={usage} />
         )}
         {reactions.length > 0 && (
@@ -188,7 +283,9 @@ const GroupMessage = memo<GroupMessageProps>(
           />
         )}
         <Suspense fallback={null}>
-          {editing && contentId && <EditState content={lastAssistantMsg?.content} id={contentId} />}
+          {!isSingleBlockMode && editing && contentId && (
+            <EditState content={lastAssistantMsg?.content || ''} id={contentId} />
+          )}
         </Suspense>
       </ChatItem>
     );

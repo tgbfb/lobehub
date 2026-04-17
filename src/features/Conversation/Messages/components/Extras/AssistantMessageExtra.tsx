@@ -8,10 +8,10 @@ import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 import { authSelectors } from '@/store/user/slices/auth/selectors';
 
 import { messageStateSelectors, useConversationStore } from '../../../store';
-import ExtraContainer from '../../components/Extras/ExtraContainer';
-import Translate from '../../components/Extras/Translate';
-import TTS from '../../components/Extras/TTS';
-import Usage from '../../components/Extras/Usage';
+import ExtraContainer from './ExtraContainer';
+import Translate from './Translate';
+import TTS from './TTS';
+import Usage from './Usage';
 
 interface AssistantMessageExtraProps {
   content: string;

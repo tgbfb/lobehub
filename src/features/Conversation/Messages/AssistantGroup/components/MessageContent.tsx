@@ -6,7 +6,7 @@ import MarkdownMessage from '@/features/Conversation/Markdown';
 import ContentLoading from '@/features/Conversation/Messages/components/ContentLoading';
 
 import { normalizeThinkTags, processWithArtifact } from '../../../utils/markdown';
-import { useMarkdown } from '../useMarkdown';
+import { useMarkdown } from '../../useMarkdown';
 
 const styles = createStaticStyles(({ css, cssVar }) => {
   return {

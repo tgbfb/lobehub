@@ -8,8 +8,8 @@ import { HtmlPreviewAction } from '@/components/HtmlPreview';
 import { useUserStore } from '@/store/user';
 import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 
-import { markdownElements } from '../../Markdown/plugins';
-import { dataSelectors, messageStateSelectors, useConversationStore } from '../../store';
+import { markdownElements } from '../Markdown/plugins';
+import { dataSelectors, messageStateSelectors, useConversationStore } from '../store';
 
 const rehypePlugins = markdownElements.map((element) => element.rehypePlugin).filter(Boolean);
 const remarkPlugins = markdownElements.map((element) => element.remarkPlugin).filter(Boolean);
@@ -23,8 +23,8 @@ const isHtmlCode = (content: string, language: string) => {
 };
 
 export const useMarkdown = (id: string): Partial<MarkdownProps> => {
-  const item = useConversationStore(dataSelectors.getDbMessageById(id), isEqual)!;
-  const { role, search } = item || {};
+  const item = useConversationStore(dataSelectors.getDbMessageById(id), isEqual);
+  const { search } = item || {};
   const { transitionMode } = useUserStore(userGeneralSettingsSelectors.config);
   const generating = useConversationStore(messageStateSelectors.isMessageGenerating(id));
   const animated = transitionMode === 'fadeIn' && generating;
@@ -34,6 +34,7 @@ export const useMarkdown = (id: string): Partial<MarkdownProps> => {
       Object.fromEntries(
         markdownElements.map((element) => {
           const Component = element.Component;
+
           return [element.tag, (props: any) => <Component {...props} id={id} />];
         }),
       ),
@@ -49,6 +50,7 @@ export const useMarkdown = (id: string): Partial<MarkdownProps> => {
           highlight: {
             actionsRender: ({ content, actionIconSize, language, originalNode }: any) => {
               const showHtmlPreview = isHtmlCode(content, language);
+
               return (
                 <>
                   {showHtmlPreview && <HtmlPreviewAction content={content} size={actionIconSize} />}
@@ -65,11 +67,9 @@ export const useMarkdown = (id: string): Partial<MarkdownProps> => {
         remarkPlugins,
         showFootnotes:
           search?.citations &&
-          // if the citations are all empty, we should not show the citations
-          search?.citations.length > 0 &&
-          // if the citations's url and title are all the same, we should not show the citations
-          search?.citations.every((item) => item.title !== item.url),
+          search.citations.length > 0 &&
+          search.citations.every((item) => item.title !== item.url),
       }) satisfies Partial<MarkdownProps>,
-    [animated, components, role, search],
+    [animated, components, search],
   );
 };

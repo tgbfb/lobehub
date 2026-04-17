@@ -8,17 +8,17 @@ import { LOADING_FLAT } from '@/const/message';
 import { MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES } from '@/const/messageActionPortal';
 import { ChatItem } from '@/features/Conversation/ChatItem';
 import ErrorMessageExtra, { useErrorContent } from '@/features/Conversation/Error';
-import { AssistantMessageExtra } from '@/features/Conversation/Messages/Assistant/Extra';
 import { normalizeThinkTags, processWithArtifact } from '@/features/Conversation/utils/markdown';
 import { type UIChatMessage } from '@/types/index';
 
 import { useAgentMeta } from '../../../hooks';
 import { messageStateSelectors, useConversationStore } from '../../../store';
-import MessageContent from '../../Assistant/components/MessageContent';
 import {
   useSetMessageItemActionElementPortialContext,
   useSetMessageItemActionTypeContext,
 } from '../../Contexts/message-action-context';
+import { AssistantMessageExtra } from '../../components/Extras/AssistantMessageExtra';
+import MessageContent from '../../components/AssistantMessageContent';
 import AutoScrollShadow from './AutoScrollShadow';
 
 const actionBarHolder = (
