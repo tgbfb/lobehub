@@ -1,8 +1,8 @@
 'use client';
 
 import { type UIChatMessage } from '@lobechat/types';
-import { FloatingSheet, type FloatingSheetProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cx } from 'antd-style';
+import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import { type ActionsBarConfig, ConversationProvider } from '@/features/Conversation';
@@ -17,49 +17,68 @@ import { useSingleInstanceGuard } from './guard';
 
 const styles = createStaticStyles(({ css }) => ({
   sheet: css`
-    > div:last-child {
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+    overflow: hidden;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+
+    min-height: 0;
+  `,
+  header: css`
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  `,
+  title: css`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  `,
+  body: css`
+    overflow: hidden;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+
+    min-height: 0;
   `,
 }));
 
-export interface FloatingChatPanelProps extends Pick<
-  FloatingSheetProps,
-  | 'activeSnapPoint'
-  | 'className'
-  | 'dismissible'
-  | 'headerActions'
-  | 'maxHeight'
-  | 'minHeight'
-  | 'mode'
-  | 'onOpenChange'
-  | 'onSnapPointChange'
-  | 'open'
-  | 'snapPoints'
-  | 'title'
-  | 'variant'
-  | 'width'
-> {
+export interface FloatingChatPanelProps {
   /**
    * Override the actions bar config. When omitted, defaults to the shared
    * `useActionsBarConfig()` hook for parity with the main agent page.
    */
   actionsBar?: ActionsBarConfig;
+  activeSnapPoint?: number;
   /** Agent identifier. */
   agentId: string;
+  className?: string;
+  dismissible?: boolean;
+  headerActions?: ReactNode;
+  maxHeight?: number;
+  minHeight?: number;
+  mode?: 'embedded' | 'overlay';
+  onOpenChange?: (open: boolean) => void;
+  onSnapPointChange?: (point: number) => void;
+  open?: boolean;
+  snapPoints?: number[];
   /** Optional thread identifier. When provided, scope becomes `'thread'`. */
   threadId?: string | null;
+  title?: ReactNode;
   /** Topic identifier. `null` means a new / unpersisted conversation. */
   topicId: string | null;
+  variant?: 'elevated' | 'embedded';
+  width?: number | string;
 }
 
 /**
  * FloatingChatPanel
  *
  * A reusable floating conversation panel. Composes ChatList + MainChatInput inside
- * a @lobehub/ui FloatingSheet. Consumers provide conversation coordinates via flat
+ * a container shell. Consumers provide conversation coordinates via flat
  * `agentId`/`topicId` props; the component builds its own `ConversationContext`
  * internally.
  *
@@ -84,9 +103,7 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     width = '100%',
     dismissible = false,
     open,
-    onOpenChange,
     activeSnapPoint,
-    onSnapPointChange,
     title,
     headerActions,
     className,
@@ -118,35 +135,46 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       [replaceMessages],
     );
 
-    const sheetOpenProps = open === undefined ? { defaultOpen: true } : { open, onOpenChange };
+    if (open === false) return null;
+
+    const bodyStyle = {
+      maxHeight: maxHeight ? `${Math.round(maxHeight * 100)}%` : undefined,
+      minHeight,
+      width,
+    };
 
     return (
-      <FloatingSheet
-        activeSnapPoint={activeSnapPoint}
+      <div
         className={cx(styles.sheet, className)}
-        dismissible={dismissible}
-        headerActions={headerActions}
-        maxHeight={maxHeight}
-        minHeight={minHeight}
-        mode={mode}
-        snapPoints={snapPoints}
-        title={title}
-        variant={variant}
-        width={width}
-        onSnapPointChange={onSnapPointChange}
-        {...sheetOpenProps}
+        data-active-snap-point={activeSnapPoint}
+        data-dismissible={String(dismissible)}
+        data-mode={mode}
+        data-snap-points={JSON.stringify(snapPoints)}
+        data-testid={'floating-panel-shell'}
+        data-variant={variant}
+        style={bodyStyle}
       >
-        <ConversationProvider
-          actionsBar={resolvedActionsBar}
-          context={context}
-          hasInitMessages={!!messages}
-          messages={messages}
-          operationState={operationState}
-          onMessagesChange={handleMessagesChange}
-        >
-          <ChatBody />
-        </ConversationProvider>
-      </FloatingSheet>
+        {(title || headerActions) && (
+          <div className={styles.header}>
+            <div className={styles.title} data-testid={'sheet-title'}>
+              {title}
+            </div>
+            <div data-testid={'sheet-actions'}>{headerActions}</div>
+          </div>
+        )}
+        <div className={styles.body}>
+          <ConversationProvider
+            actionsBar={resolvedActionsBar}
+            context={context}
+            hasInitMessages={!!messages}
+            messages={messages}
+            operationState={operationState}
+            onMessagesChange={handleMessagesChange}
+          >
+            <ChatBody />
+          </ConversationProvider>
+        </div>
+      </div>
     );
   },
 );

@@ -8,21 +8,6 @@ vi.mock('./ChatBody', () => ({
   default: () => <div data-testid="chat-body">body</div>,
 }));
 
-vi.mock('@lobehub/ui/base-ui', () => ({
-  FloatingSheet: ({ children, title, headerActions, ...rest }: any) => (
-    <div
-      data-dismissible={String(rest.dismissible)}
-      data-snap-points={JSON.stringify(rest.snapPoints)}
-      data-testid="floating-sheet"
-      data-variant={rest.variant}
-    >
-      <div data-testid="sheet-title">{title}</div>
-      <div data-testid="sheet-actions">{headerActions}</div>
-      {children}
-    </div>
-  ),
-}));
-
 vi.mock('@/features/Conversation', () => ({
   ChatList: () => null,
   ConversationProvider: ({ children, context }: any) => (
@@ -77,7 +62,7 @@ describe('FloatingChatPanel', () => {
     expect(ctx.threadId).toBe('thread-1');
   });
 
-  it('forwards title and headerActions to FloatingSheet', () => {
+  it('forwards title and headerActions to floating panel header', () => {
     const { getByTestId } = render(
       <FloatingChatPanel
         agentId="a"
@@ -90,9 +75,9 @@ describe('FloatingChatPanel', () => {
     expect(getByTestId('sheet-actions').textContent).toBe('Action');
   });
 
-  it('applies default snap points, variant, and dismissible=false', () => {
+  it('applies default shell props', () => {
     const { getByTestId } = render(<FloatingChatPanel agentId="a" topicId="t" />);
-    const sheet = getByTestId('floating-sheet');
+    const sheet = getByTestId('floating-panel-shell');
     expect(sheet.dataset.snapPoints).toBe(JSON.stringify([0.5, 0.9]));
     expect(sheet.dataset.variant).toBe('elevated');
     expect(sheet.dataset.dismissible).toBe('false');
