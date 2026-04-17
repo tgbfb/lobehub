@@ -19,6 +19,8 @@ import {
 } from '@/types/spaServerConfig';
 import { RouteVariants } from '@/utils/server/routeVariants';
 
+import { getViteDevOrigin } from './viteDevOrigin';
+
 export function generateStaticParams() {
   const mobileOptions = isDesktop ? [false] : [true, false];
   const staticLocales: Locales[] = ['en-US', 'zh-CN'];
@@ -37,7 +39,7 @@ export function generateStaticParams() {
 }
 
 const isDev = process.env.NODE_ENV === 'development';
-const VITE_DEV_ORIGIN = 'http://localhost:9876';
+const VITE_DEV_ORIGIN = getViteDevOrigin();
 
 async function rewriteViteAssetUrls(html: string): Promise<string> {
   const { parseHTML } = await import('linkedom');

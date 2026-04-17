@@ -5,6 +5,8 @@ import net from 'node:net';
 dotenv.config();
 
 const NEXT_HOST = 'localhost';
+const DEFAULT_VITE_PORT = 9876;
+const VITE_DEV_PORT_ENV = 'SPA_DEV_PORT';
 
 /**
  * Resolve the Next.js dev port.
@@ -24,15 +26,64 @@ const NEXT_ROOT_URL = `http://${NEXT_HOST}:${NEXT_PORT}/`;
 const NEXT_READY_TIMEOUT_MS = 180_000;
 const NEXT_READY_RETRY_MS = 400;
 
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-
 let nextProcess: ChildProcess | undefined;
 let viteProcess: ChildProcess | undefined;
 let shuttingDown = false;
 
-const runNpmScript = (scriptName: string) =>
-  spawn(npmCommand, ['run', scriptName], {
-    env: process.env,
+const isValidPort = (port: number) => Number.isInteger(port) && port > 0 && port <= 65_535;
+
+const resolveConfiguredVitePort = () => {
+  const port = Number(process.env[VITE_DEV_PORT_ENV]);
+
+  return isValidPort(port) ? port : undefined;
+};
+
+interface ReservedPort {
+  port: number;
+  release: () => Promise<void>;
+}
+
+const reservePort = () =>
+  new Promise<ReservedPort>((resolve, reject) => {
+    const server = net.createServer();
+
+    server.unref();
+    server.once('error', reject);
+    server.listen(0, () => {
+      const address = server.address();
+
+      if (!address || typeof address === 'string') {
+        reject(new Error('Failed to resolve reserved Vite port.'));
+        return;
+      }
+
+      resolve({
+        port: address.port,
+        release: () =>
+          new Promise<void>((resolveClose, rejectClose) => {
+            server.close((error) => {
+              if (error) {
+                rejectClose(error);
+                return;
+              }
+
+              resolveClose();
+            });
+          }),
+      });
+    });
+  });
+
+const runNextDevServer = (env: NodeJS.ProcessEnv) =>
+  spawn('npx', ['next', 'dev', '-p', String(NEXT_PORT)], {
+    env,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  });
+
+const runViteDevServer = (env: NodeJS.ProcessEnv, vitePort: number) =>
+  spawn('npx', ['vite', '--port', String(vitePort), '--strictPort'], {
+    env,
     stdio: 'inherit',
     shell: process.platform === 'win32',
   });
@@ -116,14 +167,21 @@ const main = async () => {
   process.once('SIGINT', () => shutdownAll('SIGINT'));
   process.once('SIGTERM', () => shutdownAll('SIGTERM'));
 
-  nextProcess = spawn('npx', ['next', 'dev', '-p', String(NEXT_PORT)], {
-    env: process.env,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  });
+  const configuredVitePort = resolveConfiguredVitePort();
+  const reservedVitePort = configuredVitePort === undefined ? await reservePort() : undefined;
+  const vitePort = configuredVitePort ?? reservedVitePort?.port ?? DEFAULT_VITE_PORT;
+  const childEnv = { ...process.env, [VITE_DEV_PORT_ENV]: String(vitePort) };
+
+  process.env[VITE_DEV_PORT_ENV] = String(vitePort);
+
+  nextProcess = runNextDevServer(childEnv);
   watchChildExit(nextProcess, 'next');
 
-  viteProcess = runNpmScript('dev:spa');
+  if (reservedVitePort) {
+    await reservedVitePort.release();
+  }
+
+  viteProcess = runViteDevServer(childEnv, vitePort);
   watchChildExit(viteProcess, 'vite');
   runNextBackgroundTasks();
 
