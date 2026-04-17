@@ -2,7 +2,7 @@
 
 import { DESKTOP_HEADER_ICON_SIZE } from '@lobechat/const';
 import { ActionIcon, Flexbox } from '@lobehub/ui';
-import { ArrowLeft, PanelRightCloseIcon } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { memo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -40,7 +40,7 @@ const Header = memo<{ title: ReactNode }>(({ title }) => {
       }
       right={
         <ActionIcon
-          icon={PanelRightCloseIcon}
+          icon={X}
           size={DESKTOP_HEADER_ICON_SIZE}
           onClick={() => {
             if (params.aid && params.topicId && isTopicPageRoute) {
