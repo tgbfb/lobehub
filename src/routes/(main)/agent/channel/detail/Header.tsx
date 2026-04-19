@@ -1,6 +1,6 @@
 'use client';
 
-import { Flexbox } from '@lobehub/ui';
+import { Flexbox, Tag } from '@lobehub/ui';
 import { Button, Switch } from 'antd';
 import { ExternalLink } from 'lucide-react';
 import { memo } from 'react';
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import InfoTooltip from '@/components/InfoTooltip';
 import type { SerializedPlatformDefinition } from '@/server/services/bot/platforms/types';
 
+import { BOT_RUNTIME_STATUSES, type BotRuntimeStatus } from '../../../../../types/botRuntimeStatus';
 import { getPlatformIcon } from '../const';
 
 interface HeaderProps {
@@ -16,16 +17,52 @@ interface HeaderProps {
   enabledValue?: boolean;
   onToggleEnable: (enabled: boolean) => void;
   platformDef: SerializedPlatformDefinition;
+  runtimeStatus?: BotRuntimeStatus;
   toggleLoading?: boolean;
 }
 
+const STATUS_TAG_COLORS: Partial<Record<BotRuntimeStatus, string>> = {
+  [BOT_RUNTIME_STATUSES.connected]: 'success',
+  [BOT_RUNTIME_STATUSES.dormant]: 'warning',
+  [BOT_RUNTIME_STATUSES.failed]: 'error',
+  [BOT_RUNTIME_STATUSES.queued]: 'processing',
+  [BOT_RUNTIME_STATUSES.starting]: 'processing',
+};
+
 const Header = memo<HeaderProps>(
-  ({ platformDef, currentConfig, enabledValue, onToggleEnable, toggleLoading }) => {
+  ({ platformDef, currentConfig, enabledValue, onToggleEnable, runtimeStatus, toggleLoading }) => {
     const { t } = useTranslation('agent');
     const PlatformIcon = getPlatformIcon(platformDef.name);
     const ColorIcon =
       PlatformIcon && 'Color' in PlatformIcon ? (PlatformIcon as any).Color : PlatformIcon;
     const effectiveEnabled = enabledValue ?? currentConfig?.enabled;
+
+    const statusLabel = (() => {
+      switch (runtimeStatus) {
+        case BOT_RUNTIME_STATUSES.connected: {
+          return t('channel.statusConnected');
+        }
+        case BOT_RUNTIME_STATUSES.failed: {
+          return t('channel.statusFailed');
+        }
+        case BOT_RUNTIME_STATUSES.queued: {
+          return t('channel.statusQueued');
+        }
+        case BOT_RUNTIME_STATUSES.starting: {
+          return t('channel.statusStarting');
+        }
+        case BOT_RUNTIME_STATUSES.dormant: {
+          return t('channel.statusDormant');
+        }
+        case BOT_RUNTIME_STATUSES.disconnected: {
+          return t('channel.statusDisconnected');
+        }
+        default: {
+          return undefined;
+        }
+      }
+    })();
+    const statusColor = runtimeStatus ? STATUS_TAG_COLORS[runtimeStatus] : undefined;
 
     return (
       <Flexbox
@@ -42,6 +79,11 @@ const Header = memo<HeaderProps>(
         <Flexbox horizontal align="center" gap={8}>
           {ColorIcon && <ColorIcon size={32} />}
           {platformDef.name}
+          {statusLabel && (
+            <Tag color={statusColor} size={'small'}>
+              {statusLabel}
+            </Tag>
+          )}
           {platformDef.documentation?.setupGuideUrl && (
             <a
               href={platformDef.documentation.setupGuideUrl}

@@ -86,6 +86,7 @@ const ChannelPage = memo(() => {
               agentId={aid}
               currentConfig={currentConfig}
               platformDef={activePlatformDef}
+              runtimeStatus={platformRuntimeStatuses.get(activePlatformDef.id)}
             />
           </div>
         )}

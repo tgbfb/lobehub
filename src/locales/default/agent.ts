@@ -155,4 +155,10 @@ export default {
   'channel.userIdHint':
     'Your user ID on this platform. The AI can use it to send you direct messages.',
   'channel.runtimeDisconnected': 'Bot disconnected',
+  'channel.statusConnected': 'Connected',
+  'channel.statusDisconnected': 'Disconnected',
+  'channel.statusDormant': 'Dormant',
+  'channel.statusFailed': 'Failed',
+  'channel.statusQueued': 'Queued',
+  'channel.statusStarting': 'Starting',
 } as const;
