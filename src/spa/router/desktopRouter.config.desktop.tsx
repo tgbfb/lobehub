@@ -18,7 +18,8 @@ import AgentPage from '@/routes/(main)/agent';
 import DesktopChatLayout from '@/routes/(main)/agent/_layout';
 import DesktopAgentChatLayout from '@/routes/(main)/agent/(chat)/_layout';
 import AgentTopicPage from '@/routes/(main)/agent/[topicId]';
-import AgentTopicNotebookPage from '@/routes/(main)/agent/[topicId]/page';
+import AgentTopicNotebookRedirectPage from '@/routes/(main)/agent/[topicId]/page';
+import AgentTopicNotebookDocPage from '@/routes/(main)/agent/[topicId]/page/[docId]';
 import AgentChannelPage from '@/routes/(main)/agent/channel';
 import AgentCronDetailPage from '@/routes/(main)/agent/cron/[cronId]';
 import AgentPageRedirectPage from '@/routes/(main)/agent/page';
@@ -103,7 +104,16 @@ export const desktopRoutes: RouteObject[] = [
                         index: true,
                       },
                       {
-                        element: <AgentTopicNotebookPage />,
+                        children: [
+                          {
+                            element: <AgentTopicNotebookRedirectPage />,
+                            index: true,
+                          },
+                          {
+                            element: <AgentTopicNotebookDocPage />,
+                            path: ':docId',
+                          },
+                        ],
                         path: 'page',
                       },
                     ],

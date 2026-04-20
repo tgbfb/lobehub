@@ -59,6 +59,11 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('react-router-dom', () => ({
+  useMatch: () => null,
+  useNavigate: () => vi.fn(),
+}));
+
 vi.mock('@/services/agentDocument', () => ({
   agentDocumentSWRKeys: {
     documents: (agentId: string) => ['agent-documents', agentId],

@@ -15,7 +15,7 @@ import { type NotebookStore } from './store';
 
 const n = setNamespace('notebook');
 
-const SWR_USE_FETCH_NOTEBOOK_DOCUMENTS = 'SWR_USE_FETCH_NOTEBOOK_DOCUMENTS';
+export const SWR_USE_FETCH_NOTEBOOK_DOCUMENTS = 'SWR_USE_FETCH_NOTEBOOK_DOCUMENTS';
 
 type ExtendedDocumentType = DocumentType | 'agent/plan';
 

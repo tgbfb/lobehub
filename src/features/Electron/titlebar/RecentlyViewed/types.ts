@@ -32,6 +32,7 @@ export interface AgentTopicParams {
 
 export interface AgentTopicPageParams {
   agentId: string;
+  docId?: string;
   topicId: string;
 }
 

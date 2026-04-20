@@ -40,10 +40,22 @@ export const desktopRoutes: RouteObject[] = [
                         index: true,
                       },
                       {
-                        element: dynamicElement(
-                          () => import('@/routes/(main)/agent/[topicId]/page'),
-                          'Desktop > Chat > Topic > Page',
-                        ),
+                        children: [
+                          {
+                            element: dynamicElement(
+                              () => import('@/routes/(main)/agent/[topicId]/page'),
+                              'Desktop > Chat > Topic > Page > Redirect',
+                            ),
+                            index: true,
+                          },
+                          {
+                            element: dynamicElement(
+                              () => import('@/routes/(main)/agent/[topicId]/page/[docId]'),
+                              'Desktop > Chat > Topic > Page > Doc',
+                            ),
+                            path: ':docId',
+                          },
+                        ],
                         path: 'page',
                       },
                     ],

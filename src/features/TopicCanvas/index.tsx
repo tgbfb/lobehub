@@ -8,6 +8,7 @@ import { memo } from 'react';
 
 import { EditorCanvas as SharedEditorCanvas } from '@/features/EditorCanvas';
 import WideScreenContainer from '@/features/WideScreenContainer';
+import { useRegisterFilesHotkeys } from '@/hooks/useHotkeys';
 import { StyleSheet } from '@/utils/styles';
 
 import TitleSection, { type TitleSectionProps } from './TitleSection';
@@ -32,14 +33,17 @@ const styles = StyleSheet.create({
 
 export interface TopicCanvasProps extends TitleSectionProps {
   agentId?: string;
+  documentId?: string;
   placeholder?: string;
   style?: CSSProperties;
   topicId?: string | null;
 }
 
 const TopicCanvasBody = memo<TopicCanvasProps>(
-  ({ placeholder, style, emoji, title, onEmojiChange, onTitleChange }) => {
+  ({ placeholder, style, emoji, title, documentId, onEmojiChange, onTitleChange }) => {
     const editor = useEditor();
+
+    useRegisterFilesHotkeys();
 
     return (
       <Flexbox
@@ -57,7 +61,13 @@ const TopicCanvasBody = memo<TopicCanvasProps>(
               onEmojiChange={onEmojiChange}
               onTitleChange={onTitleChange}
             />
-            <SharedEditorCanvas editor={editor} placeholder={placeholder} style={style} />
+            <SharedEditorCanvas
+              documentId={documentId}
+              editor={editor}
+              placeholder={placeholder}
+              sourceType={'notebook'}
+              style={style}
+            />
           </Flexbox>
         </WideScreenContainer>
       </Flexbox>

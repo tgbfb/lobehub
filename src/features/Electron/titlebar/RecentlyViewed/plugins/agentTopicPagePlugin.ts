@@ -8,7 +8,7 @@ import { type AgentTopicPageParams, type PageReference, type ResolvedPageData } 
 import { type PluginContext, type RecentlyViewedPlugin } from './types';
 import { createPageReference } from './types';
 
-const AGENT_TOPIC_PAGE_PATH_REGEX = /^\/agent\/([^/?]+)\/(tpc_[^/?]+)\/page$/;
+const AGENT_TOPIC_PAGE_PATH_REGEX = /^\/agent\/([^/?]+)\/(tpc_[^/?]+)\/page(?:\/([^/?]+))?$/;
 
 const pageIcon = getRouteById('page')?.icon || FileText;
 
@@ -22,13 +22,16 @@ export const agentTopicPagePlugin: RecentlyViewedPlugin<'agent-topic-page'> = {
   },
 
   generateId(reference: PageReference<'agent-topic-page'>): string {
-    const { agentId, topicId } = reference.params;
-    return `agent-topic-page:${agentId}:${topicId}`;
+    const { agentId, topicId, docId } = reference.params;
+    return docId
+      ? `agent-topic-page:${agentId}:${topicId}:${docId}`
+      : `agent-topic-page:${agentId}:${topicId}`;
   },
 
   generateUrl(reference: PageReference<'agent-topic-page'>): string {
-    const { agentId, topicId } = reference.params;
-    return SESSION_CHAT_TOPIC_PAGE_URL(agentId, topicId);
+    const { agentId, topicId, docId } = reference.params;
+    const base = SESSION_CHAT_TOPIC_PAGE_URL(agentId, topicId);
+    return docId ? `${base}/${docId}` : base;
   },
 
   getDefaultIcon() {
@@ -50,8 +53,8 @@ export const agentTopicPagePlugin: RecentlyViewedPlugin<'agent-topic-page'> = {
     const match = pathname.match(AGENT_TOPIC_PAGE_PATH_REGEX);
     if (!match) return null;
 
-    const [, agentId, topicId] = match;
-    const params: AgentTopicPageParams = { agentId, topicId };
+    const [, agentId, topicId, docId] = match;
+    const params: AgentTopicPageParams = { agentId, topicId, ...(docId ? { docId } : {}) };
     const id = this.generateId({ params } as PageReference<'agent-topic-page'>);
     return createPageReference('agent-topic-page', params, id);
   },

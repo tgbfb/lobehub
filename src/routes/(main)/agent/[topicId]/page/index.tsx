@@ -1,1 +1,1 @@
-export { default } from '@/routes/(main)/agent/features/Page';
+export { default } from '@/routes/(main)/agent/features/Page/PageRedirect';
