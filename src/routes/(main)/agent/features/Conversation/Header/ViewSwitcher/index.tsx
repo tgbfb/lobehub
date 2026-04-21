@@ -30,7 +30,7 @@ const ViewSwitcher = memo(() => {
     () => [
       { label: t('viewSwitcher.chat'), value: 'chat' },
       { label: t('viewSwitcher.page'), value: 'page' },
-      { label: t('viewSwitcher.task'), value: 'task' },
+      // { label: t('viewSwitcher.task'), value: 'task' },
     ],
     [t],
   );

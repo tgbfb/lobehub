@@ -27,8 +27,10 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
   const makeStub = () => ({
     copyDocument: vi.fn(),
     createDocument: vi.fn(),
+    createTopicDocument: vi.fn(),
     editDocument: vi.fn(),
     listDocuments: vi.fn(),
+    listTopicDocuments: vi.fn(),
     readDocument: vi.fn(),
     readDocumentByFilename: vi.fn(),
     removeDocument: vi.fn(),
@@ -64,6 +66,49 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
 
     expect(result.success).toBe(false);
     expect(stub.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('creates a document in the current topic when target is currentTopic', async () => {
+    const stub = makeStub();
+    stub.createTopicDocument.mockResolvedValue({
+      documentId: 'documents-row-id',
+      filename: 'topic-note',
+      id: 'agent-doc-assoc-id',
+      title: 'Topic Note',
+    });
+
+    const runtime = new AgentDocumentsExecutionRuntime(stub);
+    const result = await runtime.createDocument(
+      { content: 'body', target: 'currentTopic', title: 'Topic Note' },
+      { agentId: 'agent-1', topicId: 'topic-1' },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.state).toEqual({ documentId: 'documents-row-id' });
+    expect(stub.createTopicDocument).toHaveBeenCalledWith({
+      agentId: 'agent-1',
+      content: 'body',
+      target: 'currentTopic',
+      title: 'Topic Note',
+      topicId: 'topic-1',
+    });
+    expect(stub.createDocument).not.toHaveBeenCalled();
+  });
+
+  it('refuses current topic creation without topicId', async () => {
+    const stub = makeStub();
+    const runtime = new AgentDocumentsExecutionRuntime(stub);
+
+    const result = await runtime.createDocument(
+      { content: 'body', target: 'currentTopic', title: 'Topic Note' },
+      { agentId: 'agent-1' },
+    );
+
+    expect(result).toMatchObject({
+      content: 'Cannot create current topic document without topicId context.',
+      success: false,
+    });
+    expect(stub.createTopicDocument).not.toHaveBeenCalled();
   });
 
   it('blocks editDocument for the current page document', async () => {
@@ -153,5 +198,60 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
       content: 'updated',
       id: 'agent-doc-assoc-id-2',
     });
+  });
+});
+
+describe('AgentDocumentsExecutionRuntime.listDocuments', () => {
+  const makeStub = () => ({
+    copyDocument: vi.fn(),
+    createDocument: vi.fn(),
+    createTopicDocument: vi.fn(),
+    editDocument: vi.fn(),
+    listDocuments: vi.fn(),
+    listTopicDocuments: vi.fn(),
+    readDocument: vi.fn(),
+    readDocumentByFilename: vi.fn(),
+    removeDocument: vi.fn(),
+    renameDocument: vi.fn(),
+    updateLoadRule: vi.fn(),
+    upsertDocumentByFilename: vi.fn(),
+  });
+
+  it('lists current topic documents while preserving agent document ids', async () => {
+    const stub = makeStub();
+    stub.listTopicDocuments.mockResolvedValue([
+      {
+        documentId: 'documents-row-id',
+        filename: 'topic-note',
+        id: 'agent-doc-assoc-id',
+        title: 'Topic Note',
+      },
+    ]);
+
+    const runtime = new AgentDocumentsExecutionRuntime(stub);
+    const result = await runtime.listDocuments(
+      { target: 'currentTopic' },
+      { agentId: 'agent-1', topicId: 'topic-1' },
+    );
+
+    const documents = [
+      {
+        documentId: 'documents-row-id',
+        filename: 'topic-note',
+        id: 'agent-doc-assoc-id',
+        title: 'Topic Note',
+      },
+    ];
+    expect(result).toEqual({
+      content: JSON.stringify(documents),
+      state: { documents },
+      success: true,
+    });
+    expect(stub.listTopicDocuments).toHaveBeenCalledWith({
+      agentId: 'agent-1',
+      target: 'currentTopic',
+      topicId: 'topic-1',
+    });
+    expect(stub.listDocuments).not.toHaveBeenCalled();
   });
 });

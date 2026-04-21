@@ -196,8 +196,20 @@ export const agentDocumentRouter = router({
    * Tool-oriented: list documents for an agent
    */
   listDocuments: agentDocumentProcedure
-    .input(z.object({ agentId: z.string() }))
+    .input(
+      z.object({
+        agentId: z.string(),
+        target: z.enum(['agent', 'currentTopic']).optional().default('agent'),
+        topicId: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
+      if (input.target === 'currentTopic') {
+        if (!input.topicId) throw new Error('topicId is required to list current topic documents');
+
+        return ctx.agentDocumentService.listDocumentsForTopic(input.agentId, input.topicId);
+      }
+
       return ctx.agentDocumentService.listDocuments(input.agentId);
     }),
 
@@ -279,16 +291,12 @@ export const agentDocumentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const topic = input.title.trim() ? undefined : await ctx.topicModel.findById(input.topicId);
       const title = input.title.trim() || topic?.title || '';
-      const doc = await ctx.agentDocumentService.createDocument(
+      const doc = await ctx.agentDocumentService.createForTopic(
         input.agentId,
         title,
         input.content,
+        input.topicId,
       );
-
-      await ctx.topicDocumentModel.associate({
-        documentId: doc.documentId,
-        topicId: input.topicId,
-      });
 
       return doc;
     }),

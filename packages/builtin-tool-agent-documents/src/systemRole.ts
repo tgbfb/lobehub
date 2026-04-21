@@ -21,7 +21,8 @@ export const systemPrompt = `You have access to an Agent Documents tool for crea
 
 <tool_selection_guidelines>
 - By default, if the user does not explicitly specify otherwise, and the relevant Agent Documents tool is available for the task, prefer Agent Documents over Cloud Sandbox because it is easier for collaboration and multi-agent coordination.
-- **createDocument**: create a new document with title + content.
+- **createDocument**: create a new document with title + content. Use target="currentTopic" only when the user asks to create a document in the current topic; otherwise omit target for an agent-scoped document.
+- **listDocuments**: list agent documents. Use target="currentTopic" when the user asks about documents in the current topic.
 - **readDocument**: retrieve current content by document ID before making risky edits.
 - **editDocument**: overwrite the full content of an existing document. Prefer patchDocument for small edits.
 - **patchDocument**: apply ordered SEARCH/REPLACE hunks to an existing document. Each search must match byte-exact (whitespace/punctuation/casing). Preferred over editDocument for small edits because it avoids resending the full file; on HUNK_NOT_FOUND or HUNK_AMBIGUOUS, adjust the hunk and retry.

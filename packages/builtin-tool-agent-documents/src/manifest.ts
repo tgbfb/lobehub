@@ -15,6 +15,13 @@ export const AgentDocumentsManifest: BuiltinToolManifest = {
             description: 'Document content in markdown or plain text.',
             type: 'string',
           },
+          target: {
+            default: 'agent',
+            description:
+              'Where to create the document. Use currentTopic to associate it with the current topic; defaults to agent-scoped documents.',
+            enum: ['agent', 'currentTopic'],
+            type: 'string',
+          },
           title: {
             description: 'Document title.',
             type: 'string',
@@ -151,10 +158,18 @@ export const AgentDocumentsManifest: BuiltinToolManifest = {
     },
     {
       description:
-        'List all agent documents. Returns document id, filename, and title for each document.',
+        'List agent documents. Defaults to all agent documents; use target=currentTopic to list documents associated with the current topic.',
       name: AgentDocumentsApiName.listDocuments,
       parameters: {
-        properties: {},
+        properties: {
+          target: {
+            default: 'agent',
+            description:
+              'Which document set to list. currentTopic filters to documents associated with the current topic.',
+            enum: ['agent', 'currentTopic'],
+            type: 'string',
+          },
+        },
         required: [],
         type: 'object',
       },

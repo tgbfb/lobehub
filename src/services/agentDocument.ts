@@ -72,7 +72,11 @@ class AgentDocumentService {
     return result;
   };
 
-  listDocuments = async (params: { agentId: string }) => {
+  listDocuments = async (params: {
+    agentId: string;
+    target?: 'agent' | 'currentTopic';
+    topicId?: string;
+  }) => {
     return lambdaClient.agentDocument.listDocuments.query(params);
   };
 

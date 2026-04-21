@@ -37,6 +37,7 @@ interface AgentDocumentOperationContext {
   agentId?: string | null;
   currentDocumentId?: string | null;
   scope?: string | null;
+  topicId?: string | null;
 }
 
 const CURRENT_PAGE_DOCUMENT_WRITE_ERROR_CODE = 'CURRENT_PAGE_DOCUMENT_WRITE_FORBIDDEN';
@@ -53,6 +54,12 @@ export interface AgentDocumentsRuntimeService {
       agentId: string;
     },
   ) => Promise<AgentDocumentRecord | undefined>;
+  createTopicDocument: (
+    params: CreateDocumentArgs & {
+      agentId: string;
+      topicId: string;
+    },
+  ) => Promise<AgentDocumentRecord | undefined>;
   editDocument: (
     params: EditDocumentArgs & {
       agentId: string;
@@ -61,6 +68,12 @@ export interface AgentDocumentsRuntimeService {
   listDocuments: (
     params: ListDocumentsArgs & {
       agentId: string;
+    },
+  ) => Promise<AgentDocumentRecord[]>;
+  listTopicDocuments: (
+    params: ListDocumentsArgs & {
+      agentId: string;
+      topicId: string;
     },
   ) => Promise<AgentDocumentRecord[]>;
   readDocument: (
@@ -108,6 +121,11 @@ export class AgentDocumentsExecutionRuntime {
     return context.currentDocumentId ?? undefined;
   }
 
+  private resolveTopicId(context?: AgentDocumentOperationContext) {
+    if (!context?.topicId) return;
+    return context.topicId;
+  }
+
   private buildCurrentPageDocumentWriteBlockedResult(apiName: string): BuiltinServerRuntimeOutput {
     const message =
       `Cannot use lobe-agent-documents.${apiName} on the current page document ` +
@@ -150,7 +168,7 @@ export class AgentDocumentsExecutionRuntime {
   }
 
   async listDocuments(
-    _args: ListDocumentsArgs,
+    args: ListDocumentsArgs,
     context?: AgentDocumentOperationContext,
   ): Promise<BuiltinServerRuntimeOutput> {
     const agentId = this.resolveAgentId(context);
@@ -161,8 +179,21 @@ export class AgentDocumentsExecutionRuntime {
       };
     }
 
-    const docs = await this.service.listDocuments({ agentId });
+    const target = args.target ?? 'agent';
+    const topicId = this.resolveTopicId(context);
+    if (target === 'currentTopic' && !topicId) {
+      return {
+        content: 'Cannot list current topic documents without topicId context.',
+        success: false,
+      };
+    }
+
+    const docs =
+      target === 'currentTopic'
+        ? await this.service.listTopicDocuments({ agentId, target, topicId: topicId! })
+        : await this.service.listDocuments({ agentId, target });
     const list = docs.map((d) => ({
+      ...(d.documentId ? { documentId: d.documentId } : {}),
       filename: d.filename ?? d.title ?? '',
       id: d.id,
       title: d.title,
@@ -235,7 +266,19 @@ export class AgentDocumentsExecutionRuntime {
       };
     }
 
-    const created = await this.service.createDocument({ ...args, agentId });
+    const target = args.target ?? 'agent';
+    const topicId = this.resolveTopicId(context);
+    if (target === 'currentTopic' && !topicId) {
+      return {
+        content: 'Cannot create current topic document without topicId context.',
+        success: false,
+      };
+    }
+
+    const created =
+      target === 'currentTopic'
+        ? await this.service.createTopicDocument({ ...args, agentId, topicId: topicId! })
+        : await this.service.createDocument({ ...args, agentId });
     if (!created) return { content: 'Failed to create agent document.', success: false };
 
     return {

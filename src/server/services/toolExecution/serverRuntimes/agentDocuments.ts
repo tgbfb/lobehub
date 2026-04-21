@@ -18,9 +18,20 @@ export const agentDocumentsRuntime: ServerRuntimeRegistration = {
       copyDocument: ({ agentId, id, newTitle }) => service.copyDocumentById(id, newTitle, agentId),
       createDocument: ({ agentId, content, title }) =>
         service.createDocument(agentId, title, content),
+      createTopicDocument: ({ agentId, content, title, topicId }) =>
+        service.createForTopic(agentId, title, content, topicId),
       editDocument: ({ agentId, content, id }) => service.editDocumentById(id, content, agentId),
       listDocuments: async ({ agentId }) => {
         const docs = await service.listDocuments(agentId);
+        return docs.map((d) => ({
+          documentId: d.documentId,
+          filename: d.filename,
+          id: d.id,
+          title: d.title,
+        }));
+      },
+      listTopicDocuments: async ({ agentId, topicId }) => {
+        const docs = await service.listDocumentsForTopic(agentId, topicId);
         return docs.map((d) => ({
           documentId: d.documentId,
           filename: d.filename,

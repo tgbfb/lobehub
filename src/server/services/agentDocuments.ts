@@ -15,6 +15,7 @@ import {
   type ToolUpdateLoadRule,
 } from '@/database/models/agentDocuments';
 import { buildDocumentFilename, extractMarkdownH1Title } from '@/database/models/agentDocuments';
+import { TopicDocumentModel } from '@/database/models/topicDocument';
 
 const MAX_UNIQUE_FILENAME_ATTEMPTS = 1000;
 
@@ -38,9 +39,11 @@ interface UpsertDocumentParams {
  */
 export class AgentDocumentsService {
   private agentDocumentModel: AgentDocumentModel;
+  private topicDocumentModel: TopicDocumentModel;
 
   constructor(db: LobeChatDatabase, userId: string) {
     this.agentDocumentModel = new AgentDocumentModel(db, userId);
+    this.topicDocumentModel = new TopicDocumentModel(db, userId);
   }
 
   private async createWithUniqueFilename(
@@ -215,6 +218,17 @@ export class AgentDocumentsService {
     return this.createWithUniqueFilename(agentId, finalTitle, strippedContent);
   }
 
+  async createForTopic(agentId: string, title: string, content: string, topicId: string) {
+    const doc = await this.createDocument(agentId, title, content);
+
+    await this.topicDocumentModel.associate({
+      documentId: doc.documentId,
+      topicId,
+    });
+
+    return doc;
+  }
+
   async deleteDocument(documentId: string) {
     return this.agentDocumentModel.delete(documentId);
   }
@@ -321,6 +335,24 @@ export class AgentDocumentsService {
       loadPosition: d.policy?.context?.position,
       title: d.title,
     }));
+  }
+
+  async listDocumentsForTopic(agentId: string, topicId: string) {
+    const topicDocs = await this.topicDocumentModel.findByTopicId(topicId);
+    const documentIds = topicDocs.map((doc) => doc.id);
+    const docs = await this.agentDocumentModel.findByDocumentIds(agentId, documentIds);
+    const docsByDocumentId = new Map(docs.map((doc) => [doc.documentId, doc]));
+
+    return topicDocs
+      .map((topicDoc) => docsByDocumentId.get(topicDoc.id))
+      .filter((doc): doc is AgentDocumentWithRules => Boolean(doc))
+      .map((doc) => ({
+        documentId: doc.documentId,
+        filename: doc.filename,
+        id: doc.id,
+        loadPosition: doc.policy?.context?.position,
+        title: doc.title,
+      }));
   }
 
   async getDocumentByFilename(agentId: string, filename: string) {

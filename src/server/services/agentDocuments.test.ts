@@ -6,6 +6,7 @@ import {
   buildDocumentFilename,
   extractMarkdownH1Title,
 } from '@/database/models/agentDocuments';
+import { TopicDocumentModel } from '@/database/models/topicDocument';
 import type { LobeChatDatabase } from '@/database/type';
 
 import { AgentDocumentsService } from './agentDocuments';
@@ -19,6 +20,10 @@ vi.mock('@/database/models/agentDocuments', () => ({
   extractMarkdownH1Title: vi.fn((content: string) => ({ content })),
 }));
 
+vi.mock('@/database/models/topicDocument', () => ({
+  TopicDocumentModel: vi.fn(),
+}));
+
 describe('AgentDocumentsService', () => {
   const db = {} as LobeChatDatabase;
   const userId = 'user-1';
@@ -27,14 +32,20 @@ describe('AgentDocumentsService', () => {
     associate: vi.fn(),
     create: vi.fn(),
     findByAgent: vi.fn(),
+    findByDocumentIds: vi.fn(),
     findByFilename: vi.fn(),
     hasByAgent: vi.fn(),
     upsert: vi.fn(),
+  };
+  const mockTopicDocumentModel = {
+    associate: vi.fn(),
+    findByTopicId: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
     (AgentDocumentModel as any).mockImplementation(() => mockModel);
+    (TopicDocumentModel as any).mockImplementation(() => mockTopicDocumentModel);
     vi.mocked(buildDocumentFilename).mockImplementation((title: string) => title);
     vi.mocked(extractMarkdownH1Title).mockImplementation((content: string) => ({ content }));
   });
@@ -86,6 +97,32 @@ describe('AgentDocumentsService', () => {
     });
   });
 
+  describe('createForTopic', () => {
+    it('should create an agent document and associate the underlying document with the topic', async () => {
+      mockModel.findByFilename.mockResolvedValue(undefined);
+      mockModel.create.mockResolvedValue({
+        documentId: 'documents-1',
+        filename: 'note',
+        id: 'agent-doc-1',
+        title: 'note',
+      });
+
+      const service = new AgentDocumentsService(db, userId);
+      const result = await service.createForTopic('agent-1', 'note', 'content', 'topic-1');
+
+      expect(result).toEqual({
+        documentId: 'documents-1',
+        filename: 'note',
+        id: 'agent-doc-1',
+        title: 'note',
+      });
+      expect(mockTopicDocumentModel.associate).toHaveBeenCalledWith({
+        documentId: 'documents-1',
+        topicId: 'topic-1',
+      });
+    });
+  });
+
   describe('listDocuments', () => {
     it('should return a list of documents with documentId, filename, id, and title', async () => {
       mockModel.findByAgent.mockResolvedValue([
@@ -125,6 +162,56 @@ describe('AgentDocumentsService', () => {
           id: 'doc-2',
           loadPosition: undefined,
           title: 'B',
+        },
+      ]);
+    });
+  });
+
+  describe('listDocumentsForTopic', () => {
+    it('should list only agent documents associated with the topic and preserve topic order', async () => {
+      mockTopicDocumentModel.findByTopicId.mockResolvedValue([
+        { id: 'documents-2', title: 'B' },
+        { id: 'documents-1', title: 'A' },
+      ]);
+      mockModel.findByDocumentIds.mockResolvedValue([
+        {
+          documentId: 'documents-1',
+          filename: 'a.md',
+          id: 'agent-doc-1',
+          policy: null,
+          title: 'A',
+        },
+        {
+          documentId: 'documents-2',
+          filename: 'b.md',
+          id: 'agent-doc-2',
+          policy: null,
+          title: 'B',
+        },
+      ]);
+
+      const service = new AgentDocumentsService(db, userId);
+      const result = await service.listDocumentsForTopic('agent-1', 'topic-1');
+
+      expect(mockTopicDocumentModel.findByTopicId).toHaveBeenCalledWith('topic-1');
+      expect(mockModel.findByDocumentIds).toHaveBeenCalledWith('agent-1', [
+        'documents-2',
+        'documents-1',
+      ]);
+      expect(result).toEqual([
+        {
+          documentId: 'documents-2',
+          filename: 'b.md',
+          id: 'agent-doc-2',
+          loadPosition: undefined,
+          title: 'B',
+        },
+        {
+          documentId: 'documents-1',
+          filename: 'a.md',
+          id: 'agent-doc-1',
+          loadPosition: undefined,
+          title: 'A',
         },
       ]);
     });

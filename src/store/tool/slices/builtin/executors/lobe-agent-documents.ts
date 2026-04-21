@@ -9,10 +9,25 @@ const runtime = new AgentDocumentsExecutionRuntime({
     agentDocumentService.copyDocument({ agentId, id, newTitle }),
   createDocument: ({ agentId, content, title }) =>
     agentDocumentService.createDocument({ agentId, content, title }),
+  createTopicDocument: ({ agentId, content, title, topicId }) =>
+    agentDocumentService.createForTopic({ agentId, content, title, topicId }),
   editDocument: ({ agentId, content, id }) =>
     agentDocumentService.editDocument({ agentId, content, id }),
   listDocuments: async ({ agentId }) => {
     const docs = await agentDocumentService.listDocuments({ agentId });
+    return docs.map((d) => ({
+      documentId: d.documentId,
+      filename: d.filename,
+      id: d.id,
+      title: d.title,
+    }));
+  },
+  listTopicDocuments: async ({ agentId, topicId }) => {
+    const docs = await agentDocumentService.listDocuments({
+      agentId,
+      target: 'currentTopic',
+      topicId,
+    });
     return docs.map((d) => ({
       documentId: d.documentId,
       filename: d.filename,

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { DocumentItem, NewAgentDocument, NewDocument } from '../../schemas';
 import { agentDocuments, documents } from '../../schemas';
@@ -443,6 +443,35 @@ export class AgentDocumentModel {
         and(
           eq(agentDocuments.userId, this.userId),
           eq(agentDocuments.agentId, agentId),
+          isNull(agentDocuments.deletedAt),
+        ),
+      )
+      .orderBy(desc(agentDocuments.updatedAt));
+
+    return results.map(({ settings, doc }) => {
+      const item = this.toAgentDocument(settings, doc);
+      return {
+        ...item,
+        loadRules: parseLoadRules(item),
+      };
+    });
+  }
+
+  async findByDocumentIds(
+    agentId: string,
+    documentIds: string[],
+  ): Promise<AgentDocumentWithRules[]> {
+    if (documentIds.length === 0) return [];
+
+    const results = await this.db
+      .select({ doc: documents, settings: agentDocuments })
+      .from(agentDocuments)
+      .innerJoin(documents, eq(agentDocuments.documentId, documents.id))
+      .where(
+        and(
+          eq(agentDocuments.userId, this.userId),
+          eq(agentDocuments.agentId, agentId),
+          inArray(agentDocuments.documentId, documentIds),
           isNull(agentDocuments.deletedAt),
         ),
       )

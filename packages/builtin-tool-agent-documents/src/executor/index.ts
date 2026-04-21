@@ -36,6 +36,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
       scope: ctx.scope,
+      topicId: ctx.topicId,
     });
   };
 
@@ -69,6 +70,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
       scope: ctx.scope,
+      topicId: ctx.topicId,
     });
   };
 
@@ -153,8 +155,10 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
 const fallbackRuntime = new AgentDocumentsExecutionRuntime({
   copyDocument: async ({ agentId: _agentId }) => undefined,
   createDocument: async () => undefined,
+  createTopicDocument: async () => undefined,
   editDocument: async ({ agentId: _agentId }) => undefined,
   listDocuments: async () => [],
+  listTopicDocuments: async () => [],
   readDocument: async ({ agentId: _agentId }) => undefined,
   readDocumentByFilename: async () => undefined,
   removeDocument: async ({ agentId: _agentId }) => false,
