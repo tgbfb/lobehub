@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { SESSION_CHAT_TOPIC_URL, SESSION_CHAT_URL } from '@/const/url';
+import { useFocusTopicPopup } from '@/features/TopicPopupGuard/useTopicPopupsRegistry';
 import { useQueryRoute } from '@/hooks/useQueryRoute';
 import { usePathname } from '@/libs/router/navigation';
 import { useChatStore } from '@/store/chat';
@@ -11,6 +12,10 @@ import { useGlobalStore } from '@/store/global';
  * Hook to handle topic navigation with automatic route detection
  * If in agent sub-route (e.g., /agent/:aid/profile), navigate back to chat first
  */
+interface NavigateToTopicOptions {
+  skipPopupFocus?: boolean;
+}
+
 export const useTopicNavigation = () => {
   const pathname = usePathname();
   const params = useParams<{ aid?: string; topicId?: string }>();
@@ -22,6 +27,7 @@ export const useTopicNavigation = () => {
   const routeTopicId = params.topicId ?? activeTopicId ?? undefined;
   const topicBasePath =
     routeAgentId && routeTopicId ? SESSION_CHAT_TOPIC_URL(routeAgentId, routeTopicId) : undefined;
+  const focusTopicPopup = useFocusTopicPopup({ agentId: activeAgentId });
 
   const isInTopicContextRoute = useCallback(() => {
     if (!topicBasePath) return false;
@@ -43,10 +49,14 @@ export const useTopicNavigation = () => {
       pathname !== agentBasePath &&
       pathname !== `${agentBasePath}/`
     );
-  }, [pathname, routeAgentId, routeTopicId]);
+  }, [pathname, routeAgentId, topicBasePath]);
 
   const navigateToTopic = useCallback(
-    (topicId?: string) => {
+    async (topicId?: string, options?: NavigateToTopicOptions) => {
+      if (!options?.skipPopupFocus) {
+        await focusTopicPopup(topicId);
+      }
+
       // If in agent sub-route, navigate back to agent chat first
       if (isInAgentSubRoute() && routeAgentId) {
         const basePath = topicId
@@ -62,10 +72,11 @@ export const useTopicNavigation = () => {
       switchTopic(topicId);
       toggleConfig(false);
     },
-    [isInAgentSubRoute, routeAgentId, router, switchTopic, toggleConfig],
+    [focusTopicPopup, isInAgentSubRoute, routeAgentId, router, switchTopic, toggleConfig],
   );
 
   return {
+    focusTopicPopup,
     isInAgentSubRoute: isInAgentSubRoute(),
     isInTopicContextRoute: isInTopicContextRoute(),
     navigateToTopic,

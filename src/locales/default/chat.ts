@@ -27,12 +27,6 @@ export default {
   'agentDefaultMessageWithoutEdit':
     "Hi, I’m **{{name}}**. One sentence is enough—you're in control.",
   'agents': 'Agents',
-  /**
-   * Sidebar tag for agents driven by an external CLI runtime (Claude Code, etc.).
-   * Deliberately separate from `group.profile.external` so it can evolve
-   * independently (e.g. swap to "Claude Code" per provider later).
-   */
-  'agentSidebar.externalTag': 'External',
   'artifact.generating': 'Generating',
   'artifact.inThread':
     'Cannot view in subtopic, please switch to the main conversation area to open',
@@ -147,8 +141,16 @@ export default {
   'groupWizard.searchTemplates': 'Search templates...',
   'groupWizard.title': 'Create Group',
   'groupWizard.useTemplate': 'Use Template',
+  'heteroAgent.fullAccess.label': 'Full access',
+  'heteroAgent.fullAccess.tooltip':
+    'Claude Code runs locally with full read/write access to the working directory. Switching permission modes is not available yet.',
   'heteroAgent.resumeReset.cwdChanged':
     'Working directory changed. Previous Claude Code session can only be resumed from its original directory, so a new conversation has started.',
+  'heteroAgent.switchCwd.cancel': 'Cancel',
+  'heteroAgent.switchCwd.content':
+    'Claude Code sessions are pinned to a working directory. Switching will start a new session for this topic — chat messages stay, but the previous session context cannot be resumed.',
+  'heteroAgent.switchCwd.ok': 'Switch and start new session',
+  'heteroAgent.switchCwd.title': 'Switch working directory?',
   'hideForYou':
     "Direct message content is hidden. Please enable 'Show Direct Message Content' in settings to view.",
   'history.title': 'The Agent will keep only the latest {{count}} messages.',
@@ -239,6 +241,7 @@ export default {
     'Time To First Token (TTFT). This refers to the time interval from when you send a message to when the client receives the first Token.',
   'messages.tokenDetails.title': 'Generation Details',
   'messages.tokenDetails.total': 'Total Consumption',
+  'minimap.emptyPreview': '(No text content)',
   'minimap.jumpToMessage': 'Jump to message {{index}}',
   'minimap.nextMessage': 'Next message',
   'minimap.previousMessage': 'Previous message',
@@ -262,7 +265,8 @@ export default {
   'operation.contextCompression': 'Context too long, compressing history...',
   'operation.execAgentRuntime': 'Preparing response',
   'operation.execClientTask': 'Executing task',
-  'operation.execHeterogeneousAgent': 'External agent running',
+  'operation.execHeterogeneousAgent': '{{name}} is running',
+  'operation.heterogeneousAgentFallback': 'External agent',
   'operation.execServerAgentRuntime':
     'Task is running in the server. You are safe to leave this page',
   'operation.sendMessage': 'Sending message',
@@ -316,7 +320,10 @@ export default {
   'searchAgentPlaceholder': 'Search agents...',
   'searchAgents': 'Search agents...',
   'selectedAgents': 'Selected agents',
+  'followUpPlaceholder': 'Follow up. @ to assign tasks to other agents.',
   'sendPlaceholder': 'Ask, create, or start a task, <hotkey><hotkey/>',
+  'sendPlaceholderWithAgentAssignment':
+    'Ask, create, or start a task. @ to assign tasks to other agents.',
   'sessionGroup.config': 'Category Management',
   'sessionGroup.confirmRemoveGroupAlert':
     'This category is about to be deleted. After deletion, the agents in this category will be moved to the default list. Please confirm your operation.',
@@ -433,7 +440,10 @@ export default {
   'task.status.fetchingDetails': 'Fetching details...',
   'task.status.initializing': 'Initializing task...',
   'task.subtask': 'Subtask',
+  'thread.closeSubagentThread': 'Collapse subagent conversation',
   'thread.divider': 'Subtopic',
+  'thread.openSubagentThread': 'View full subagent conversation',
+  'thread.subagentBadge': 'Subagent',
   'thread.threadMessageCount': '{{messageCount}} messages',
   'thread.title': 'Subtopic',
   'todoProgress.allCompleted': 'All tasks completed',
@@ -532,6 +542,9 @@ export default {
   'viewSwitcher.page': 'Page',
   'viewSwitcher.task': 'Task',
   'workflow.failedSuffix': '(failed)',
+  'workflow.summaryFailed': '{{count}} failed',
+  'workflow.summaryMoreTools': '+{{count}} more',
+  'workflow.summaryTotalCalls': '{{count}} calls total',
   'workflow.thoughtForDuration': 'Thought for {{duration}}',
   'workflow.toolDisplayName.activateDevice': 'Activated device',
   'workflow.toolDisplayName.activateSkill': 'Activated a skill',

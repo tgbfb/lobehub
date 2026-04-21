@@ -126,7 +126,7 @@ describe('AgentDocumentsGroup', () => {
 
     render(<AgentDocumentsGroup />);
 
-    const item = await screen.findByText('brief.md');
+    const item = await screen.findByText('Brief');
     expect(item).toBeInTheDocument();
     expect(screen.getByText('A short brief')).toBeInTheDocument();
 
@@ -165,18 +165,18 @@ describe('AgentDocumentsGroup', () => {
 
     render(<AgentDocumentsGroup />);
 
-    expect(screen.getByText('brief.md')).toBeInTheDocument();
-    expect(screen.getByText('example.com')).toBeInTheDocument();
+    expect(screen.getByText('Brief')).toBeInTheDocument();
+    expect(screen.getByText('Example')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Web'));
 
-    expect(screen.queryByText('brief.md')).not.toBeInTheDocument();
-    expect(screen.getByText('example.com')).toBeInTheDocument();
+    expect(screen.queryByText('Brief')).not.toBeInTheDocument();
+    expect(screen.getByText('Example')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Documents'));
 
-    expect(screen.getByText('brief.md')).toBeInTheDocument();
-    expect(screen.queryByText('example.com')).not.toBeInTheDocument();
+    expect(screen.getByText('Brief')).toBeInTheDocument();
+    expect(screen.queryByText('Example')).not.toBeInTheDocument();
   });
 
   it('renders empty state when no documents', () => {

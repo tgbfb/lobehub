@@ -1,4 +1,5 @@
 import { SESSION_CHAT_URL } from '@lobechat/const';
+import { HETEROGENEOUS_TYPE_LABELS } from '@lobechat/heterogeneous-agents';
 import { type SidebarAgentItem } from '@lobechat/types';
 import { ActionIcon, Flexbox, Icon, Tag } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
@@ -95,15 +96,19 @@ const AgentItem = memo<AgentItemProps>(({ item, style, className }) => {
   // Get display title with fallback
   const displayTitle = title || t('untitledAgent');
 
-  // Heterogeneous agents (Claude Code, etc.) get an "External" tag so they
-  // stand out in the sidebar — mirrors the group-member pattern.
-  const titleNode = heterogeneousType ? (
+  // Heterogeneous agents (Claude Code, Codex, …) show their runtime as a tag
+  // so they stand out from built-in agents in the sidebar.
+  const heterogeneousLabel = heterogeneousType
+    ? (HETEROGENEOUS_TYPE_LABELS[heterogeneousType] ?? heterogeneousType)
+    : null;
+
+  const titleNode = heterogeneousLabel ? (
     <Flexbox horizontal align="center" gap={4}>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {displayTitle}
       </span>
       <Tag size="small" style={{ flexShrink: 0 }}>
-        {t('agentSidebar.externalTag')}
+        {heterogeneousLabel}
       </Tag>
     </Flexbox>
   ) : (

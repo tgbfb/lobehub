@@ -1,6 +1,7 @@
+import type { ChatTopicMetadata, ChatTopicStatus } from '@lobechat/types';
 import { Flexbox, Icon, Skeleton, Tag } from '@lobehub/ui';
 import { createStaticStyles, cssVar, keyframes, useTheme } from 'antd-style';
-import { HashIcon, MessageSquareDashed } from 'lucide-react';
+import { CheckCircle2, HashIcon, MessageSquareDashed } from 'lucide-react';
 import { memo, Suspense, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +16,6 @@ import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
 import { useElectronStore } from '@/store/electron';
-import type { ChatTopicMetadata } from '@/types/topic';
 
 import { useTopicNavigation } from '../../hooks/useTopicNavigation';
 import ThreadList from '../../TopicListContent/ThreadList';
@@ -76,11 +76,12 @@ interface TopicItemProps {
   fav?: boolean;
   id?: string;
   metadata?: ChatTopicMetadata;
+  status?: ChatTopicStatus | null;
   threadId?: string;
   title: string;
 }
 
-const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, metadata }) => {
+const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, metadata, status }) => {
   const { t } = useTranslation('topic');
   const { isDarkMode } = useTheme();
   const activeAgentId = useAgentStore((s) => s.activeAgentId);
@@ -105,8 +106,13 @@ const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, meta
     id ? operationSelectors.isTopicUnreadCompleted(id) : () => false,
   );
 
-  const { navigateToTopic, isInAgentSubRoute, isInTopicContextRoute, routeTopicId } =
-    useTopicNavigation();
+  const {
+    focusTopicPopup,
+    navigateToTopic,
+    isInAgentSubRoute,
+    isInTopicContextRoute,
+    routeTopicId,
+  } = useTopicNavigation();
   const isRouteTopicActive = Boolean(id && routeTopicId === id && isInTopicContextRoute);
   const isTopicActive = Boolean(
     (active || isRouteTopicActive) && !threadId && (!isInAgentSubRoute || isRouteTopicActive),
@@ -126,32 +132,39 @@ const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, meta
     if (isDesktop) {
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = null;
-        navigateToTopic(id);
+        void navigateToTopic(id);
       }, 250);
     } else {
-      navigateToTopic(id);
+      void navigateToTopic(id);
     }
   }, [editing, id, navigateToTopic]);
 
-  const handleDoubleClick = useCallback(() => {
+  const handleDoubleClick = useCallback(async () => {
     if (!id || !activeAgentId || !isDesktop) return;
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
     }
+    if (await focusTopicPopup(id)) {
+      void navigateToTopic(id, { skipPopupFocus: true });
+      return;
+    }
     const url = SESSION_CHAT_TOPIC_URL(activeAgentId, id);
     const reference = pluginRegistry.parseUrl(url, '');
     if (reference) {
       addTab(reference);
-      navigateToTopic(id);
+      void navigateToTopic(id);
     }
-  }, [id, activeAgentId, addTab, navigateToTopic]);
+  }, [id, activeAgentId, addTab, focusTopicPopup, navigateToTopic]);
 
   const { dropdownMenu } = useTopicItemDropdownMenu({
     fav,
     id,
+    status,
     title,
   });
+
+  const isCompleted = status === 'completed';
 
   const hasUnread = id && isUnreadCompleted;
   const unreadIcon = (
@@ -215,6 +228,15 @@ const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, meta
               />
             );
           }
+          if (isCompleted) {
+            return (
+              <Icon
+                icon={CheckCircle2}
+                size={'small'}
+                style={{ color: cssVar.colorTextDescription }}
+              />
+            );
+          }
           if (hasUnread) return unreadIcon;
           if (metadata?.bot?.platform) {
             const ProviderIcon = getPlatformIcon(metadata.bot!.platform);
@@ -227,7 +249,7 @@ const TopicItem = memo<TopicItemProps>(({ id, title, fav, active, threadId, meta
           );
         })()}
         onClick={handleClick}
-        onDoubleClick={handleDoubleClick}
+        onDoubleClick={() => void handleDoubleClick()}
       />
       <Editing id={id} title={title} toggleEditing={toggleEditing} />
       {isTopicActive && (

@@ -26,10 +26,19 @@ vi.mock('antd-style', () => ({
     neonDot: 'neonDot',
     neonDotWrapper: 'neonDotWrapper',
   }),
+  createStyles: () => () => ({
+    cx: (...classNames: Array<false | string | undefined>) => classNames.filter(Boolean).join(' '),
+    styles: {
+      container: 'container',
+      dot: 'dot',
+    },
+  }),
   cssVar: {
     colorInfo: '#00f',
     colorTextDescription: '#999',
   },
+  keyframes: () => 'keyframes',
+  useTheme: () => ({ isDarkMode: false }),
 }));
 
 vi.mock('motion/react', () => ({

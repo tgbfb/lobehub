@@ -35,10 +35,10 @@ const ViewSwitcher = memo(() => {
     [t],
   );
 
-  const handleChange = (value: string) => {
+  const handleChange = (value: number | string) => {
     if (!aid) return;
 
-    switch (value as ViewTab) {
+    switch (String(value) as ViewTab) {
       case 'chat': {
         if (topicId) navigate(SESSION_CHAT_TOPIC_URL(aid, topicId));
         break;
