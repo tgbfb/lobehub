@@ -78,15 +78,15 @@ const ControlsForm = memo<ControlsFormProps>(({ model: modelProp, provider: prov
       desc: (
         <span style={isNarrow ? descNarrow : descWide}>
           <Trans i18nKey={'extendParams.disableContextCaching.desc'} ns={'chat'}>
-            单条对话生成成本最高可降低 90%，响应速度提升 4 倍（
+            Generation cost per conversation can be reduced by up to 90%, with 4x faster response speed (
             <a
               href={'https://www.anthropic.com/news/prompt-caching?utm_source=lobechat'}
               rel="noreferrer nofollow"
               target="_blank"
             >
-              了解更多
+              Learn more
             </a>
-            ）。开启后将自动禁用历史记录限制
+            ). Enabling this will automatically disable conversation history limits
           </Trans>
         </span>
       ),
@@ -100,7 +100,7 @@ const ControlsForm = memo<ControlsFormProps>(({ model: modelProp, provider: prov
       desc: (
         <span style={isNarrow ? descNarrow : descWide}>
           <Trans i18nKey={'extendParams.enableReasoning.desc'} ns={'chat'}>
-            基于 Claude Thinking 机制限制（
+            Based on Claude Thinking mechanism restrictions (
             <a
               rel="noreferrer nofollow"
               target="_blank"
@@ -108,9 +108,9 @@ const ControlsForm = memo<ControlsFormProps>(({ model: modelProp, provider: prov
                 'https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking?utm_source=lobechat#why-thinking-blocks-must-be-preserved'
               }
             >
-              了解更多
+              Learn more
             </a>
-            ），开启后将自动禁用历史消息数限制
+            ), enabling this will automatically disable the message history limit
           </Trans>
         </span>
       ),

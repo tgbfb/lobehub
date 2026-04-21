@@ -247,9 +247,9 @@ export class TaskLifecycleService {
       // Max iterations reached
       await this.briefModel.create({
         actions: [
-          { key: 'retry', label: '🔄 重试', type: 'resolve' as const },
-          { key: 'approve', label: '✅ 强制通过', type: 'resolve' as const },
-          { key: 'feedback', label: '💬 修改意见', type: 'comment' as const },
+          { key: 'retry', label: '🔄 Retry', type: 'resolve' as const },
+          { key: 'approve', label: '✅ Force Approve', type: 'resolve' as const },
+          { key: 'feedback', label: '💬 Revisions', type: 'comment' as const },
         ],
         priority: 'urgent',
         summary: `Review failed after ${iteration} iteration(s) (score: ${reviewResult.overallScore}%). Suggestions: ${reviewResult.suggestions?.join('; ') || 'none'}`,
