@@ -12,6 +12,11 @@ import type { LobeChatDatabase } from '@/database/type';
 import { AgentDocumentsService } from './agentDocuments';
 import { DocumentService } from './document';
 
+const headlessEditorMocks = vi.hoisted(() => ({
+  applyLiteXML: vi.fn(),
+  applyLiteXMLBatch: vi.fn(),
+}));
+
 vi.mock('@/database/models/agentDocuments', () => ({
   AgentDocumentModel: vi.fn(),
   DocumentLoadPosition: {
@@ -35,7 +40,13 @@ vi.mock('@lobehub/editor/headless', () => ({
     let litexml = '<p id="node-1">content</p>';
 
     return {
-      applyLiteXMLBatch: vi.fn(async () => {
+      applyLiteXML: vi.fn(async (operations) => {
+        headlessEditorMocks.applyLiteXML(operations);
+        markdown = 'xml updated';
+        litexml = '<p id="node-1">xml updated</p>';
+      }),
+      applyLiteXMLBatch: vi.fn(async (operations) => {
+        headlessEditorMocks.applyLiteXMLBatch(operations);
         markdown = 'xml updated';
         litexml = '<p id="node-1">xml updated</p>';
       }),
@@ -288,6 +299,30 @@ describe('AgentDocumentsService', () => {
     });
   });
 
+  describe('getDocumentSnapshotById', () => {
+    it('should fall back to markdown content when editor data is empty', async () => {
+      mockModel.findById.mockResolvedValue({
+        agentId: 'agent-1',
+        content: 'fallback content',
+        editorData: { root: { children: [] } },
+        id: 'agent-doc-1',
+        title: 'Doc',
+      });
+
+      const service = new AgentDocumentsService(db, userId);
+      const result = await service.getDocumentSnapshotById('agent-doc-1', 'agent-1');
+
+      expect(result).toEqual({
+        agentId: 'agent-1',
+        content: 'fallback content',
+        editorData: { root: { children: [] } },
+        id: 'agent-doc-1',
+        litexml: '<p id="node-1">content</p>',
+        title: 'Doc',
+      });
+    });
+  });
+
   describe('upsertDocumentByFilename', () => {
     it('should create or update a document by filename', async () => {
       mockModel.findByFilename.mockResolvedValue(undefined);
@@ -455,7 +490,15 @@ describe('AgentDocumentsService', () => {
         content: 'xml updated',
         editorData: { root: { children: [] } },
       });
-      expect(result?.content).toBe('projected');
+      expect(headlessEditorMocks.applyLiteXML).toHaveBeenCalledWith([
+        {
+          action: 'replace',
+          delay: false,
+          litexml: '<p id="node-1">xml updated</p>',
+        },
+      ]);
+      expect(headlessEditorMocks.applyLiteXMLBatch).not.toHaveBeenCalled();
+      expect(result?.content).toBe('xml updated');
     });
   });
 

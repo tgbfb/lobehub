@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/consistent-type-imports */
+import type { HeadlessLiteXMLOperation } from '@lobehub/editor/headless';
 import type { SerializedEditorState, SerializedLexicalNode } from 'lexical';
 
 import { isValidEditorData } from '@/libs/editor/isValidEditorData';
@@ -24,6 +25,60 @@ export type AgentDocumentLiteXMLOperation =
       action: 'remove';
       id: string;
     };
+
+const orderLiteXMLOperations = (
+  operations: AgentDocumentLiteXMLOperation[],
+): AgentDocumentLiteXMLOperation[] => {
+  const orderedOperations: AgentDocumentLiteXMLOperation[] = [];
+
+  for (const operation of operations) {
+    if (operation.action === 'insert') {
+      orderedOperations.unshift(operation);
+    } else {
+      orderedOperations.push(operation);
+    }
+  }
+
+  return orderedOperations;
+};
+
+const toHeadlessLiteXMLOperation = (
+  operation: AgentDocumentLiteXMLOperation,
+): HeadlessLiteXMLOperation => {
+  switch (operation.action) {
+    case 'insert': {
+      return 'beforeId' in operation
+        ? {
+            action: 'insert',
+            beforeId: operation.beforeId,
+            delay: false,
+            litexml: operation.litexml,
+          }
+        : {
+            action: 'insert',
+            afterId: operation.afterId,
+            delay: false,
+            litexml: operation.litexml,
+          };
+    }
+
+    case 'modify': {
+      return {
+        action: 'replace',
+        delay: false,
+        litexml: operation.litexml,
+      };
+    }
+
+    case 'remove': {
+      return {
+        action: 'remove',
+        delay: false,
+        id: operation.id,
+      };
+    }
+  }
+};
 
 export interface AgentDocumentEditorSnapshot {
   content: string;
@@ -106,7 +161,7 @@ export const applyLiteXMLOperations = async ({
 
   try {
     loadEditorState(editor, { editorData, fallbackContent });
-    await editor.applyLiteXMLBatch(operations);
+    await editor.applyLiteXML(orderLiteXMLOperations(operations).map(toHeadlessLiteXMLOperation));
     return exportSnapshot(editor, true);
   } finally {
     editor.destroy();

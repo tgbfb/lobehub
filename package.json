@@ -270,7 +270,7 @@
     "@lobehub/analytics": "^1.6.2",
     "@lobehub/charts": "^5.0.0",
     "@lobehub/desktop-ipc-typings": "workspace:*",
-    "@lobehub/editor": "https://pkg.pr.new/@lobehub/editor@7fcc06a",
+    "@lobehub/editor": "https://pkg.pr.new/@lobehub/editor@d2ab73a",
     "@lobehub/icons": "^5.0.0",
     "@lobehub/market-sdk": "0.32.2",
     "@lobehub/tts": "^5.1.2",
