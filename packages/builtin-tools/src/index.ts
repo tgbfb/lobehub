@@ -61,6 +61,7 @@ export const alwaysOnToolIds = [
  */
 export const manualModeExcludeToolIds = [
   LobeActivatorManifest.identifier,
+  SkillsManifest.identifier,
   SkillStoreManifest.identifier,
 ];
 
