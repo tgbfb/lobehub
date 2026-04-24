@@ -2,7 +2,7 @@
 
 import isEqual from 'fast-deep-equal';
 import { type ReactElement, type ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { type VListHandle } from 'virtua';
 import { VList } from 'virtua';
 import { useShallow } from 'zustand/react/shallow';
@@ -18,6 +18,7 @@ import {
   CONVERSATION_SPACER_TRANSITION_MS,
   useConversationSpacer,
 } from '../hooks/useConversationSpacer';
+import { useKeepMountedIndices } from '../hooks/useKeepMountedIndices';
 import { useScrollToUserMessage } from '../hooks/useScrollToUserMessage';
 import { useSelectionMessageIds } from '../hooks/useSelectionMessageIds';
 import AutoScroll from './AutoScroll';
@@ -60,6 +61,31 @@ const VirtualizedList = memo<VirtualizedListProps>(({ dataSource, itemContent })
   const setActiveIndex = useConversationStore((s) => s.setActiveIndex);
   const activeIndex = useConversationStore(virtuaListSelectors.activeIndex);
 
+  // Keep a streaming item mounted only after it has entered the viewport once.
+  // Pre-mounting a new offscreen assistant item via keepMounted changes virtua's
+  // measurement/scroll scheduling and can block the send-time user-message pin.
+  const streamingMessageIds = useConversationStore(
+    useShallow((s) => {
+      const ids: string[] = [];
+      for (const id of dataSource) {
+        if (messageStateSelectors.isMessageGenerating(id)(s)) ids.push(id);
+      }
+      return ids;
+    }),
+  );
+
+  // Also keep items that host the active text selection — unmounting a node
+  // containing a Selection endpoint would silently drop the user's highlight.
+  const selectionMessageIds = useSelectionMessageIds();
+
+  const getVirtua = useCallback(() => virtuaRef.current, []);
+  const { keepMountedIndices, trackVisibleStreamingItems } = useKeepMountedIndices({
+    dataSource,
+    getVirtua,
+    selectionMessageIds,
+    streamingMessageIds,
+  });
+
   // Check if at bottom based on scroll position
   const checkAtBottom = useCallback(() => {
     const ref = virtuaRef.current;
@@ -83,6 +109,7 @@ const VirtualizedList = memo<VirtualizedListProps>(({ dataSource, itemContent })
       typeof activeFromFindRaw === 'number' && activeFromFindRaw >= 0 ? activeFromFindRaw : null;
 
     if (activeFromFind !== activeIndex) setActiveIndex(activeFromFind);
+    trackVisibleStreamingItems();
 
     setScrollState({ isScrolling: true });
 
@@ -105,11 +132,19 @@ const VirtualizedList = memo<VirtualizedListProps>(({ dataSource, itemContent })
     scrollEndTimerRef.current = setTimeout(() => {
       setScrollState({ isScrolling: false });
     }, 150);
-  }, [activeIndex, checkAtBottom, handleScrollOffset, setActiveIndex, setScrollState]);
+  }, [
+    activeIndex,
+    checkAtBottom,
+    handleScrollOffset,
+    setActiveIndex,
+    setScrollState,
+    trackVisibleStreamingItems,
+  ]);
 
   const handleScrollEnd = useCallback(() => {
+    trackVisibleStreamingItems();
     setScrollState({ isScrolling: false });
-  }, [setScrollState]);
+  }, [setScrollState, trackVisibleStreamingItems]);
 
   // Register scroll methods to store on mount
   useEffect(() => {
@@ -152,35 +187,6 @@ const VirtualizedList = memo<VirtualizedListProps>(({ dataSource, itemContent })
   const displayMessages = useConversationStore(dataSelectors.displayMessages);
   const secondLastMessage = displayMessages.at(-2);
   const isSecondLastMessageFromUser = secondLastMessage?.role === 'user';
-
-  // Keep currently-streaming items mounted so vlist recycling never triggers
-  // Markdown animation replay when the user scrolls them back into view.
-  const streamingIndices = useConversationStore(
-    useShallow((s) => {
-      const indices: number[] = [];
-      for (let i = 0; i < dataSource.length; i++) {
-        const id = dataSource[i];
-        if (!id) continue;
-        if (messageStateSelectors.isMessageGenerating(id)(s)) indices.push(i);
-      }
-      return indices;
-    }),
-  );
-
-  // Also keep items that host the active text selection — unmounting a node
-  // containing a Selection endpoint would silently drop the user's highlight.
-  const selectionMessageIds = useSelectionMessageIds();
-
-  const keepMountedIndices = useMemo(() => {
-    if (selectionMessageIds.size === 0) return streamingIndices;
-    const merged = new Set<number>(streamingIndices);
-    for (let i = 0; i < dataSource.length; i++) {
-      const id = dataSource[i];
-      if (id && selectionMessageIds.has(id)) merged.add(i);
-    }
-    if (merged.size === streamingIndices.length) return streamingIndices;
-    return [...merged].sort((a, b) => a - b);
-  }, [dataSource, streamingIndices, selectionMessageIds]);
 
   // Auto scroll to user message when user sends a new message
   // Only scroll when 2 new messages are added and second-to-last is from user
