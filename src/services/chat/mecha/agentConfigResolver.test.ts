@@ -523,7 +523,7 @@ describe('resolveAgentConfig', () => {
     });
   });
 
-  describe('Page Editor Integration (scope: page)', () => {
+  describe('Page Editor Integration (executionSurface: pageEditor)', () => {
     beforeEach(() => {
       // No slug means regular agent
       vi.spyOn(agentSelectors.agentSelectors, 'getAgentSlugById').mockReturnValue(() => undefined);
@@ -535,9 +535,10 @@ describe('resolveAgentConfig', () => {
       });
     });
 
-    it('should inject page-agent tools for custom agent in page scope', () => {
+    it('should inject page-agent tools for custom agent on page-editor execution surface', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -547,9 +548,31 @@ describe('resolveAgentConfig', () => {
       expect(result.isBuiltinAgent).toBe(false);
     });
 
+    it('should inject page-agent tools for main scope on page-editor execution surface', () => {
+      const result = resolveAgentConfig({
+        agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
+        scope: 'main',
+      });
+
+      expect(result.plugins).toContain(PageAgentIdentifier);
+      expect(result.plugins).toEqual([PageAgentIdentifier, 'plugin-a', 'plugin-b']);
+      expect(result.chatConfig.enableHistoryCount).toBe(false);
+    });
+
+    it('should not inject page-agent tools from page scope alone', () => {
+      const result = resolveAgentConfig({
+        agentId: 'custom-agent',
+        scope: 'page',
+      });
+
+      expect(result.plugins).not.toContain(PageAgentIdentifier);
+    });
+
     it('should preserve existing plugins when injecting page-agent', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         plugins: ['web-search', 'memory'],
         scope: 'page',
       });
@@ -560,6 +583,7 @@ describe('resolveAgentConfig', () => {
     it('should merge custom system role with page-agent system role', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -582,6 +606,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -590,7 +615,7 @@ describe('resolveAgentConfig', () => {
       );
     });
 
-    it('should not inject page-agent for non-page scope', () => {
+    it('should not inject page-agent without page-editor execution surface', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
         scope: 'main',
@@ -613,6 +638,7 @@ describe('resolveAgentConfig', () => {
     it('should not duplicate PageAgentIdentifier if already present', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         plugins: [PageAgentIdentifier, 'other-plugin'],
         scope: 'page',
       });
@@ -621,7 +647,7 @@ describe('resolveAgentConfig', () => {
       expect(result.plugins).toEqual([PageAgentIdentifier, 'other-plugin']);
     });
 
-    it('should strip page-agent from explicit plugins outside page scope', () => {
+    it('should strip page-agent from explicit plugins outside page-editor execution surface', () => {
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
         plugins: [PageAgentIdentifier, 'other-plugin'],
@@ -644,6 +670,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -652,7 +679,7 @@ describe('resolveAgentConfig', () => {
       expect(result.chatConfig.historyCount).toBe(20);
     });
 
-    it('should preserve params adjustments in page scope', () => {
+    it('should preserve params adjustments on page-editor execution surface', () => {
       vi.spyOn(agentSelectors.agentSelectors, 'getAgentConfigById').mockReturnValue(
         () =>
           ({
@@ -676,6 +703,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -689,6 +717,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -706,6 +735,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'custom-agent',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -714,7 +744,7 @@ describe('resolveAgentConfig', () => {
       expect(result.chatConfig.enableHistoryCount).toBe(false);
     });
 
-    it('should not duplicate injection when page-agent itself is used in page scope', () => {
+    it('should not duplicate injection when page-agent itself is used on page-editor execution surface', () => {
       // page-agent is a builtin agent with slug 'page-agent'
       vi.spyOn(agentSelectors.agentSelectors, 'getAgentSlugById').mockReturnValue(
         () => 'page-agent',
@@ -727,6 +757,7 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'page-agent-id',
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
@@ -1029,7 +1060,7 @@ describe('resolveAgentConfig', () => {
       expect(result.plugins).toContain('lobe-gtd');
     });
 
-    it('should filter lobe-gtd in page scope when isSubTask is true', () => {
+    it('should filter lobe-gtd on page-editor execution surface when isSubTask is true', () => {
       vi.spyOn(agentSelectors.agentSelectors, 'getAgentConfigById').mockReturnValue(
         () =>
           ({
@@ -1043,8 +1074,9 @@ describe('resolveAgentConfig', () => {
 
       const result = resolveAgentConfig({
         agentId: 'test-agent',
-        scope: 'page',
+        executionSurface: 'pageEditor',
         isSubTask: true,
+        scope: 'page',
       });
 
       expect(result.plugins).not.toContain('lobe-gtd');
@@ -1142,7 +1174,7 @@ describe('resolveAgentConfig', () => {
       expect(result.isBuiltinAgent).toBe(true);
     });
 
-    it('should return empty plugins in page scope when disableTools is true', () => {
+    it('should return empty plugins on page-editor execution surface when disableTools is true', () => {
       vi.spyOn(builtinAgents, 'getAgentRuntimeConfig').mockReturnValue({
         plugins: [PageAgentIdentifier],
         systemRole: 'Page agent system role',
@@ -1151,10 +1183,11 @@ describe('resolveAgentConfig', () => {
       const result = resolveAgentConfig({
         agentId: 'test-agent',
         disableTools: true,
+        executionSurface: 'pageEditor',
         scope: 'page',
       });
 
-      // disableTools should override page scope injection
+      // disableTools should override page-editor tool injection.
       expect(result.plugins).toEqual([]);
     });
 

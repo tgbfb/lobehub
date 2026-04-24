@@ -412,6 +412,12 @@ export interface BuiltinToolContext {
   documentId?: string | null;
 
   /**
+   * Runtime execution surface for tool/capability selection.
+   * This is intentionally independent from conversation `scope`.
+   */
+  executionSurface?: 'pageEditor';
+
+  /**
    * The current group ID (only available in group chat context)
    * Used by group management tools to access group member information
    */

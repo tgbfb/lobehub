@@ -30,6 +30,13 @@ export class ConversationControlActionImpl {
     this.#get = get;
   }
 
+  #toOperationContext = (
+    context: ConversationContext,
+    messageId: string,
+  ): ConversationContext & { messageId: string } => {
+    return { ...context, messageId };
+  };
+
   /**
    * Decide whether approve/reject/reject_continue should go through the
    * Gateway resume path (new op carrying `resumeApproval`) instead of the
@@ -189,13 +196,7 @@ export class ConversationControlActionImpl {
     // This ensures optimistic updates use the correct agentId/topicId
     const { operationId } = startOperation({
       type: 'approveToolCalling',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId: toolMessageId,
-      },
+      context: this.#toOperationContext(effectiveContext, toolMessageId),
     });
 
     const optimisticContext = { operationId };
@@ -319,13 +320,7 @@ export class ConversationControlActionImpl {
 
     const { operationId } = startOperation({
       type: 'submitToolInteraction',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId: toolMessageId,
-      },
+      context: this.#toOperationContext(effectiveContext, toolMessageId),
     });
 
     const optimisticContext: OptimisticUpdateContext = { operationId };
@@ -422,13 +417,7 @@ export class ConversationControlActionImpl {
 
     const { operationId } = startOperation({
       type: 'skipToolInteraction',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId: toolMessageId,
-      },
+      context: this.#toOperationContext(effectiveContext, toolMessageId),
     });
 
     const optimisticContext: OptimisticUpdateContext = { operationId };
@@ -517,20 +506,12 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
-
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
 
     const { operationId } = startOperation({
       type: 'cancelToolInteraction',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId: toolMessageId,
-      },
+      context: this.#toOperationContext(effectiveContext, toolMessageId),
     });
 
     const optimisticContext = { operationId };
@@ -566,21 +547,13 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
-
     const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
     if (!toolMessage) return;
 
     // Create an operation to carry the context for optimistic updates
     const { operationId } = startOperation({
       type: 'rejectToolCalling',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId,
-      },
+      context: this.#toOperationContext(effectiveContext, messageId),
     });
 
     const optimisticContext = { operationId };
@@ -680,13 +653,7 @@ export class ConversationControlActionImpl {
 
       const { operationId } = startOperation({
         type: 'rejectToolCalling',
-        context: {
-          agentId,
-          topicId: topicId ?? undefined,
-          threadId: threadId ?? undefined,
-          scope,
-          messageId,
-        },
+        context: this.#toOperationContext(effectiveContext, messageId),
       });
 
       const optimisticContext = { operationId };
@@ -737,13 +704,7 @@ export class ConversationControlActionImpl {
     // Create an operation to manage the continue execution
     const { operationId } = startOperation({
       type: 'rejectToolCalling',
-      context: {
-        agentId,
-        topicId: topicId ?? undefined,
-        threadId: threadId ?? undefined,
-        scope,
-        messageId,
-      },
+      context: this.#toOperationContext(effectiveContext, messageId),
     });
 
     // Get current messages for state construction using context

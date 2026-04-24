@@ -18,6 +18,12 @@ export type MessageMapScope =
   | 'agent_builder'
   | 'sub_agent';
 
+export type ConversationExecutionSurface = 'pageEditor';
+
+export const isPageEditorExecutionSurface = (
+  context?: { executionSurface?: ConversationExecutionSurface | string | null } | null,
+): boolean => context?.executionSurface === 'pageEditor';
+
 /**
  * Context for generating message map key with scope-driven architecture
  *
@@ -124,6 +130,12 @@ export interface ConversationContext {
    * other agent resources tied to the same topic.
    */
   documentId?: string;
+  /**
+   * Runtime execution surface for tool/capability selection.
+   * This is intentionally independent from `scope`, which only selects the
+   * message stream.
+   */
+  executionSurface?: ConversationExecutionSurface;
   /**
    * Group ID for group conversations
    * Used when scope is 'group' or 'group_agent'

@@ -791,7 +791,7 @@ describe('StreamingExecutor actions', () => {
       streamSpy.mockRestore();
     });
 
-    it('should merge provided initialContext with runtime page editor context', () => {
+    it('should merge provided initialContext with runtime page editor context on page-editor execution surface', () => {
       act(() => {
         useChatStore.setState({ internal_execAgentRuntime: realExecAgentRuntime });
       });
@@ -827,7 +827,8 @@ describe('StreamingExecutor actions', () => {
       const { operationId } = result.current.startOperation({
         context: {
           agentId: TEST_IDS.SESSION_ID,
-          scope: 'page',
+          executionSurface: 'pageEditor',
+          scope: 'main',
           topicId: TEST_IDS.TOPIC_ID,
         },
         type: 'execAgentRuntime',
@@ -859,7 +860,7 @@ describe('StreamingExecutor actions', () => {
       });
     });
 
-    it('should not inject page editor context outside page scope', () => {
+    it('should not inject page editor context without page-editor execution surface', () => {
       act(() => {
         useChatStore.setState({ internal_execAgentRuntime: realExecAgentRuntime });
       });

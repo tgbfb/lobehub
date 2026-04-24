@@ -138,6 +138,7 @@ const ExecAgentSchema = z
     appContext: z
       .object({
         documentId: z.string().optional().nullable(),
+        executionSurface: z.enum(['pageEditor']).optional(),
         groupId: z.string().optional().nullable(),
         scope: z.string().optional().nullable(),
         sessionId: z.string().optional(),

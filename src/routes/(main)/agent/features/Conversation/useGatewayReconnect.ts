@@ -29,6 +29,8 @@ export const useGatewayReconnect = (topicId?: string | null) => {
 
       await useChatStore.getState().reconnectToGatewayOperation({
         assistantMessageId: runningOperation.assistantMessageId,
+        documentId: runningOperation.documentId,
+        executionSurface: runningOperation.executionSurface,
         operationId: runningOperation.operationId,
         scope: runningOperation.scope,
         threadId: runningOperation.threadId,

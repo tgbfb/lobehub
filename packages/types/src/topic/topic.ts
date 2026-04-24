@@ -83,6 +83,8 @@ export interface ChatTopicMetadata {
    */
   runningOperation?: {
     assistantMessageId: string;
+    documentId?: string | null;
+    executionSurface?: 'pageEditor';
     operationId: string;
     scope?: string;
     threadId?: string | null;

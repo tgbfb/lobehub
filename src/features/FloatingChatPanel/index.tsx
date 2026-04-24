@@ -1,17 +1,15 @@
 'use client';
 
-import { type UIChatMessage } from '@lobechat/types';
-import { FloatingSheet, type FloatingSheetProps } from '@lobehub/ui/base-ui';
+import type { UIChatMessage } from '@lobechat/types';
+import type { FloatingSheetProps } from '@lobehub/ui/base-ui';
+import { FloatingSheet } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import type { ReactNode } from 'react';
 import { memo, useMemo, useState } from 'react';
 
-import {
-  type ActionsBarConfig,
-  type ConversationHooks,
-  ConversationProvider,
-} from '@/features/Conversation';
-import { type ConversationContext } from '@/features/Conversation/types';
+import type { ActionsBarConfig, ConversationHooks } from '@/features/Conversation';
+import { ConversationProvider } from '@/features/Conversation';
+import type { ConversationContext } from '@/features/Conversation/types';
 import { useOperationState } from '@/hooks/useOperationState';
 import { useActionsBarConfig } from '@/routes/(main)/agent/features/Conversation/useActionsBarConfig';
 import { useChatStore } from '@/store/chat';
@@ -69,6 +67,8 @@ export interface FloatingChatPanelProps {
   dismissible?: boolean;
   /** Current document identifier for page-scoped conversations. */
   documentId?: string;
+  /** Runtime execution surface for tool/capability selection. */
+  executionSurface?: ConversationContext['executionSurface'];
   headerActions?: ReactNode;
   /**
    * Conversation lifecycle hooks. Forwarded into the internal
@@ -115,6 +115,7 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     topicId,
     threadId = null,
     documentId,
+    executionSurface,
     scope,
     actionsBar,
     hooks,
@@ -133,11 +134,12 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       () => ({
         agentId,
         documentId,
+        executionSurface,
         scope: threadId ? 'thread' : (scope ?? 'main'),
         threadId,
         topicId,
       }),
-      [agentId, documentId, scope, topicId, threadId],
+      [agentId, documentId, executionSurface, scope, topicId, threadId],
     );
 
     const chatKey = useMemo(() => messageMapKey(context), [context]);

@@ -1,6 +1,8 @@
 import { PageAgentIdentifier } from '@lobechat/builtin-tool-page-agent';
 import type { LobeToolManifest, ToolsGenerationResult } from '@lobechat/context-engine';
 import { generateToolsFromManifest } from '@lobechat/context-engine';
+import type { ConversationExecutionSurface } from '@lobechat/types';
+import { isPageEditorExecutionSurface } from '@lobechat/types';
 import debug from 'debug';
 
 type UniformToolArray = NonNullable<ToolsGenerationResult['tools']>;
@@ -9,6 +11,7 @@ type UniformTool = UniformToolArray[number];
 const log = debug('lobe-mecha:tool-set-composer');
 
 export interface ToolSetComposerContext {
+  executionSurface?: ConversationExecutionSurface;
   isPageEditorReady?: boolean;
   scope?: string;
 }
@@ -49,14 +52,13 @@ const mergeInjectedManifests = (
   };
 };
 
-// `scope` is bound to the topic, not the route: navigating away from the page
-// editor keeps `scope === 'page'` on the same topic. Without this drop the LLM
-// still sees page-agent tools and can call them against a stale editor ref.
+// `scope` is only the message stream. Page editor capability is a separate
+// execution surface so main-scope conversations can still use PageAgent tools.
 const dropPageAgentIfEditorNotMounted = (
   set: ComposedToolSet,
   context: ToolSetComposerContext,
 ): ComposedToolSet => {
-  if (context.scope !== 'page') return set;
+  if (!isPageEditorExecutionSurface(context)) return set;
   if (!set.enabledToolIds.includes(PageAgentIdentifier)) return set;
   if (context.isPageEditorReady) return set;
 

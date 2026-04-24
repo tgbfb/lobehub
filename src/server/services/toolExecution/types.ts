@@ -9,6 +9,8 @@ export interface ToolExecutionContext {
   agentId?: string;
   /** Current page document ID for page-scoped conversations */
   documentId?: string | null;
+  /** Runtime execution surface for tool/capability selection */
+  executionSurface?: 'pageEditor';
   /** Memory tool permission from agent chat config */
   memoryToolPermission?: 'read-only' | 'read-write';
   /** Conversation scope captured when the operation was created */

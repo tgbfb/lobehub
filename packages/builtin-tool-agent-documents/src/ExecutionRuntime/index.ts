@@ -1,4 +1,5 @@
 import type { BuiltinServerRuntimeOutput } from '@lobechat/types';
+import { isPageEditorExecutionSurface } from '@lobechat/types';
 
 import type {
   CopyDocumentArgs,
@@ -36,6 +37,7 @@ interface AgentDocumentRecord {
 interface AgentDocumentOperationContext {
   agentId?: string | null;
   currentDocumentId?: string | null;
+  executionSurface?: 'pageEditor';
   scope?: string | null;
   topicId?: string | null;
 }
@@ -122,8 +124,8 @@ export class AgentDocumentsExecutionRuntime {
   }
 
   private getCurrentDocumentId(context?: AgentDocumentOperationContext) {
-    if (context?.scope !== 'page') return;
-    return context.currentDocumentId ?? undefined;
+    if (!isPageEditorExecutionSurface(context)) return;
+    return context?.currentDocumentId ?? undefined;
   }
 
   private resolveTopicId(context?: AgentDocumentOperationContext) {
@@ -134,8 +136,8 @@ export class AgentDocumentsExecutionRuntime {
   private buildCurrentPageDocumentWriteBlockedResult(apiName: string): BuiltinServerRuntimeOutput {
     const message =
       `Cannot use lobe-agent-documents.${apiName} on the current page document ` +
-      `while page scope is active. Use lobe-page-agent so the open editor shows a diff node ` +
-      `for review instead of writing directly to the database.`;
+      `while the page-editor execution surface is active. Use lobe-page-agent so the open ` +
+      `editor shows a diff node for review instead of writing directly to the database.`;
 
     return {
       content: message,

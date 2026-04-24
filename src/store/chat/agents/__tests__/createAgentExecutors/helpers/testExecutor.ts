@@ -39,6 +39,8 @@ export const executeWithMockContext = async ({
 }: {
   context: {
     agentId?: string;
+    documentId?: string;
+    executionSurface?: 'pageEditor';
     groupId?: string;
     messageKey: string;
     operationId: string;
@@ -60,6 +62,8 @@ export const executeWithMockContext = async ({
       childOperationIds: [],
       context: {
         agentId: context.agentId || 'test-session',
+        documentId: context.documentId,
+        executionSurface: context.executionSurface,
         groupId: context.groupId,
         messageId: context.parentId,
         scope: context.scope,
@@ -140,6 +144,8 @@ export const createInitialState = (overrides: Partial<AgentState> = {}): AgentSt
 export const createTestContext = (
   overrides: {
     agentId?: string;
+    documentId?: string;
+    executionSurface?: 'pageEditor';
     groupId?: string;
     messageKey?: string;
     operationId?: string;
@@ -151,11 +157,13 @@ export const createTestContext = (
 ) => {
   return {
     agentId: overrides.agentId || 'test-session',
+    documentId: overrides.documentId,
     groupId: overrides.groupId,
     messageKey:
       overrides.messageKey ||
       `${overrides.agentId || 'test-session'}_${overrides.topicId !== undefined ? overrides.topicId : 'test-topic'}`,
     operationId: overrides.operationId || 'op_test',
+    executionSurface: overrides.executionSurface,
     parentId: overrides.parentId || 'msg_parent',
     scope: overrides.scope,
     subAgentId: overrides.subAgentId,

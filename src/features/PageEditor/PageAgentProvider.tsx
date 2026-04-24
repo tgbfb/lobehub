@@ -1,6 +1,7 @@
 import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
+import type { ConversationContext } from '@lobechat/types';
 import { isChatGroupSessionId } from '@lobechat/types';
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import Loading from '@/components/Loading/BrandTextLoading';
@@ -9,7 +10,6 @@ import { useOperationState } from '@/hooks/useOperationState';
 import { useAgentStore } from '@/store/agent';
 import { builtinAgentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
-import { type MessageMapKeyInput } from '@/store/chat/utils/messageMapKey';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 interface PageAgentProviderProps {
@@ -29,9 +29,10 @@ export const PageAgentProvider = memo<PageAgentProviderProps>(({ children }) => 
   const selectedAgentId =
     !activeAgentId || isChatGroupSessionId(activeAgentId) ? pageAgentId : activeAgentId;
 
-  const context = useMemo<MessageMapKeyInput>(
+  const context = useMemo<ConversationContext>(
     () => ({
       agentId: selectedAgentId,
+      executionSurface: 'pageEditor',
       scope: 'page',
       topicId: activeTopicId, // No topic initially, can be extended later
     }),

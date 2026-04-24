@@ -1,4 +1,5 @@
-import { BaseExecutor, type BuiltinToolContext, type BuiltinToolResult } from '@lobechat/types';
+import type { BuiltinToolContext, BuiltinToolResult } from '@lobechat/types';
+import { BaseExecutor } from '@lobechat/types';
 
 import { AgentDocumentsExecutionRuntime } from '../ExecutionRuntime';
 import {
@@ -35,6 +36,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.listDocuments(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
       topicId: ctx.topicId,
     });
@@ -47,6 +49,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.readDocumentByFilename(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -58,6 +61,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.upsertDocumentByFilename(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -69,6 +73,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.createDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
       topicId: ctx.topicId,
     });
@@ -81,6 +86,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.readDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -92,6 +98,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.editDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -103,6 +110,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.modifyNodes(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -114,6 +122,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.removeDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -125,6 +134,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.renameDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -136,6 +146,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.copyDocument(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };
@@ -147,6 +158,7 @@ export class AgentDocumentsExecutor extends BaseExecutor<typeof AgentDocumentsAp
     return this.runtime.updateLoadRule(params, {
       agentId: ctx.agentId,
       currentDocumentId: ctx.documentId,
+      executionSurface: ctx.executionSurface,
       scope: ctx.scope,
     });
   };

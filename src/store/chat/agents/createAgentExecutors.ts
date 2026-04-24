@@ -678,15 +678,22 @@ export const createAgentExecutors = (context: {
 
       // Get context from operation
       const opContext = getOperationContext();
+      const toolOperationContext: ConversationContext = {
+        agentId: opContext.agentId!,
+        documentId: opContext.documentId,
+        executionSurface: opContext.executionSurface,
+        groupId: opContext.groupId,
+        isNew: opContext.isNew,
+        scope: opContext.scope,
+        subAgentId: opContext.subAgentId,
+        threadId: opContext.threadId,
+        topicId: opContext.topicId,
+      };
 
       // ============ Create toolCalling operation (top-level) ============
       const { operationId: toolOperationId } = context.get().startOperation({
         type: 'toolCalling',
-        context: {
-          agentId: opContext.agentId!,
-          topicId: opContext.topicId,
-          threadId: opContext.threadId,
-        },
+        context: toolOperationContext,
         parentOperationId: context.operationId,
         metadata: {
           startTime: Date.now(),
@@ -727,11 +734,7 @@ export const createAgentExecutors = (context: {
           // ============ Sub-operation 1: Create tool message ============
           const createToolMsgOpId = context.get().startOperation({
             type: 'createToolMessage',
-            context: {
-              agentId: opContext.agentId!,
-              topicId: opContext.topicId,
-              threadId: opContext.threadId,
-            },
+            context: toolOperationContext,
             parentOperationId: toolOperationId,
             metadata: {
               startTime: Date.now(),

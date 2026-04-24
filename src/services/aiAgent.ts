@@ -28,6 +28,7 @@ export interface ExecAgentTaskParams {
   agentId?: string;
   appContext?: {
     documentId?: string | null;
+    executionSurface?: 'pageEditor';
     groupId?: string | null;
     scope?: string | null;
     sessionId?: string;

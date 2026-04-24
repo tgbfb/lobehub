@@ -4,12 +4,12 @@ import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors, builtinAgentSelectors } from '@/store/agent/selectors';
 import { getChatGroupStoreState } from '@/store/agentGroup';
 import { useChatStore } from '@/store/chat';
-import { type HomeStore } from '@/store/home/store';
-import { type StoreSetter } from '@/store/types';
+import type { HomeStore } from '@/store/home/store';
+import type { StoreSetter } from '@/store/types';
 import { getStableNavigate } from '@/utils/stableNavigate';
 import { setNamespace } from '@/utils/storeDebug';
 
-import { type StarterMode } from './initialState';
+import type { StarterMode } from './initialState';
 
 const n = setNamespace('homeInput');
 
@@ -193,7 +193,7 @@ export class HomeInputActionImpl {
 
         const { sendMessage } = useChatStore.getState();
         await sendMessage({
-          context: { agentId: pageAgentId, scope: 'page' },
+          context: { agentId: pageAgentId, executionSurface: 'pageEditor', scope: 'page' },
           editorData,
           message,
         });

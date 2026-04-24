@@ -1,13 +1,14 @@
-import {
-  AgentStreamClient,
-  type AgentStreamClientOptions,
-  type AgentStreamEvent,
-  type ConnectionStatus,
+import type {
+  AgentStreamClientOptions,
+  AgentStreamEvent,
+  ConnectionStatus,
 } from '@lobechat/agent-gateway-client';
+import { AgentStreamClient } from '@lobechat/agent-gateway-client';
 import type { ConversationContext, ExecAgentResult } from '@lobechat/types';
 
 import { isDesktop } from '@/const/version';
-import { aiAgentService, type ResumeApprovalParam } from '@/services/aiAgent';
+import type { ResumeApprovalParam } from '@/services/aiAgent';
+import { aiAgentService } from '@/services/aiAgent';
 import { messageService } from '@/services/message';
 import { topicService } from '@/services/topic';
 import type { ChatStore } from '@/store/chat/store';
@@ -235,7 +236,8 @@ export class GatewayActionImpl {
     const result = await aiAgentService.execAgentTask({
       agentId: context.agentId,
       appContext: {
-        documentId: context.documentId,
+        documentId: context.documentId ?? undefined,
+        executionSurface: context.executionSurface,
         groupId: context.groupId,
         scope: context.scope,
         threadId: context.threadId,
@@ -337,12 +339,22 @@ export class GatewayActionImpl {
    */
   reconnectToGatewayOperation = async (params: {
     assistantMessageId: string;
+    documentId?: string | null;
+    executionSurface?: ConversationContext['executionSurface'];
     operationId: string;
     scope?: string;
     threadId?: string | null;
     topicId: string;
   }): Promise<void> => {
-    const { assistantMessageId, operationId, topicId, scope, threadId } = params;
+    const {
+      assistantMessageId,
+      documentId,
+      executionSurface,
+      operationId,
+      topicId,
+      scope,
+      threadId,
+    } = params;
 
     if (!this.isGatewayModeEnabled()) return;
 
@@ -355,6 +367,8 @@ export class GatewayActionImpl {
     const agentId = this.#get().activeAgentId;
     const context = {
       agentId,
+      documentId: documentId ?? undefined,
+      executionSurface,
       scope: (scope ?? 'main') as ConversationContext['scope'],
       threadId: threadId ?? null,
       topicId,

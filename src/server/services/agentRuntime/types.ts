@@ -150,6 +150,7 @@ export interface OperationCreationParams {
   appContext: {
     agentId?: string;
     documentId?: string | null;
+    executionSurface?: 'pageEditor';
     groupId?: string | null;
     scope?: string | null;
     taskId?: string;

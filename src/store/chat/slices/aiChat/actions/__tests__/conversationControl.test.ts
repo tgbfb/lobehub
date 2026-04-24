@@ -931,6 +931,78 @@ describe('ConversationControl actions', () => {
 
         executeGatewayAgentSpy.mockRestore();
       });
+
+      it('forwards page editor capability context when approving from the page panel', async () => {
+        const { result } = renderHook(() => useChatStore());
+
+        const agentId = 'server-agent';
+        const topicId = 'server-topic';
+        const chatKey = messageMapKey({ agentId, topicId });
+
+        const toolMessage = createMockMessage({
+          id: 'tool-msg-1',
+          plugin: { apiName: 'y', arguments: '{}', identifier: 'x', type: 'default' },
+          role: 'tool',
+          tool_call_id: 'call_page',
+        } as any);
+
+        act(() => {
+          useChatStore.setState({
+            activeAgentId: agentId,
+            activeTopicId: topicId,
+            dbMessagesMap: { [chatKey]: [toolMessage] },
+            messagesMap: { [chatKey]: [toolMessage] },
+          });
+
+          result.current.startOperation({
+            context: {
+              agentId,
+              documentId: 'doc_page',
+              executionSurface: 'pageEditor',
+              scope: 'main',
+              topicId,
+              threadId: null,
+            },
+            metadata: { serverOperationId: 'server-op-page' },
+            type: 'execServerAgentRuntime',
+          });
+        });
+
+        vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(true);
+        vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+        const executeGatewayAgentSpy = vi
+          .spyOn(result.current, 'executeGatewayAgent')
+          .mockResolvedValue({} as any);
+
+        await act(async () => {
+          await result.current.approveToolCalling('tool-msg-1', 'group-1', {
+            agentId,
+            documentId: 'doc_page',
+            executionSurface: 'pageEditor',
+            scope: 'main',
+            topicId,
+            threadId: null,
+          });
+        });
+
+        expect(executeGatewayAgentSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context: expect.objectContaining({
+              agentId,
+              documentId: 'doc_page',
+              executionSurface: 'pageEditor',
+              scope: 'main',
+              topicId,
+            }),
+            resumeApproval: expect.objectContaining({
+              decision: 'approved',
+              toolCallId: 'call_page',
+            }),
+          }),
+        );
+
+        executeGatewayAgentSpy.mockRestore();
+      });
     });
   });
 

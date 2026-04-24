@@ -47,11 +47,25 @@ describe('activeTopicDocumentContext', () => {
     });
   });
 
-  it('does not resolve active topic document context in page scope', async () => {
+  it('does not resolve active topic document context on page-editor execution surface', async () => {
     const context = await resolveActiveTopicDocumentInitialContext({
       agentId: 'agt_1',
       documentId: 'docs_1',
+      executionSurface: 'pageEditor',
       scope: 'page',
+      topicId: 'tpc_1',
+    });
+
+    expect(context).toBeUndefined();
+    expect(agentDocumentService.listDocuments).not.toHaveBeenCalled();
+  });
+
+  it('does not resolve active topic document context on page-editor execution surface', async () => {
+    const context = await resolveActiveTopicDocumentInitialContext({
+      agentId: 'agt_1',
+      documentId: 'docs_1',
+      executionSurface: 'pageEditor',
+      scope: 'main',
       topicId: 'tpc_1',
     });
 

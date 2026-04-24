@@ -1,12 +1,12 @@
-import { type ToolExecuteData, type ToolResultMessage } from '@lobechat/agent-gateway-client';
-import { type BuiltinToolContext } from '@lobechat/types';
+import type { ToolExecuteData, ToolResultMessage } from '@lobechat/agent-gateway-client';
+import type { BuiltinToolContext } from '@lobechat/types';
 import debug from 'debug';
 import { produce } from 'immer';
 
 import { mcpService } from '@/services/mcp';
-import { type ChatStore } from '@/store/chat/store';
+import type { ChatStore } from '@/store/chat/store';
 import { hasExecutor, invokeExecutor } from '@/store/tool/slices/builtin/executors';
-import { type StoreSetter } from '@/store/types';
+import type { StoreSetter } from '@/store/types';
 import { safeParseJSON } from '@/utils/safeParseJSON';
 
 const log = debug('lobe-store:client-tool-execution');
@@ -95,6 +95,7 @@ export class ClientToolExecutionActionImpl {
         const ctx: BuiltinToolContext = {
           agentId: operation?.context?.agentId,
           documentId: operation?.context?.documentId,
+          executionSurface: operation?.context?.executionSurface,
           groupId: operation?.context?.groupId,
           // Gateway-side tool messages are persisted on the server; the client
           // has no local message id, so reuse toolCallId as the context key.

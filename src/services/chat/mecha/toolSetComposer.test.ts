@@ -90,18 +90,18 @@ describe('composeEnabledTools', () => {
   });
 
   describe('dropPageAgentIfEditorNotMounted', () => {
-    it('keeps PageAgent when scope is not page', () => {
+    it('keeps PageAgent when no page-editor execution surface is set', () => {
       const result = composeEnabledTools({
-        context: { isPageEditorReady: false, scope: undefined },
+        context: { isPageEditorReady: false, scope: 'page' },
         toolsDetailed: makeToolsDetailed([PAGE_AGENT_MANIFEST, OTHER_MANIFEST]),
       });
 
       expect(result.enabledToolIds).toContain(PageAgentIdentifier);
     });
 
-    it('keeps PageAgent when scope is page and editor is ready', () => {
+    it('keeps PageAgent when page-editor execution surface is ready', () => {
       const result = composeEnabledTools({
-        context: { isPageEditorReady: true, scope: 'page' },
+        context: { executionSurface: 'pageEditor', isPageEditorReady: true, scope: 'page' },
         toolsDetailed: makeToolsDetailed([PAGE_AGENT_MANIFEST, OTHER_MANIFEST]),
       });
 
@@ -112,11 +112,21 @@ describe('composeEnabledTools', () => {
       ).toBe(true);
     });
 
-    it('drops PageAgent from all three outputs when scope is page and editor is not ready', () => {
+    it('keeps PageAgent for main scope when page-editor execution surface is ready', () => {
+      const result = composeEnabledTools({
+        context: { executionSurface: 'pageEditor', isPageEditorReady: true, scope: 'main' },
+        toolsDetailed: makeToolsDetailed([PAGE_AGENT_MANIFEST, OTHER_MANIFEST]),
+      });
+
+      expect(result.enabledToolIds).toContain(PageAgentIdentifier);
+      expect(result.enabledManifests).toContainEqual(PAGE_AGENT_MANIFEST);
+    });
+
+    it('drops PageAgent from all three outputs when page-editor execution surface is not ready', () => {
       const toolsDetailed = makeToolsDetailed([PAGE_AGENT_MANIFEST, OTHER_MANIFEST]);
 
       const result = composeEnabledTools({
-        context: { isPageEditorReady: false, scope: 'page' },
+        context: { executionSurface: 'pageEditor', isPageEditorReady: false, scope: 'page' },
         toolsDetailed,
       });
 
@@ -128,9 +138,19 @@ describe('composeEnabledTools', () => {
       expect(result.tools).toHaveLength(1);
     });
 
+    it('drops PageAgent for main scope when page-editor execution surface is not ready', () => {
+      const result = composeEnabledTools({
+        context: { executionSurface: 'pageEditor', isPageEditorReady: false, scope: 'main' },
+        toolsDetailed: makeToolsDetailed([PAGE_AGENT_MANIFEST, OTHER_MANIFEST]),
+      });
+
+      expect(result.enabledToolIds).toEqual(['lobe-agent-documents']);
+      expect(result.enabledManifests).toEqual([OTHER_MANIFEST]);
+    });
+
     it('sets tools to undefined when dropping PageAgent leaves no tools', () => {
       const result = composeEnabledTools({
-        context: { isPageEditorReady: false, scope: 'page' },
+        context: { executionSurface: 'pageEditor', isPageEditorReady: false, scope: 'page' },
         toolsDetailed: makeToolsDetailed([PAGE_AGENT_MANIFEST]),
       });
 
@@ -139,11 +159,11 @@ describe('composeEnabledTools', () => {
       expect(result.tools).toBeUndefined();
     });
 
-    it('is a no-op when scope is page but PageAgent is not enabled', () => {
+    it('is a no-op when page-editor execution surface is set but PageAgent is not enabled', () => {
       const toolsDetailed = makeToolsDetailed([OTHER_MANIFEST]);
 
       const result = composeEnabledTools({
-        context: { isPageEditorReady: false, scope: 'page' },
+        context: { executionSurface: 'pageEditor', isPageEditorReady: false, scope: 'page' },
         toolsDetailed,
       });
 

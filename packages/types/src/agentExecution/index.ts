@@ -7,6 +7,8 @@ import type { ChatTopic } from '../topic';
 export interface ExecAgentAppContext {
   /** Current document ID for page-scoped conversations */
   documentId?: string | null;
+  /** Runtime execution surface for tool/capability selection */
+  executionSurface?: 'pageEditor';
   /** Group ID for group chat */
   groupId?: string | null;
   /** Scope identifier */

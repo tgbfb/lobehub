@@ -2,12 +2,14 @@ import { type BuiltinAgentSlug } from '@lobechat/builtin-agents';
 import { BUILTIN_AGENT_SLUGS, getAgentRuntimeConfig } from '@lobechat/builtin-agents';
 import { PageAgentIdentifier } from '@lobechat/builtin-tool-page-agent';
 import { type LobeToolManifest } from '@lobechat/context-engine';
-import {
-  type ChatCompletionTool,
-  type LobeAgentChatConfig,
-  type LobeAgentConfig,
-  type MessageMapScope,
+import type {
+  ChatCompletionTool,
+  ConversationExecutionSurface,
+  LobeAgentChatConfig,
+  LobeAgentConfig,
+  MessageMapScope,
 } from '@lobechat/types';
+import { isPageEditorExecutionSurface } from '@lobechat/types';
 import debug from 'debug';
 import { produce } from 'immer';
 
@@ -79,6 +81,9 @@ export interface AgentConfigResolverContext {
   /** Document content for page-agent */
   documentContent?: string;
 
+  /** Runtime execution surface for tool/capability selection */
+  executionSurface?: ConversationExecutionSurface;
+
   /**
    * Group ID for supervisor detection.
    * When provided, used for direct lookup instead of iterating all groups.
@@ -90,15 +95,14 @@ export interface AgentConfigResolverContext {
    * When true, filters out lobe-gtd tools to prevent nested sub-task creation.
    */
   isSubTask?: boolean;
-
   /** Current model being used (for template variables) */
   model?: string;
+
   /** Plugins enabled for the agent */
   plugins?: string[];
 
   /** Current provider */
   provider?: string;
-
   /** Message map scope (e.g., 'page', 'main', 'thread') */
   scope?: MessageMapScope;
   /** Target agent config for agent-builder */
@@ -144,6 +148,7 @@ export interface ResolvedAgentConfig {
 export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAgentConfig => {
   const { agentId, model, documentContent, plugins, targetAgentConfig, isSubTask, disableTools } =
     ctx;
+  const isPageEditor = isPageEditorExecutionSurface(ctx);
 
   log(
     'resolveAgentConfig called with agentId: %s, scope: %s, isSubTask: %s, disableTools: %s',
@@ -164,7 +169,7 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
 
     let nextPluginIds = pluginIds;
 
-    if (ctx.scope !== 'page') {
+    if (!isPageEditor) {
       nextPluginIds = nextPluginIds.filter((id) => id !== PageAgentIdentifier);
     }
 
@@ -256,9 +261,9 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
     let finalChatConfig = chatConfig;
 
     // === Page Editor Auto-Injection ===
-    // When custom agent is used in page editor (scope === 'page'),
+    // When custom agent is used in the page editor,
     // automatically inject page-agent tools and system role
-    if (ctx.scope === 'page') {
+    if (isPageEditor) {
       // 1. Inject page-agent tool if not already present
       const pageAgentPlugins = finalPlugins.includes(PageAgentIdentifier)
         ? finalPlugins
@@ -295,7 +300,7 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
       };
     }
 
-    // Not in page scope - return standard config
+    // No page-editor execution surface: return standard config.
     return {
       agentConfig: finalAgentConfig,
       chatConfig: finalChatConfig,
@@ -380,9 +385,9 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
   };
 
   // === Page Editor Auto-Injection for Builtin Agents ===
-  // When a builtin agent (other than page-agent itself) is used in page editor,
+  // When a builtin agent (other than page-agent itself) is used in the page editor,
   // inject page-agent tools and system role
-  if (ctx.scope === 'page' && slug !== BUILTIN_AGENT_SLUGS.pageAgent) {
+  if (isPageEditor && slug !== BUILTIN_AGENT_SLUGS.pageAgent) {
     // 1. Inject page-agent tool if not already present
     if (!finalPlugins.includes(PageAgentIdentifier)) {
       finalPlugins = [PageAgentIdentifier, ...finalPlugins];

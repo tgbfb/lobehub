@@ -460,10 +460,10 @@ describe('call_tool executor', () => {
       // Then
       expect(mockStore.startOperation).toHaveBeenNthCalledWith(1, {
         type: 'toolCalling',
-        context: {
+        context: expect.objectContaining({
           agentId: 'sess_op',
           topicId: 'topic_op',
-        },
+        }),
         parentOperationId: context.operationId,
         metadata: expect.objectContaining({
           identifier: 'lobe-web-browsing',
@@ -506,15 +506,70 @@ describe('call_tool executor', () => {
 
       expect(mockStore.startOperation).toHaveBeenNthCalledWith(2, {
         type: 'createToolMessage',
-        context: {
+        context: expect.objectContaining({
           agentId: 'sess_child',
           topicId: 'topic_child',
-        },
+        }),
         parentOperationId: toolCallingOpId,
         metadata: expect.objectContaining({
           tool_call_id: 'tool_child_test',
         }),
       });
+    });
+
+    it('should preserve page editor capability fields on tool sub-operations', async () => {
+      // Given
+      const mockStore = createMockStore();
+      const context = createTestContext({
+        agentId: 'sess_page',
+        documentId: 'doc_page',
+        executionSurface: 'pageEditor',
+        scope: 'main',
+        topicId: 'topic_page',
+      });
+
+      const assistantMessage = createAssistantMessage();
+      mockStore.dbMessagesMap[context.messageKey] = [assistantMessage];
+
+      const instruction = createCallToolInstruction();
+      const state = createInitialState();
+
+      // When
+      await executeWithMockContext({
+        executor: 'call_tool',
+        instruction,
+        state,
+        mockStore,
+        context,
+      });
+
+      // Then
+      expect(mockStore.startOperation).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          context: expect.objectContaining({
+            agentId: 'sess_page',
+            documentId: 'doc_page',
+            executionSurface: 'pageEditor',
+            scope: 'main',
+            topicId: 'topic_page',
+          }),
+          type: 'toolCalling',
+        }),
+      );
+      expect(mockStore.startOperation).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          context: expect.objectContaining({
+            agentId: 'sess_page',
+            documentId: 'doc_page',
+            executionSurface: 'pageEditor',
+            scope: 'main',
+            topicId: 'topic_page',
+          }),
+          type: 'createToolMessage',
+        }),
+      );
     });
 
     it('should create executeToolCall operation with messageId in context', async () => {

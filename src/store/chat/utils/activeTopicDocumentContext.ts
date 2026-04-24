@@ -1,5 +1,6 @@
 import type { AgentRuntimeContext } from '@lobechat/agent-runtime';
 import type { ConversationContext, RuntimeActiveTopicDocumentContext } from '@lobechat/types';
+import { isPageEditorExecutionSurface } from '@lobechat/types';
 
 import { agentDocumentService } from '@/services/agentDocument';
 
@@ -37,7 +38,7 @@ export const mergeAgentRuntimeInitialContexts = (
 const resolveActiveTopicDocument = async (
   context: ConversationContext,
 ): Promise<RuntimeActiveTopicDocumentContext | undefined> => {
-  if (context.scope === 'page') return;
+  if (isPageEditorExecutionSurface(context)) return;
   if (!context.agentId || !context.topicId || !context.documentId) return;
 
   try {

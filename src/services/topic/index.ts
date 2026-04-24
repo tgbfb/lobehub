@@ -103,7 +103,12 @@ export class TopicService {
         version: number;
       };
       provider?: string;
-      runningOperation?: { assistantMessageId: string; operationId: string } | null;
+      runningOperation?: {
+        assistantMessageId: string;
+        documentId?: string | null;
+        executionSurface?: 'pageEditor';
+        operationId: string;
+      } | null;
       workingDirectory?: string;
     },
   ) => {

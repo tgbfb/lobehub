@@ -1,37 +1,30 @@
 // Disable the auto sort key eslint rule to make the code more logic and readable
-import {
-  type AgentRuntimeContext,
-  type AgentState,
-  type Cost,
-  type Usage,
-} from '@lobechat/agent-runtime';
+import type { AgentRuntimeContext, AgentState, Cost, Usage } from '@lobechat/agent-runtime';
 import { AgentRuntime, computeStepContext, GeneralChatAgent } from '@lobechat/agent-runtime';
 import { createPathScopeAudit } from '@lobechat/builtin-tool-local-system';
 import { PageAgentIdentifier } from '@lobechat/builtin-tool-page-agent';
 import { manualModeExcludeToolIds } from '@lobechat/builtin-tools';
 import { isDesktop } from '@lobechat/const';
-import { type ToolsEngine } from '@lobechat/context-engine';
+import type { ToolsEngine } from '@lobechat/context-engine';
 import { buildTaskDetailPrompt, buildTaskListPrompt } from '@lobechat/prompts';
-import {
-  type ConversationContext,
-  type RuntimeInitialContext,
-  type UIChatMessage,
-} from '@lobechat/types';
+import type { ConversationContext, RuntimeInitialContext, UIChatMessage } from '@lobechat/types';
+import { isPageEditorExecutionSurface } from '@lobechat/types';
 import debug from 'debug';
 import { t } from 'i18next';
 
 import { createAgentToolsEngine } from '@/helpers/toolEngineering';
-import { type ResolvedAgentConfig } from '@/services/chat/mecha';
+import type { ResolvedAgentConfig } from '@/services/chat/mecha';
 import { composeEnabledTools, resolveAgentConfig } from '@/services/chat/mecha';
 import { localFileService } from '@/services/electron/localFileService';
 import { messageService } from '@/services/message';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { createAgentExecutors } from '@/store/chat/agents/createAgentExecutors';
-import { type ChatStore, useChatStore } from '@/store/chat/store';
+import type { ChatStore } from '@/store/chat/store';
+import { useChatStore } from '@/store/chat/store';
 import { getTaskStoreState } from '@/store/task';
 import { pageAgentRuntime } from '@/store/tool/slices/builtin/executors/lobe-page-agent';
-import { type StoreSetter } from '@/store/types';
+import type { StoreSetter } from '@/store/types';
 import { toolInterventionSelectors } from '@/store/user/selectors';
 import { getUserStoreState } from '@/store/user/store';
 import { markdownToTxt } from '@/utils/markdownToTxt';
@@ -139,6 +132,8 @@ export class StreamingExecutorActionImpl {
     const operation = operationId ? this.#get().operations[operationId] : undefined;
     const scope = operation?.context.scope;
     const groupId = operation?.context.groupId;
+    const executionSurface = operation?.context.executionSurface;
+    const isPageEditor = isPageEditorExecutionSurface(operation?.context);
 
     // Resolve agent config with builtin agent runtime config merged
     // This ensures runtime plugins (e.g., 'lobe-agent-builder' for Agent Builder) are included
@@ -149,6 +144,7 @@ export class StreamingExecutorActionImpl {
       disableTools, // Clear plugins for broadcast scenarios
       groupId, // Pass groupId for supervisor detection
       isSubTask, // Filter out lobe-gtd in sub-task context
+      executionSurface,
       scope, // Pass scope from operation context
     });
 
@@ -202,6 +198,7 @@ export class StreamingExecutorActionImpl {
 
     const { enabledToolIds, enabledManifests, tools } = composeEnabledTools({
       context: {
+        executionSurface,
         isPageEditorReady: pageAgentRuntime.isReady(),
         scope,
       },
@@ -276,7 +273,7 @@ export class StreamingExecutorActionImpl {
     // Build initialContext for page editor if lobe-page-agent is enabled
     let runtimeInitialContext: RuntimeInitialContext | undefined;
 
-    if (scope === 'page' && enabledToolIds.includes(PageAgentIdentifier)) {
+    if (isPageEditor && enabledToolIds.includes(PageAgentIdentifier)) {
       try {
         // Get page content context from page agent runtime
         const pageContentContext = pageAgentRuntime.getPageContentContext('both');
@@ -404,6 +401,7 @@ export class StreamingExecutorActionImpl {
 
     // Extract values from context
     const { agentId, topicId, threadId, subAgentId, groupId, scope } = context;
+    const isPageEditor = isPageEditorExecutionSurface(context);
 
     // Determine effectiveAgentId for agent config retrieval:
     // - subAgentId is used when present (behavior depends on scope)
@@ -560,7 +558,7 @@ export class StreamingExecutorActionImpl {
       const todos = selectTodosFromMessages(currentDBMessages);
       // Accumulate activated tool IDs from lobe-activator messages
       const activatedToolIds = selectActivatedToolIdsFromMessages(currentDBMessages)?.filter(
-        (id) => scope === 'page' || id !== PageAgentIdentifier,
+        (id) => isPageEditor || id !== PageAgentIdentifier,
       );
       // Accumulate activated skills from activateSkill messages
       const activatedSkills = selectActivatedSkillsFromMessages(currentDBMessages);
@@ -573,7 +571,7 @@ export class StreamingExecutorActionImpl {
       });
 
       // If page agent is enabled, get the latest XML for stepPageEditor
-      if (scope === 'page' && nextContext.initialContext?.pageEditor) {
+      if (isPageEditor && nextContext.initialContext?.pageEditor) {
         try {
           const pageContentContext = pageAgentRuntime.getPageContentContext('xml');
           stepContext.stepPageEditor = {

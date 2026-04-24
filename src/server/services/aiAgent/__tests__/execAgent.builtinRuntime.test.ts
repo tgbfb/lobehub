@@ -214,7 +214,7 @@ describe('AiAgentService.execAgent - builtin agent runtime config', () => {
     expect(callArgs.agentConfig.systemRole).toBe('');
   });
 
-  it('should inject page-agent runtime for regular agents in page scope', async () => {
+  it('should inject page-agent runtime for regular agents on page-editor execution surface', async () => {
     mockGetAgentConfig.mockResolvedValue({
       chatConfig: { enableHistoryCount: true },
       id: 'agent-custom',
@@ -228,7 +228,8 @@ describe('AiAgentService.execAgent - builtin agent runtime config', () => {
       agentId: 'agent-custom',
       appContext: {
         documentId: 'docs-1',
-        scope: 'page',
+        executionSurface: 'pageEditor',
+        scope: 'main',
         topicId: 'topic-1',
       },
       prompt: 'Rewrite this page',
@@ -237,7 +238,8 @@ describe('AiAgentService.execAgent - builtin agent runtime config', () => {
     const callArgs = mockCreateOperation.mock.calls[0][0];
     expect(callArgs.appContext).toMatchObject({
       documentId: 'docs-1',
-      scope: 'page',
+      executionSurface: 'pageEditor',
+      scope: 'main',
     });
     expect(callArgs.agentConfig.plugins).toEqual([PageAgentIdentifier, 'lobe-agent-documents']);
     expect(callArgs.agentConfig.chatConfig.enableHistoryCount).toBe(false);

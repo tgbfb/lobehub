@@ -127,7 +127,36 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
       {
         agentId: 'agent-1',
         currentDocumentId: 'documents-row-id',
+        executionSurface: 'pageEditor',
         scope: 'page',
+      },
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatchObject({
+      code: 'CURRENT_PAGE_DOCUMENT_WRITE_FORBIDDEN',
+      kind: 'replan',
+    });
+    expect(stub.editDocument).not.toHaveBeenCalled();
+  });
+
+  it('blocks editDocument for the current page document on page-editor execution surface', async () => {
+    const stub = makeStub();
+    stub.readDocument.mockResolvedValue({
+      content: 'body',
+      documentId: 'documents-row-id',
+      id: 'agent-doc-assoc-id',
+      title: 'Daily Brief',
+    });
+
+    const runtime = new AgentDocumentsExecutionRuntime(stub);
+    const result = await runtime.editDocument(
+      { content: 'updated', id: 'agent-doc-assoc-id' },
+      {
+        agentId: 'agent-1',
+        currentDocumentId: 'documents-row-id',
+        executionSurface: 'pageEditor',
+        scope: 'main',
       },
     );
 
@@ -156,6 +185,7 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
       {
         agentId: 'agent-1',
         currentDocumentId: 'documents-row-id',
+        executionSurface: 'pageEditor',
         scope: 'page',
       },
     );
@@ -168,7 +198,7 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
     expect(stub.upsertDocumentByFilename).not.toHaveBeenCalled();
   });
 
-  it('still allows editing a different agent document in page scope', async () => {
+  it('still allows editing a different agent document on page-editor execution surface', async () => {
     const stub = makeStub();
     stub.readDocument.mockResolvedValue({
       content: 'body',
@@ -189,6 +219,7 @@ describe('AgentDocumentsExecutionRuntime.createDocument', () => {
       {
         agentId: 'agent-1',
         currentDocumentId: 'documents-row-id',
+        executionSurface: 'pageEditor',
         scope: 'page',
       },
     );

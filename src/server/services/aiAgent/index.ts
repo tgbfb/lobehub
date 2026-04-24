@@ -32,7 +32,7 @@ import type {
   MessagePluginItem,
   UserInterventionConfig,
 } from '@lobechat/types';
-import { ThreadStatus, ThreadType } from '@lobechat/types';
+import { isPageEditorExecutionSurface, ThreadStatus, ThreadType } from '@lobechat/types';
 import { nanoid } from '@lobechat/utils';
 import debug from 'debug';
 
@@ -48,19 +48,16 @@ import { UserModel } from '@/database/models/user';
 import { UserPersonaModel } from '@/database/models/userMemory/persona';
 import { shouldEnableBuiltinSkill } from '@/helpers/skillFilters';
 import { signUserJWT } from '@/libs/trpc/utils/internalJwt';
-import {
-  createServerAgentToolsEngine,
-  type EvalContext,
-  type ServerAgentToolsContext,
-} from '@/server/modules/Mecha';
-import { type ServerUserMemoryConfig } from '@/server/modules/Mecha/ContextEngineering/types';
+import type { EvalContext, ServerAgentToolsContext } from '@/server/modules/Mecha';
+import { createServerAgentToolsEngine } from '@/server/modules/Mecha';
+import type { ServerUserMemoryConfig } from '@/server/modules/Mecha/ContextEngineering/types';
 import { AgentService } from '@/server/services/agent';
 import { AgentDocumentsService } from '@/server/services/agentDocuments';
 import type { AgentRuntimeServiceOptions } from '@/server/services/agentRuntime';
 import { AgentRuntimeService } from '@/server/services/agentRuntime';
 import { getAbortError, isAbortError, throwIfAborted } from '@/server/services/agentRuntime/abort';
-import { type AgentHook } from '@/server/services/agentRuntime/hooks/types';
-import { type StepLifecycleCallbacks } from '@/server/services/agentRuntime/types';
+import type { AgentHook } from '@/server/services/agentRuntime/hooks/types';
+import type { StepLifecycleCallbacks } from '@/server/services/agentRuntime/types';
 import { DocumentService } from '@/server/services/document';
 import { FileService } from '@/server/services/file';
 import { KlavisService } from '@/server/services/klavis';
@@ -356,11 +353,11 @@ export class AiAgentService {
       }
     }
 
-    if (appContext?.scope !== 'page') {
+    if (!isPageEditorExecutionSurface(appContext)) {
       agentConfig.plugins = agentConfig.plugins?.filter((id) => id !== PageAgentIdentifier);
     }
 
-    if (appContext?.scope === 'page' && agentSlug !== BUILTIN_AGENT_SLUGS.pageAgent) {
+    if (isPageEditorExecutionSurface(appContext) && agentSlug !== BUILTIN_AGENT_SLUGS.pageAgent) {
       const pageAgentRuntime = getAgentRuntimeConfig(BUILTIN_AGENT_SLUGS.pageAgent, {
         model: agentConfig.model,
         plugins: agentConfig.plugins ?? [],
@@ -380,7 +377,7 @@ export class AiAgentService {
         ...agentConfig.chatConfig,
         enableHistoryCount: false,
       };
-      log('execAgent: injected page-agent runtime for page scope');
+      log('execAgent: injected page-agent runtime for page-editor execution surface');
     }
 
     await throwIfExecutionAborted('agent configuration');
@@ -1353,7 +1350,7 @@ export class AiAgentService {
       },
     };
 
-    if (appContext?.scope !== 'page' && appContext?.documentId && topicId) {
+    if (!isPageEditorExecutionSurface(appContext) && appContext?.documentId && topicId) {
       try {
         const topicDocuments = await this.agentDocumentsService.listDocumentsForTopic(
           resolvedAgentId,
@@ -1501,6 +1498,7 @@ export class AiAgentService {
         appContext: {
           agentId: resolvedAgentId,
           documentId: appContext?.documentId,
+          executionSurface: appContext?.executionSurface,
           groupId: appContext?.groupId,
           scope: appContext?.scope,
           taskId,
@@ -1542,6 +1540,8 @@ export class AiAgentService {
       await this.topicModel.updateMetadata(topicId, {
         runningOperation: {
           assistantMessageId: assistantMessageRecord.id,
+          documentId: appContext?.documentId ?? undefined,
+          executionSurface: appContext?.executionSurface,
           operationId,
           scope: appContext?.scope ?? undefined,
           threadId: appContext?.threadId ?? undefined,

@@ -92,14 +92,21 @@ describe('FloatingChatPanel', () => {
     expect(ctx.threadId).toBe('thread-1');
   });
 
-  it('supports page-scoped context with the active document id', () => {
+  it('supports page-editor execution surface with the active document id', () => {
     const { getByTestId } = render(
-      <FloatingChatPanel agentId="agent-1" documentId="doc-1" scope="page" topicId="topic-1" />,
+      <FloatingChatPanel
+        agentId="agent-1"
+        documentId="doc-1"
+        executionSurface="pageEditor"
+        scope="page"
+        topicId="topic-1"
+      />,
     );
     const ctx = JSON.parse(getByTestId('provider').dataset.context!);
     expect(ctx).toEqual({
       agentId: 'agent-1',
       documentId: 'doc-1',
+      executionSurface: 'pageEditor',
       scope: 'page',
       threadId: null,
       topicId: 'topic-1',

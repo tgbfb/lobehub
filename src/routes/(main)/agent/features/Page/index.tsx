@@ -116,9 +116,10 @@ const TopicPage = memo(() => {
         <FloatingChatPanel
           agentId={aid}
           documentId={docId}
+          executionSurface={'pageEditor'}
           maxHeight={0.92}
           minHeight={320}
-          scope={'page'}
+          scope={'main'}
           topicId={topicId}
           variant={'embedded'}
         />

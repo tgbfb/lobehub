@@ -338,6 +338,47 @@ describe('GatewayActionImpl', () => {
       );
     });
 
+    it('should forward executionSurface through appContext', async () => {
+      const { action } = createExecuteTestAction();
+
+      vi.mocked(aiAgentService.execAgentTask).mockResolvedValue({
+        agentId: 'agent-1',
+        assistantMessageId: 'ast-1',
+        autoStarted: true,
+        createdAt: new Date().toISOString(),
+        message: 'ok',
+        operationId: 'server-op-1',
+        status: 'created',
+        success: true,
+        timestamp: new Date().toISOString(),
+        token: 'test-token',
+        topicId: 'topic-1',
+        userMessageId: 'usr-1',
+      });
+
+      await action.executeGatewayAgent({
+        context: {
+          agentId: 'agent-1',
+          documentId: 'docs-1',
+          executionSurface: 'pageEditor',
+          scope: 'main',
+          threadId: null,
+          topicId: 'topic-1',
+        },
+        message: 'Rewrite this page',
+      });
+
+      expect(aiAgentService.execAgentTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          appContext: expect.objectContaining({
+            documentId: 'docs-1',
+            executionSurface: 'pageEditor',
+            scope: 'main',
+          }),
+        }),
+      );
+    });
+
     it('should not include parentMessageId when not provided (normal send)', async () => {
       const { action } = createExecuteTestAction();
 
