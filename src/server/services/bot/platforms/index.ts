@@ -9,6 +9,7 @@ import { slack } from './slack/definition';
 import { telegram } from './telegram/definition';
 import { wechat } from './wechat/definition';
 import { whatsapp } from './whatsapp/definition';
+import { whatsappBaileys } from './whatsapp-baileys/definition';
 
 export {
   displayToolCallsField,
@@ -59,6 +60,7 @@ export { slack } from './slack/definition';
 export { telegram } from './telegram/definition';
 export { wechat } from './wechat/definition';
 export { whatsapp } from './whatsapp/definition';
+export { whatsappBaileys } from './whatsapp-baileys/definition';
 
 export const platformRegistry = new PlatformRegistry();
 
@@ -70,3 +72,4 @@ platformRegistry.register(lark);
 platformRegistry.register(qq);
 platformRegistry.register(wechat);
 platformRegistry.register(whatsapp);
+platformRegistry.register(whatsappBaileys);

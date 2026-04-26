@@ -118,6 +118,12 @@ export default {
     'Meta App Secret. Required — used to verify the X-Hub-Signature-256 header on every inbound webhook. Webhooks with a missing or mismatched signature are rejected.',
   'channel.whatsapp.webhookManualSetup':
     'WhatsApp does not allow programmatic webhook registration. Copy this URL into the Meta App dashboard ("WhatsApp → Configuration → Webhooks → Callback URL"), set the Verify Token to match, and subscribe to the `messages` field.',
+  'channel.whatsappBaileys.description':
+    'Connect a personal WhatsApp account via QR pairing. Available on LobeHub Cloud only. WhatsApp Terms of Service prohibit unofficial clients; Meta may ban numbers exhibiting automated behavior — use a dedicated phone number for this bot.',
+  'channel.whatsappBaileys.connectionLabel': 'Connection Label',
+  'channel.whatsappBaileys.connectionLabelHint':
+    'Operator-chosen identifier for this WhatsApp account (e.g. a phone number or alias). Used as the connection id in the gateway and the bot status dashboard.',
+  'channel.whatsappBaileys.connectionLabelPlaceholder': 'e.g. +15551234567 or my-whatsapp',
   'channel.testConnection': 'Test Connection',
   'channel.testFailed': 'Connection test failed',
   'channel.testSuccess': 'Connection test passed',

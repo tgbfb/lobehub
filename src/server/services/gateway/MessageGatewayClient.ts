@@ -39,6 +39,19 @@ export interface MessageGatewayStats {
   total: number;
 }
 
+// ─── Per-platform routing ───
+
+/**
+ * Platforms that need a Node-runtime gateway (libsignal, native deps).
+ * Routed to `MESSAGE_GATEWAY_NODE_URL` instead of the default CF gateway.
+ */
+const NODE_GATEWAY_PLATFORMS = new Set(['whatsapp-baileys']);
+
+interface GatewayBackend {
+  baseUrl: string;
+  serviceToken: string;
+}
+
 // ─── Client ───
 
 /**
@@ -48,23 +61,48 @@ export interface MessageGatewayStats {
  * connections (WebSocket/long-polling) and forwards inbound events to
  * LobeHub's webhook. Outbound messaging is NOT routed through the gateway;
  * LobeHub calls platform REST APIs directly.
+ *
+ * Two backend pools exist: the Cloudflare Workers `message-gateway` (for
+ * Discord/QQ/etc.) and an optional Node-runtime `message-gateway-node` for
+ * libsignal-based platforms (today: `whatsapp-baileys`). Routing is
+ * driven by `NODE_GATEWAY_PLATFORMS` and the `MESSAGE_GATEWAY_NODE_URL` env.
  */
 export class MessageGatewayClient {
-  private baseUrl: string;
-  private serviceToken: string;
+  private cf: GatewayBackend;
+  private node: GatewayBackend;
 
   constructor(baseUrl?: string, serviceToken?: string) {
     if (baseUrl !== undefined) {
-      this.baseUrl = baseUrl;
-      this.serviceToken = serviceToken || '';
+      // Test / manual override — the explicit (url, token) pair targets the
+      // CF backend only. The Node backend stays unconfigured so tests don't
+      // double-count when methods that fan out across backends (getStats,
+      // disconnectAll) aggregate results.
+      this.cf = { baseUrl, serviceToken: serviceToken || '' };
+      this.node = { baseUrl: '', serviceToken: '' };
     } else {
-      this.baseUrl = gatewayEnv.MESSAGE_GATEWAY_URL || '';
-      this.serviceToken = gatewayEnv.MESSAGE_GATEWAY_SERVICE_TOKEN || '';
+      this.cf = {
+        baseUrl: gatewayEnv.MESSAGE_GATEWAY_URL || '',
+        serviceToken: gatewayEnv.MESSAGE_GATEWAY_SERVICE_TOKEN || '',
+      };
+      this.node = {
+        baseUrl: gatewayEnv.MESSAGE_GATEWAY_NODE_URL || '',
+        serviceToken: gatewayEnv.MESSAGE_GATEWAY_NODE_SERVICE_TOKEN || '',
+      };
     }
   }
 
+  /** Pick the right backend for a given platform. */
+  private backendFor(platform: string | undefined): GatewayBackend {
+    if (platform && NODE_GATEWAY_PLATFORMS.has(platform)) return this.node;
+    return this.cf;
+  }
+
+  /** True when at least one backend (CF or Node) has URL + token configured. */
   get isConfigured(): boolean {
-    return !!(this.baseUrl && this.serviceToken);
+    return (
+      Boolean(this.cf.baseUrl && this.cf.serviceToken) ||
+      Boolean(this.node.baseUrl && this.node.serviceToken)
+    );
   }
 
   /**
@@ -77,12 +115,17 @@ export class MessageGatewayClient {
     return gatewayEnv.MESSAGE_GATEWAY_ENABLED === '1' && this.isConfigured;
   }
 
+  /** True when the Node gateway is configured — used to gate UI for `whatsapp-baileys`. */
+  get isNodeBackendConfigured(): boolean {
+    return Boolean(this.node.baseUrl && this.node.serviceToken);
+  }
+
   // ─── Connection Management ───
 
   async connect(config: MessageGatewayConnectionConfig): Promise<{ status: string }> {
     log('Connecting %s:%s (platform=%s)', config.connectionId, config.userId, config.platform);
 
-    const res = await this.post('/api/connections', { config });
+    const res = await this.post('/api/connections', { config }, this.backendFor(config.platform));
 
     if (!res.ok) {
       const error = await res.text();
@@ -93,55 +136,108 @@ export class MessageGatewayClient {
     return res.json();
   }
 
+  /**
+   * Disconnect every active connection on **both** backends. Each call is
+   * fire-and-forget per backend; failures on one backend don't block the
+   * other.
+   */
   async disconnectAll(): Promise<{ total: number }> {
     log('Disconnecting all connections');
 
-    const res = await this.fetch('/api/connections', { method: 'DELETE' });
+    const results = await Promise.allSettled(
+      this.allBackends().map(async (b) => {
+        const res = await this.fetch('/api/connections', { method: 'DELETE' }, b);
+        if (!res.ok) {
+          throw new Error(`disconnect-all (${b.baseUrl}) failed: ${res.status}`);
+        }
+        return (await res.json()) as { total: number };
+      }),
+    );
 
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`message-gateway disconnect-all failed (${res.status}): ${error}`);
+    let total = 0;
+    for (const r of results) {
+      if (r.status === 'fulfilled') total += r.value.total;
     }
-
-    return res.json();
+    return { total };
   }
 
-  async disconnect(connectionId: string): Promise<{ status: string }> {
-    log('Disconnecting %s', connectionId);
+  /**
+   * Disconnect a connection by id. Without a `platform` hint we don't know
+   * which backend owns it, so we try the Node backend first (smaller pool,
+   * cheaper miss) then fall back to CF. Both 404 paths are tolerated.
+   */
+  async disconnect(connectionId: string, platform?: string): Promise<{ status: string }> {
+    log('Disconnecting %s (platform=%s)', connectionId, platform ?? '?');
 
-    const res = await this.fetch(`/api/connections/${encodeURIComponent(connectionId)}`, {
-      method: 'DELETE',
-    });
-
-    if (!res.ok) {
-      const error = await res.text();
-      log('Disconnect failed: %s', error);
-      throw new Error(`message-gateway disconnect failed (${res.status}): ${error}`);
+    if (platform) {
+      const backend = this.backendFor(platform);
+      const res = await this.fetch(
+        `/api/connections/${encodeURIComponent(connectionId)}`,
+        { method: 'DELETE' },
+        backend,
+      );
+      if (!res.ok) {
+        const error = await res.text();
+        throw new Error(`message-gateway disconnect failed (${res.status}): ${error}`);
+      }
+      return res.json();
     }
 
-    return res.json();
+    // Unknown platform — try every configured backend, return the first
+    // 2xx response. This branch is only hit during emergency cleanup
+    // where the calling site has lost the platform context.
+    for (const backend of this.allBackends()) {
+      const res = await this.fetch(
+        `/api/connections/${encodeURIComponent(connectionId)}`,
+        { method: 'DELETE' },
+        backend,
+      );
+      if (res.ok) return res.json();
+    }
+    return { status: 'not_found' };
   }
 
   // ─── Typing ───
 
-  async startTyping(connectionId: string, platformThreadId: string): Promise<void> {
-    await this.post(`/api/connections/${encodeURIComponent(connectionId)}/typing`, {
-      platformThreadId,
-    });
+  async startTyping(
+    connectionId: string,
+    platformThreadId: string,
+    platform?: string,
+  ): Promise<void> {
+    await this.post(
+      `/api/connections/${encodeURIComponent(connectionId)}/typing`,
+      { platformThreadId },
+      this.backendFor(platform),
+    );
   }
 
-  async stopTyping(connectionId: string, platformThreadId: string): Promise<void> {
-    await this.fetch(`/api/connections/${encodeURIComponent(connectionId)}/typing`, {
-      body: JSON.stringify({ platformThreadId }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'DELETE',
-    });
+  async stopTyping(
+    connectionId: string,
+    platformThreadId: string,
+    platform?: string,
+  ): Promise<void> {
+    await this.fetch(
+      `/api/connections/${encodeURIComponent(connectionId)}/typing`,
+      {
+        body: JSON.stringify({ platformThreadId }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'DELETE',
+      },
+      this.backendFor(platform),
+    );
   }
 
   // ─── Status & Admin ───
 
-  async getStatus(connectionId: string): Promise<MessageGatewayConnectionStatus> {
-    const res = await this.fetch(`/api/connections/${encodeURIComponent(connectionId)}/status`);
+  async getStatus(
+    connectionId: string,
+    platform?: string,
+  ): Promise<MessageGatewayConnectionStatus> {
+    const res = await this.fetch(
+      `/api/connections/${encodeURIComponent(connectionId)}/status`,
+      undefined,
+      this.backendFor(platform),
+    );
 
     if (!res.ok) {
       throw new Error(`message-gateway status failed (${res.status})`);
@@ -151,41 +247,111 @@ export class MessageGatewayClient {
   }
 
   async getStats(): Promise<MessageGatewayStats> {
-    const res = await this.fetch('/api/admin/stats');
+    // Aggregate across both backends so admin dashboards see a unified view.
+    const responses = await Promise.allSettled(
+      this.allBackends().map(async (b) => {
+        const res = await this.fetch('/api/admin/stats', undefined, b);
+        if (!res.ok) throw new Error(`stats (${b.baseUrl}) failed: ${res.status}`);
+        return (await res.json()) as MessageGatewayStats;
+      }),
+    );
 
-    if (!res.ok) {
-      throw new Error(`message-gateway stats failed (${res.status})`);
+    const merged: MessageGatewayStats = { byPlatform: {}, connections: [], total: 0 };
+    for (const r of responses) {
+      if (r.status !== 'fulfilled') continue;
+      merged.total += r.value.total;
+      merged.connections.push(...r.value.connections);
+      for (const [k, v] of Object.entries(r.value.byPlatform)) {
+        merged.byPlatform[k] = (merged.byPlatform[k] ?? 0) + v;
+      }
     }
+    return merged;
+  }
 
+  /**
+   * Send a plain-text outbound message via the gateway. Used by the
+   * lobehub-side messenger for platforms whose outbound REST API is not
+   * publicly exposed — today only `whatsapp-baileys`, where the WhatsApp
+   * Web socket lives in the Node gateway and lobehub server has no direct
+   * way to call WhatsApp.
+   */
+  async sendText(
+    connectionId: string,
+    platformThreadId: string,
+    text: string,
+    platform?: string,
+  ): Promise<{ messageId?: string }> {
+    const res = await this.post(
+      `/api/connections/${encodeURIComponent(connectionId)}/send`,
+      { platformThreadId, text },
+      this.backendFor(platform),
+    );
+    if (!res.ok) {
+      const error = await res.text();
+      throw new Error(`message-gateway sendText failed (${res.status}): ${error}`);
+    }
+    return res.json();
+  }
+
+  /**
+   * Latest QR data URL for a connection in `pairing` state, or null when
+   * none is currently active. Polled by the lobehub QR pairing UI.
+   */
+  async getPairingQr(connectionId: string, platform: string): Promise<{ dataUrl: string } | null> {
+    const res = await this.fetch(
+      `/api/connections/${encodeURIComponent(connectionId)}/pairing-qr`,
+      undefined,
+      this.backendFor(platform),
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error(`message-gateway pairing-qr failed (${res.status})`);
+    }
     return res.json();
   }
 
   // ─── Internal HTTP ───
 
-  private async fetch(path: string, init?: RequestInit): Promise<Response> {
-    if (!this.isConfigured) {
+  /** All configured backends (in CF → Node order so the CF gateway dominates). */
+  private allBackends(): GatewayBackend[] {
+    const out: GatewayBackend[] = [];
+    if (this.cf.baseUrl && this.cf.serviceToken) out.push(this.cf);
+    if (this.node.baseUrl && this.node.serviceToken) out.push(this.node);
+    return out;
+  }
+
+  private async fetch(
+    path: string,
+    init: RequestInit | undefined,
+    backend: GatewayBackend,
+  ): Promise<Response> {
+    if (!backend.baseUrl || !backend.serviceToken) {
       throw new Error(
-        'MessageGatewayClient not configured: set MESSAGE_GATEWAY_URL and MESSAGE_GATEWAY_SERVICE_TOKEN',
+        'MessageGatewayClient backend not configured for this platform: set the matching MESSAGE_GATEWAY_URL / MESSAGE_GATEWAY_NODE_URL env vars',
       );
     }
 
-    const url = `${this.baseUrl}${path}`;
+    const url = `${backend.baseUrl}${path}`;
 
     return globalThis.fetch(url, {
       ...init,
       headers: {
         ...init?.headers,
-        Authorization: `Bearer ${this.serviceToken}`,
+        Authorization: `Bearer ${backend.serviceToken}`,
       },
     });
   }
 
-  private async post(path: string, body: unknown): Promise<Response> {
-    return this.fetch(path, {
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    });
+  private async post(path: string, body: unknown, backend: GatewayBackend): Promise<Response> {
+    return this.fetch(
+      path,
+      {
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      },
+      backend,
+    );
   }
 }
 

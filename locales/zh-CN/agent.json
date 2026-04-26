@@ -150,5 +150,9 @@
   "channel.whatsapp.phoneNumberIdPlaceholder": "例如 123456789012345",
   "channel.whatsapp.verifyToken": "Verify Token",
   "channel.whatsapp.verifyTokenHint": "由你自己定义的校验串。在 Meta Cloud API Webhook 配置里填入完全相同的值，GET 校验握手才能通过。",
-  "channel.whatsapp.webhookManualSetup": "WhatsApp 不支持自动注册 Webhook，请将此 URL 粘贴到 Meta App 控制台的 “WhatsApp → Configuration → Webhooks → Callback URL”，把 Verify Token 设置为与上面一致，并订阅 `messages` 字段。"
+  "channel.whatsapp.webhookManualSetup": "WhatsApp 不支持自动注册 Webhook，请将此 URL 粘贴到 Meta App 控制台的 “WhatsApp → Configuration → Webhooks → Callback URL”，把 Verify Token 设置为与上面一致，并订阅 `messages` 字段。",
+  "channel.whatsappBaileys.connectionLabel": "连接标签",
+  "channel.whatsappBaileys.connectionLabelHint": "为此 WhatsApp 账号自定义的标识（例如手机号或别名），将作为网关连接 ID 和机器人状态面板上的唯一标识。",
+  "channel.whatsappBaileys.connectionLabelPlaceholder": "例如 +15551234567 或 my-whatsapp",
+  "channel.whatsappBaileys.description": "通过扫码配对接入个人 WhatsApp 账号。仅在 LobeHub Cloud 提供。WhatsApp 服务条款禁止非官方客户端，Meta 可能封禁存在自动化行为的号码 —— 请使用专用手机号给此 bot。"
 }
