@@ -396,6 +396,47 @@ describe('AgentBotProviderModel', () => {
       expect(results).toHaveLength(0);
     });
 
+    it('should return whatsapp-baileys providers even with empty credentials', async () => {
+      // Pre-pairing state: row exists but no auth-state blob has been
+      // written back yet by the Node gateway.
+      await serverDB.insert(agentBotProviders).values({
+        agentId,
+        applicationId: '+15551234567',
+        credentials: null,
+        enabled: true,
+        platform: 'whatsapp-baileys',
+        userId,
+      });
+
+      const results = await AgentBotProviderModel.findEnabledByPlatform(
+        serverDB,
+        'whatsapp-baileys',
+      );
+      expect(results).toHaveLength(1);
+      expect(results[0].applicationId).toBe('+15551234567');
+      expect(results[0].credentials).toEqual({});
+    });
+
+    it('should return whatsapp-baileys providers with only baileysAuthState', async () => {
+      // Post-pairing state: credentials JSON only contains the auth blob,
+      // no botToken/appSecret. The legacy field check would reject this row
+      // for any other platform.
+      const model = new AgentBotProviderModel(serverDB, userId);
+      await model.create({
+        agentId,
+        applicationId: 'my-whatsapp',
+        credentials: { baileysAuthState: { v: 1, data: 'xxx' } as any },
+        platform: 'whatsapp-baileys',
+      });
+
+      const results = await AgentBotProviderModel.findEnabledByPlatform(
+        serverDB,
+        'whatsapp-baileys',
+      );
+      expect(results).toHaveLength(1);
+      expect(results[0].credentials.baileysAuthState).toBeDefined();
+    });
+
     it('should skip disabled providers', async () => {
       const model = new AgentBotProviderModel(serverDB, userId);
       const created = await model.create({

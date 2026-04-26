@@ -165,14 +165,30 @@ export class AgentBotProviderModel {
     const decrypted: DecryptedBotProvider[] = [];
 
     for (const r of results) {
-      if (!r.credentials) continue;
+      if (!r.credentials) {
+        // whatsapp-baileys has no static credentials — pairing happens via QR
+        // and the auth-state blob is written back to this row by the Node
+        // gateway. The "missing credentials" check below would skip it
+        // forever, so we accept empty rows for this platform only.
+        if (platform === 'whatsapp-baileys') {
+          decrypted.push({ ...r, credentials: {} });
+        }
+        continue;
+      }
 
       try {
         const credentials = gateKeeper
           ? JSON.parse((await gateKeeper.decrypt(r.credentials)).plaintext)
           : JSON.parse(r.credentials);
 
-        if (!credentials.botToken && !credentials.appSecret) continue;
+        // Legacy guard for platforms whose credentials carry a static API
+        // token (Discord, QQ, Slack, Telegram, etc.). Newer platforms with
+        // different credential shapes — including whatsapp-baileys whose
+        // "credentials" only contain a `baileysAuthState` blob after
+        // pairing — bypass this check.
+        if (platform !== 'whatsapp-baileys' && !credentials.botToken && !credentials.appSecret) {
+          continue;
+        }
 
         decrypted.push({ ...r, credentials });
       } catch {
