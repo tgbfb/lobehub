@@ -388,10 +388,151 @@ export class ConversationLifecycleActionImpl {
       inputSendErrorMsg: undefined,
     });
 
-    // ── External agent mode: delegate to heterogeneous agent CLI (desktop only) ──
+    // ── External agent mode ──
     // Per-agent heterogeneousProvider config takes priority over the global gateway mode.
     const agentConfig = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
     const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
+
+    // ── Cloud Claude Code: server-side sandbox execution ──
+    if (heterogeneousProvider?.type === 'cloud-claude-code') {
+      // Persist messages to DB (same pattern as desktop hetero)
+      let cloudData: SendMessageServerResponse | undefined;
+      try {
+        cloudData = await aiChatService.sendMessageInServer(
+          {
+            agentId: operationContext.agentId,
+            groupId: operationContext.groupId ?? undefined,
+            newAssistantMessage: { provider: 'cloud-claude-code' },
+            newTopic: !operationContext.topicId
+              ? {
+                  title: message.slice(0, 20) || t('defaultTitle', { ns: 'topic' }),
+                  topicMessageIds: messages.map((m) => m.id),
+                }
+              : undefined,
+            newUserMessage: {
+              content: message,
+              editorData,
+              files: fileIdList,
+              pageSelections,
+              parentId,
+            },
+            threadId: operationContext.threadId ?? undefined,
+            topicFilter: this.#getTopicFilter(
+              operationContext.agentId,
+              operationContext.groupId ?? undefined,
+            ),
+            topicId: operationContext.topicId ?? undefined,
+          },
+          abortController,
+        );
+      } catch (e) {
+        console.error('[CloudClaudeCode] Failed to persist messages:', e);
+        this.#get().failOperation(operationId, {
+          message: e instanceof Error ? e.message : 'Unknown error',
+          type: 'CloudClaudeCodeError',
+        });
+        return;
+      }
+
+      if (!cloudData) return;
+
+      const cloudContext = {
+        ...operationContext,
+        topicId: cloudData.topicId ?? operationContext.topicId,
+      };
+
+      // Replace optimistic messages with persisted ones
+      this.#get().replaceMessages(cloudData.messages, {
+        action: 'sendMessage/cloudCC',
+        context: cloudContext,
+      });
+
+      // Handle new topic creation
+      if (cloudData.isCreateNewTopic && cloudData.topicId) {
+        if (cloudData.topics) {
+          const pageSize = systemStatusSelectors.topicPageSize(useGlobalStore.getState());
+          this.#get().internal_updateTopics(operationContext.agentId, {
+            groupId: operationContext.groupId,
+            items: cloudData.topics.items,
+            pageSize,
+            total: cloudData.topics.total,
+          });
+        }
+        await this.#get().switchTopic(cloudData.topicId, {
+          clearNewKey: true,
+          skipRefreshMessage: true,
+        });
+      }
+
+      // Clean up temp messages
+      this.#get().internal_dispatchMessage(
+        { ids: [tempId, tempAssistantId], type: 'deleteMessages' },
+        { operationId },
+      );
+
+      this.#get().completeOperation(operationId);
+      this.#get().updateOperationMetadata(operationId, { inputEditorTempState: null });
+
+      // Create a child operation so the stop button shows
+      const { operationId: cloudOpId } = this.#get().startOperation({
+        context: cloudContext,
+        label: 'Cloud Claude Code',
+        metadata: { heterogeneousType: 'cloud-claude-code' },
+        parentOperationId: operationId,
+        type: 'execHeterogeneousAgent',
+      });
+
+      this.#get().associateMessageWithOperation(cloudData.assistantMessageId, cloudOpId);
+
+      // Fire-and-forget: start CC in sandbox via TRPC
+      const { lambdaClient } = await import('@/libs/trpc/client');
+      const topicId = cloudContext.topicId!;
+
+      lambdaClient.cloudClaudeCode.start
+        .mutate({
+          agentId,
+          oauthToken: heterogeneousProvider.env?.CLAUDE_CODE_OAUTH_TOKEN,
+          prompt: message,
+          topicId,
+        })
+        .catch((e: unknown) => {
+          console.error('[CloudClaudeCode] start failed:', e);
+        });
+
+      // Start polling for new messages from sandbox CC
+      const pollInterval = setInterval(async () => {
+        try {
+          const msgs = await messageService.getMessages(cloudContext);
+          this.#get().replaceMessages(msgs, { context: cloudContext });
+        } catch {
+          // Ignore polling errors
+        }
+      }, 3000);
+
+      // Register cancel handler: stop polling + cancel sandbox
+      this.#get().onOperationCancel?.(cloudOpId, async () => {
+        clearInterval(pollInterval);
+        // TODO: call cancel endpoint to kill sandbox CC process
+      });
+
+      // Auto-stop polling after 10 minutes (safety net)
+      setTimeout(
+        () => {
+          clearInterval(pollInterval);
+          if (this.#get().operations?.[cloudOpId]?.status === 'running') {
+            this.#get().completeOperation(cloudOpId);
+          }
+        },
+        10 * 60 * 1000,
+      );
+
+      return {
+        assistantMessageId: cloudData.assistantMessageId,
+        userMessageId: cloudData.userMessageId,
+      };
+    }
+
+    // ── Desktop heterogeneous agent mode (desktop only) ──
     if (isDesktop && heterogeneousProvider) {
       // Resolve cwd up-front so the new topic is bound to a project at
       // creation time. Otherwise the row stays NULL until the post-execution
