@@ -41,7 +41,7 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm i --config.enable-global-virtual-store=false
 
       - name: Test packages with coverage
         run: |
@@ -107,7 +107,7 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm i --config.enable-global-virtual-store=false
 
       - name: Run tests
         run: bunx vitest --coverage --silent='passed-only' --reporter=default --reporter=blob --shard=${{ matrix.shard }}/3
@@ -134,7 +134,7 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm i --config.enable-global-virtual-store=false
 
       - name: Download blob reports
         uses: actions/download-artifact@v7
@@ -167,7 +167,7 @@ jobs:
         uses: ./.github/actions/setup-env
 
       - name: Install deps
-        run: pnpm install
+        run: pnpm i --config.enable-global-virtual-store=false
         working-directory: apps/desktop
         env:
           NODE_OPTIONS: --max-old-space-size=8192
