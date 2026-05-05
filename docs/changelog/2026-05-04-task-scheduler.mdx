@@ -1,0 +1,34 @@
+---
+title: Task Scheduler, Home Refactor & Review Tab
+description: >-
+  Schedule recurring agent tasks with cron, browse a redesigned home, review
+  bulk git diffs, and chat with a new task manager copilot.
+tags:
+  - Task Scheduler
+  - Home
+  - Review
+  - Models
+---
+
+# Task Scheduler, Home Refactor & Review Tab
+
+## Features
+
+- Task scheduler: pick a status and edit cron expressions to run tasks on a recurring schedule
+- Task manager copilot: a built-in copilot that can plan, batch, and dispatch subtasks for you in dependency order
+- Agent-specific topic grouping: switch the topic list to group by agent, with a friendlier empty state
+- Home page refactor: a cleaner, more focused home with skeleton loading on the Daily Brief and an open-run-topic action straight from each card
+- Review tab: a new tab that aggregates bulk git diffs across a tree, \~9× faster on large repos
+- Local file mention snapshots: drag a file into chat and a snapshot is captured for the model to reason over
+- Visual understanding tool: a new built-in tool for image analysis and visual reasoning
+- Line bot support: connect a Line channel as an agent endpoint
+- New models: `grok-4.3`, DeepSeek Anthropic runtime, plus `gpt-image-2` and Grok 4.20 in the model library
+
+## Improvements and fixes
+
+- DeepSeek now shows pricing in the model card and respects model defaults.
+- Document modal shows a skeleton while the title loads and surfaces the document update time in space.
+- Agent documents can be exposed as a virtual file system with fs-compatible output.
+- Sessions are revoked after a password reset, and tRPC pagination now enforces a max limit.
+- Skill OAuth no longer breaks the desktop app by skipping `redirectUri` on Electron.
+- CAPTCHA retries during sign-in are handled cleanly instead of failing the flow.
