@@ -1,18 +1,34 @@
 /**
- * Stub implementation for open-source builds.
+ * Module-level singleton for pending repo selections.
  *
- * The cloud repo overrides this file at src/store/chat/pendingTopicRepos.ts
- * with a real module-level singleton that buffers per-agent repo selections
- * made before the first message (no topic yet), so gateway.ts can write them
- * into the topic metadata at creation time.
+ * When a user selects GitHub repos before sending the first message (no topic
+ * exists yet), the selections are buffered here keyed by agentId. As soon as
+ * the server creates a topic for that agent, gateway.ts consumes these repos
+ * and writes them into the topic metadata immediately — avoiding the race
+ * condition where the store action would drop the update because the topic
+ * object hadn't appeared in topicDataMap yet.
  *
- * In open-source / desktop builds this stub is used: all functions are no-ops
- * and consumePendingTopicRepos always returns [] (desktop CC uses workingDirectory
- * instead of repos, so this path is never exercised).
+ * Desktop builds: CloudRepoSwitcher is never rendered, so these functions are
+ * never called and the map stays empty.
  */
 
-export const setPendingTopicRepos = (_agentId: string, _repos: string[]): void => {};
+const map = new Map<string, string[]>();
 
-export const consumePendingTopicRepos = (_agentId: string): string[] => [];
+/** Record pending repos for an agent (overwrites previous value). */
+export const setPendingTopicRepos = (agentId: string, repos: string[]): void => {
+  if (repos.length === 0) map.delete(agentId);
+  else map.set(agentId, [...repos]);
+};
 
-export const getPendingTopicRepos = (_agentId: string): string[] => [];
+/**
+ * Consume and return pending repos for an agent.
+ * Clears the entry so a second call returns [].
+ */
+export const consumePendingTopicRepos = (agentId: string): string[] => {
+  const repos = map.get(agentId);
+  map.delete(agentId);
+  return repos ?? [];
+};
+
+/** Read pending repos without consuming them (for display). */
+export const getPendingTopicRepos = (agentId: string): string[] => map.get(agentId) ?? [];
