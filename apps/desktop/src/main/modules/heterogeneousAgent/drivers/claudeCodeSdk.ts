@@ -100,10 +100,10 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
     const {
       abortSignal,
       args,
+      canUseTool,
       cwd,
       env,
       imageList,
-      mcpConfigPath,
       onStderr,
       pathToClaudeCodeExecutable,
       prompt,
@@ -126,12 +126,7 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
     if (abortSignal.aborted) ac.abort();
     else abortSignal.addEventListener('abort', onAbort, { once: true });
 
-    // mcpConfigPath is the AskUserQuestion local MCP server config written by
-    // the controller. Until LOBE-8746 swaps to SDK-native AskUserQuestion,
-    // we forward it via `extraArgs` so the SDK's bundled CLI loads it the
-    // same way the spawn path does (`--mcp-config <path>`).
     const extraArgs = parseExtraArgs(args);
-    if (mcpConfigPath) extraArgs['mcp-config'] = mcpConfigPath;
 
     // The SDK expects `prompt: string | AsyncIterable<SDKUserMessage>`. We
     // always use the iterable form so future phases can append follow-up user
@@ -149,7 +144,12 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
       prompt: promptStream(),
       options: {
         abortController: ac,
-        allowDangerouslySkipPermissions: true,
+        // canUseTool wires CC's `AskUserQuestion` to LobeHub's intervention UI
+        // (the controller builds the callback). With `bypassPermissions` mode
+        // below, the SDK still fires this callback specifically for
+        // `AskUserQuestion`, but skips it for regular tools — matching the
+        // "auto-allow everything except clarifying questions" UX.
+        canUseTool,
         cwd,
         env,
         extraArgs,
@@ -157,7 +157,6 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
         // chat bubble streams text/thinking deltas instead of waiting for the
         // full block.
         includePartialMessages: true,
-        onElicitation: undefined,
         pathToClaudeCodeExecutable,
         permissionMode: 'bypassPermissions',
         resume: resumeSessionId,

@@ -1,13 +1,17 @@
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { unlinkSync } from 'node:fs';
-import { access, appendFile, mkdir, unlink, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { access, appendFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { finished as streamFinished } from 'node:stream/promises';
 
+import type { CanUseTool } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  AgentInterventionRequestData,
+  AgentInterventionResponseData,
+  AgentStreamEvent,
+} from '@lobechat/agent-gateway-client';
 import type { HeterogeneousAgentSessionError } from '@lobechat/electron-client-ipc';
 import {
   CLAUDE_CODE_CLI_INSTALL_COMMANDS,
@@ -16,8 +20,6 @@ import {
   CODEX_CLI_INSTALL_DOCS_URL,
   HeterogeneousAgentSessionErrorCode,
 } from '@lobechat/electron-client-ipc';
-import type { AskUserBridge } from '@lobechat/heterogeneous-agents/askUser';
-import { AskUserMcpServer } from '@lobechat/heterogeneous-agents/askUser';
 import type { AgentContentBlock } from '@lobechat/heterogeneous-agents/spawn';
 import {
   AgentSdkEventPipeline,
@@ -176,28 +178,32 @@ interface CliTraceSession {
  *
  * Lifecycle: startSession → sendPrompt → (heteroAgentEvent broadcasts) → stopSession
  */
-interface InterventionSlot {
-  bridge: AskUserBridge;
-  /** Resolves once bridge.events() iterator ends (after `cancelAll`). */
-  pumpDone: Promise<void>;
-  /** Path to the per-op temp `mcp.json` we wrote for `--mcp-config`. */
-  tmpConfigPath: string;
+interface InterventionPendingEntry {
+  /** Identifier (e.g. 'claude-code') for trace/log context. */
+  identifier: string;
+  /** Resolves the SDK `canUseTool` callback with the user's answer. */
+  resolve: (response: AgentInterventionResponseData) => void;
 }
+
+/**
+ * 5-minute wall-clock budget for an unanswered intervention. Matches the
+ * deadline LOBE-8725's bridge used so renderer-side timeout UX is unchanged.
+ * After the deadline the controller resolves with `{ cancelled: true,
+ * cancelReason: 'timeout' }` and the SDK returns a deny payload to the CLI.
+ */
+const INTERVENTION_TIMEOUT_MS = 5 * 60 * 1000;
 
 export default class HeterogeneousAgentCtr extends ControllerModule {
   static override readonly groupName = 'heterogeneousAgent';
 
   private sessions = new Map<string, AgentSession>();
   /**
-   * Per-operation AskUserQuestion bridge state. Keyed by `operationId` so the
-   * `submitIntervention` IPC can route an answer to the right pending MCP
-   * handler regardless of which `sessionId` it belongs to (one session can
-   * fire many ops over its lifetime).
+   * Per-operation pending intervention map. Keyed by `operationId` so the
+   * `submitIntervention` IPC can route an answer back to the right
+   * `canUseTool` callback regardless of which `sessionId` it belongs to (one
+   * session can fire many ops over its lifetime). Inner key is `toolCallId`.
    */
-  private opIdToIntervention = new Map<string, InterventionSlot>();
-  /** Lazy single MCP server, started on first claude-code prompt. */
-  private askUserMcpServer?: AskUserMcpServer;
-  private askUserMcpStartPromise?: Promise<AskUserMcpServer>;
+  private opIdToInterventions = new Map<string, Map<string, InterventionPendingEntry>>();
 
   private resolveSessionCommand(session: AgentSession): string {
     const resolvedCommand = session.command.trim();
@@ -611,90 +617,134 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     }
   }
 
-  // ─── AskUserQuestion MCP server (LOBE-8725) ───
+  // ─── AskUserQuestion via SDK canUseTool (LOBE-8746) ───
 
   /**
-   * Lazy single-instance MCP server for CC's AskUserQuestion replacement.
-   * First claude-code prompt triggers `start()`; subsequent prompts reuse
-   * the same listener. Concurrent first-callers de-dupe via the in-flight
-   * promise so we don't bind two ports.
+   * Build the SDK `canUseTool` callback that the driver passes straight
+   * into `query({ options: { canUseTool } })`. Closes over `operationId`
+   * / `sessionId` so the matching `submitIntervention` IPC can route the
+   * user's answer back here.
+   *
+   * Tool routing:
+   * - `AskUserQuestion`: emit `agent_intervention_request` on the wire +
+   *   register a pending entry keyed by `tool_use_id`; the IPC resolves it.
+   *   Returns `{ behavior: 'allow', updatedInput: { questions, answers } }`
+   *   on success so the CLI synthesises the tool_result. On cancel/timeout
+   *   returns `{ behavior: 'deny', message: ... }`.
+   * - Everything else: auto-allow with the original input. Per-tool
+   *   approval UI lands in a follow-up; `permissionMode: 'bypassPermissions'`
+   *   means the SDK shouldn't even ask us for these today (but we handle
+   *   it defensively in case the policy changes).
    */
-  private async ensureAskUserMcpServerStarted(): Promise<AskUserMcpServer> {
-    if (this.askUserMcpServer) return this.askUserMcpServer;
-    if (!this.askUserMcpStartPromise) {
-      this.askUserMcpStartPromise = (async () => {
-        const server = new AskUserMcpServer();
-        await server.start();
-        this.askUserMcpServer = server;
-        logger.info('AskUserQuestion MCP server started:', server.url);
-        return server;
-      })().catch((err) => {
-        // Reset so a later sendPrompt can retry; surface the error.
-        this.askUserMcpStartPromise = undefined;
-        logger.error('Failed to start AskUserQuestion MCP server:', err);
-        throw err;
+  private buildCanUseToolCallback(
+    operationId: string,
+    sessionId: string,
+    agentType: string,
+  ): CanUseTool {
+    return async (toolName, input, callbackOptions) => {
+      if (toolName !== 'AskUserQuestion') {
+        return { behavior: 'allow', updatedInput: input };
+      }
+
+      const toolCallId =
+        typeof callbackOptions.toolUseID === 'string' ? callbackOptions.toolUseID : randomUUID();
+      const deadline = Date.now() + INTERVENTION_TIMEOUT_MS;
+      const identifier = agentType === 'claude-code' ? 'claude-code' : agentType;
+
+      const requestEvent: AgentStreamEvent = {
+        data: {
+          apiName: 'askUserQuestion',
+          arguments: JSON.stringify(input ?? {}),
+          deadline,
+          identifier,
+          toolCallId,
+        } satisfies AgentInterventionRequestData,
+        operationId,
+        stepIndex: 0,
+        timestamp: Date.now(),
+        type: 'agent_intervention_request',
+      };
+      this.broadcast('heteroAgentEvent', { event: requestEvent, sessionId });
+
+      const answer = await new Promise<AgentInterventionResponseData>((resolve) => {
+        let pending = this.opIdToInterventions.get(operationId);
+        if (!pending) {
+          pending = new Map();
+          this.opIdToInterventions.set(operationId, pending);
+        }
+        const settle = (response: AgentInterventionResponseData) => {
+          clearTimeout(timeoutHandle);
+          callbackOptions.signal.removeEventListener('abort', onAbort);
+          pending?.delete(toolCallId);
+          if (pending?.size === 0) this.opIdToInterventions.delete(operationId);
+          resolve(response);
+        };
+
+        const onAbort = () =>
+          settle({ cancelReason: 'session_ended', cancelled: true, toolCallId });
+        callbackOptions.signal.addEventListener('abort', onAbort, { once: true });
+
+        const timeoutHandle = setTimeout(() => {
+          settle({ cancelReason: 'timeout', cancelled: true, toolCallId });
+        }, INTERVENTION_TIMEOUT_MS);
+
+        pending.set(toolCallId, {
+          identifier,
+          resolve: settle,
+        });
       });
-    }
-    return this.askUserMcpStartPromise;
+
+      // Mirror the terminal state on the wire so a renderer that hasn't yet
+      // received the user's submission (e.g. timeout / session_ended) can
+      // flip its UI out of the `pending` state.
+      const responseEvent: AgentStreamEvent = {
+        data: {
+          cancelReason: answer.cancelReason,
+          cancelled: answer.cancelled,
+          result: answer.result,
+          toolCallId,
+        } satisfies AgentInterventionResponseData,
+        operationId,
+        stepIndex: 0,
+        timestamp: Date.now(),
+        type: 'agent_intervention_response',
+      };
+      this.broadcast('heteroAgentEvent', { event: responseEvent, sessionId });
+
+      if (answer.cancelled) {
+        const reason = answer.cancelReason ?? 'user_cancelled';
+        const message =
+          reason === 'timeout'
+            ? 'No answer received within the wait window; the user did not respond. Continue without their input or ask in plain text.'
+            : reason === 'session_ended'
+              ? 'The session was ended before the user could respond.'
+              : 'The user cancelled the question.';
+        return { behavior: 'deny', message };
+      }
+
+      // Success path: the SDK requires `updatedInput` to be the same shape
+      // as the original AskUserQuestion input plus an `answers` field. The
+      // `result` should already be `{ questions, answers }`; we fall back
+      // to merging in case the renderer only sent the answers map.
+      const result = (answer.result ?? {}) as Record<string, unknown>;
+      const updatedInput = 'questions' in result ? result : { ...input, answers: result };
+      return { behavior: 'allow', updatedInput };
+    };
   }
 
   /**
-   * Register a per-op AskUserQuestion bridge, write its temp `mcp.json`,
-   * and start pumping the bridge's outbound events into the regular
-   * `heteroAgentEvent` broadcast. Caller must invoke the returned cleanup
-   * after the spawn finishes (success, error, or cancel) to remove the
-   * temp file and tear down the bridge.
-   *
-   * Pump errors are logged but never thrown — they don't fail the spawn.
+   * Tear down every pending intervention for an op (success, error, or
+   * cancel exit path). Each entry resolves with `session_ended` so the SDK
+   * `canUseTool` callback returns a deny payload and the CLI continues
+   * past the unanswered tool_use cleanly.
    */
-  private async setupInterventionForOp(
-    operationId: string,
-    sessionId: string,
-  ): Promise<{ cleanup: () => Promise<void>; tmpConfigPath: string }> {
-    const server = await this.ensureAskUserMcpServerStarted();
-    const bridge = server.registerOperation(operationId);
-    const tmpConfigPath = path.join(os.tmpdir(), `lobe-cc-mcp-${operationId}.json`);
-
-    // `alwaysLoad: true` is the undocumented CC flag that promotes our
-    // server's tool out of the deferred set so the model calls it directly
-    // (no ToolSearch hop). See LOBE-8725 spike notes — falls back to the
-    // 2-hop ToolSearch path if a future CC drops the flag, no breakage.
-    const config = {
-      mcpServers: {
-        lobe_cc: {
-          alwaysLoad: true,
-          type: 'http' as const,
-          url: server.urlForOperation(operationId),
-        },
-      },
-    };
-    await writeFile(tmpConfigPath, JSON.stringify(config), 'utf8');
-
-    // Pump bridge.events() into the `heteroAgentEvent` broadcast. The
-    // iterator only ends after `cancelAll()`, so `pumpDone` resolves at
-    // cleanup time and gates teardown.
-    const pumpDone = (async () => {
-      for await (const event of bridge.events()) {
-        this.broadcast('heteroAgentEvent', { event, sessionId });
-      }
-    })().catch((err) => {
-      logger.warn('AskUserQuestion bridge pump error:', err);
-    });
-
-    this.opIdToIntervention.set(operationId, { bridge, pumpDone, tmpConfigPath });
-
-    const cleanup = async () => {
-      // Unregistering on the server cancels all bridge pendings AND closes
-      // the events iterator (cancelAll fires from within unregisterOperation).
-      this.askUserMcpServer?.unregisterOperation(operationId);
-      await pumpDone;
-      this.opIdToIntervention.delete(operationId);
-      await unlink(tmpConfigPath).catch(() => {
-        /* file may already be gone if app crashed mid-prompt */
-      });
-    };
-
-    return { cleanup, tmpConfigPath };
+  private cleanupInterventionsForOp(operationId: string): void {
+    const pending = this.opIdToInterventions.get(operationId);
+    if (!pending) return;
+    for (const [toolCallId, entry] of pending) {
+      entry.resolve({ cancelReason: 'session_ended', cancelled: true, toolCallId });
+    }
+    this.opIdToInterventions.delete(operationId);
   }
 
   // ─── File cache ───
@@ -827,17 +877,6 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       throw new Error(preflightError.message);
     }
 
-    // Stand up the AskUserQuestion MCP bridge for claude-code prompts BEFORE
-    // building the spawn plan so the driver can wire the temp config path
-    // into `--mcp-config`. Codex / future agents skip this entirely.
-    const intervention =
-      session.agentType === 'claude-code'
-        ? await this.setupInterventionForOp(params.operationId, session.sessionId).catch((err) => {
-            logger.warn('Failed to set up AskUserQuestion bridge — proceeding without it:', err);
-            return undefined;
-          })
-        : undefined;
-
     const driver = getHeterogeneousAgentDriver(session.agentType);
 
     // SDK-backed transport (Claude Code): the driver pumps already-parsed
@@ -846,58 +885,38 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     // promise rejects, matching the spawn path. Codex still goes through
     // the spawn path below.
     if (driver.startStream) {
-      await this.runSdkStream(session, params, driver, intervention);
+      await this.runSdkStream(session, params, driver);
       return;
     }
 
     if (!driver.buildSpawnPlan) {
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error during pre-spawn failure:', cleanupErr);
-        });
-      }
       throw new Error(
         `Driver for ${session.agentType} implements neither startStream nor buildSpawnPlan`,
       );
     }
 
-    let spawnPlan;
-    let traceSession;
-    let cwd: string;
-    try {
-      spawnPlan = await driver.buildSpawnPlan({
-        args: session.args,
-        helpers: {
-          buildClaudeStreamJsonInput: (prompt, imageList) =>
-            this.buildStreamJsonInput(prompt, imageList),
-          resolveCliImagePaths: (imageList) => this.resolveCliImagePaths(imageList),
-        },
-        imageList: params.imageList ?? [],
-        mcpConfigPath: intervention?.tmpConfigPath,
-        prompt: params.prompt,
-        resumeSessionId: session.agentSessionId,
-      });
+    const spawnPlan = await driver.buildSpawnPlan({
+      args: session.args,
+      helpers: {
+        buildClaudeStreamJsonInput: (prompt, imageList) =>
+          this.buildStreamJsonInput(prompt, imageList),
+        resolveCliImagePaths: (imageList) => this.resolveCliImagePaths(imageList),
+      },
+      imageList: params.imageList ?? [],
+      prompt: params.prompt,
+      resumeSessionId: session.agentSessionId,
+    });
 
-      // Fall back to the user's Desktop so the process never inherits
-      // the Electron parent's cwd (which is `/` when launched from Finder).
-      cwd = session.cwd || electronApp.getPath('desktop');
-      traceSession = await this.createCliTraceSession({
-        cliArgs: spawnPlan.args,
-        cwd,
-        imageList: params.imageList ?? [],
-        session,
-        stdinPayload: spawnPlan.stdinPayload,
-      });
-    } catch (err) {
-      // We never made it to spawn — the `proc.on('exit')` cleanup path
-      // won't run, so tear the intervention bridge down right here.
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error during pre-spawn failure:', cleanupErr);
-        });
-      }
-      throw err;
-    }
+    // Fall back to the user's Desktop so the process never inherits the
+    // Electron parent's cwd (which is `/` when launched from Finder).
+    const cwd = session.cwd || electronApp.getPath('desktop');
+    const traceSession = await this.createCliTraceSession({
+      cliArgs: spawnPlan.args,
+      cwd,
+      imageList: params.imageList ?? [],
+      session,
+      stdinPayload: spawnPlan.stdinPayload,
+    });
     const useStdin = spawnPlan.stdinPayload !== undefined;
     const cliArgs = spawnPlan.args;
 
@@ -1016,15 +1035,6 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
         void stdoutDrained
           .then(() => stdoutBroadcastQueue)
           .finally(async () => {
-            // Tear down the AskUserQuestion bridge / temp `mcp.json` for this
-            // op. Pending MCP handlers get a `session_ended` cancellation so
-            // they return cleanly even if CC was killed mid-tool-call.
-            if (intervention) {
-              await intervention.cleanup().catch((err) => {
-                logger.warn('AskUserQuestion cleanup error:', err);
-              });
-            }
-
             void this.writeCliTraceJson(traceSession, 'exit.json', {
               code,
               finishedAt: new Date().toISOString(),
@@ -1088,7 +1098,6 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     session: AgentSession,
     params: SendPromptParams,
     driver: ReturnType<typeof getHeterogeneousAgentDriver>,
-    intervention: { cleanup: () => Promise<void>; tmpConfigPath: string } | undefined,
   ): Promise<void> {
     const cwd = session.cwd || electronApp.getPath('desktop');
     const command = this.resolveSessionCommand(session);
@@ -1103,34 +1112,19 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
         error: sessionError,
         sessionId: session.sessionId,
       });
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error after CLI-missing:', cleanupErr);
-        });
-      }
       throw new Error(typeof sessionError === 'string' ? sessionError : sessionError.message);
     }
 
     const proxyEnv = buildProxyEnv(this.app.storeManager.get('networkProxy'));
     const env = { ...process.env, ...proxyEnv, ...session.env };
 
-    let traceSession;
-    try {
-      traceSession = await this.createCliTraceSession({
-        cliArgs: session.args,
-        cwd,
-        imageList: params.imageList ?? [],
-        session,
-        stdinPayload: undefined,
-      });
-    } catch (err) {
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error during pre-spawn failure:', cleanupErr);
-        });
-      }
-      throw err;
-    }
+    const traceSession = await this.createCliTraceSession({
+      cliArgs: session.args,
+      cwd,
+      imageList: params.imageList ?? [],
+      session,
+      stdinPayload: undefined,
+    });
 
     const ac = new AbortController();
     session.cancel = () => ac.abort();
@@ -1142,11 +1136,18 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       `(cwd: ${cwd}, claude: ${cliStatus.path})`,
     );
 
+    const canUseTool = this.buildCanUseToolCallback(
+      params.operationId,
+      session.sessionId,
+      session.agentType,
+    );
+
     let handle;
     try {
       handle = await driver.startStream!({
         abortSignal: ac.signal,
         args: session.args,
+        canUseTool,
         cwd,
         env,
         helpers: {
@@ -1155,7 +1156,6 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
           resolveCliImagePaths: (imageList) => this.resolveCliImagePaths(imageList),
         },
         imageList: params.imageList ?? [],
-        mcpConfigPath: intervention?.tmpConfigPath,
         onStderr: (chunk) => {
           void this.appendCliTraceFile(traceSession, 'stderr.log', chunk);
           stderrChunks.push(chunk);
@@ -1167,11 +1167,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     } catch (err) {
       session.cancel = undefined;
       logger.error('SDK startStream failed:', err);
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error after startStream failure:', cleanupErr);
-        });
-      }
+      this.cleanupInterventionsForOp(params.operationId);
       void this.writeCliTraceJson(traceSession, 'process-error.json', {
         message: err instanceof Error ? err.message : String(err),
         name: err instanceof Error ? err.name : 'Error',
@@ -1270,11 +1266,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       } catch (closeErr) {
         logger.warn('SDK handle close error:', closeErr);
       }
-      if (intervention) {
-        await intervention.cleanup().catch((cleanupErr) => {
-          logger.warn('AskUserQuestion cleanup error:', cleanupErr);
-        });
-      }
+      this.cleanupInterventionsForOp(params.operationId);
     }
   }
 
@@ -1392,44 +1384,32 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
 
   /**
    * Renderer → main: deliver the user's answer to a pending CC AskUserQuestion
-   * (or signal cancellation). The matching bridge resolves its blocked
-   * `pending()` Promise, the local MCP handler returns to CC, and CC's
-   * `tool_result` flows back through the normal stream pipeline.
+   * (or signal cancellation). Resolves the SDK `canUseTool` callback's
+   * pending Promise, the SDK CLI returns the `tool_result` to the model.
    *
    * Idempotent — late submissions for already-resolved tool calls are no-ops.
-   * No-op when called for an unknown opId; the bridge may have been cleaned
-   * up already (op finished / cancelled).
+   * No-op when called for an unknown op; the pending map may have been
+   * cleaned up already (op finished / cancelled).
    */
   @IpcMethod()
   async submitIntervention(params: SubmitInterventionParams): Promise<void> {
-    const slot = this.opIdToIntervention.get(params.operationId);
-    if (!slot) {
-      logger.warn('submitIntervention: no active intervention for operationId', params.operationId);
+    const pending = this.opIdToInterventions.get(params.operationId);
+    const entry = pending?.get(params.toolCallId);
+    if (!entry) {
+      logger.warn(
+        'submitIntervention: no active intervention for',
+        params.operationId,
+        params.toolCallId,
+      );
       return;
     }
-    slot.bridge.resolve(params.toolCallId, {
+    entry.resolve({
       cancelReason: params.cancelled ? (params.cancelReason ?? 'user_cancelled') : undefined,
       cancelled: params.cancelled,
       result: params.result,
+      toolCallId: params.toolCallId,
     });
   }
-
-  /**
-   * Synchronously unlink every pending intervention's temp `mcp.json`. The
-   * async exit-handler cleanup loses to Electron's main-process teardown
-   * often enough that we'd leak `lobe-cc-mcp-<opId>.json` files into
-   * `os.tmpdir()` on real shutdowns; sync unlink here is the only reliable
-   * guarantee. Safe to call multiple times.
-   */
-  private unlinkPendingInterventionConfigsSync = (): void => {
-    for (const [, intervention] of this.opIdToIntervention) {
-      try {
-        unlinkSync(intervention.tmpConfigPath);
-      } catch {
-        /* file may already be gone — fine */
-      }
-    }
-  };
 
   /**
    * Cleanup on app quit. `before-quit` covers the user-driven Cmd+Q /
@@ -1438,7 +1418,6 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
    */
   afterAppReady() {
     electronApp.on('before-quit', () => {
-      this.unlinkPendingInterventionConfigsSync();
       for (const [, session] of this.sessions) {
         if (session.cancel) {
           session.cancelledByUs = true;
@@ -1452,18 +1431,16 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
           this.killProcessTree(session.process, 'SIGTERM');
         }
       }
+      // Resolve any still-pending interventions with `session_ended` so the
+      // SDK callback returns a deny payload and the SDK transport settles
+      // without leaving the renderer's intervention UI on `pending`.
+      for (const operationId of this.opIdToInterventions.keys()) {
+        this.cleanupInterventionsForOp(operationId);
+      }
       this.sessions.clear();
-      // The exit handlers will tear each per-op intervention down, but if
-      // CC's stdio close races shutdown we'd leave the MCP server bound to
-      // a port. Stopping it here cancels every still-pending bridge with
-      // `session_ended` and closes the listener.
-      void this.askUserMcpServer?.stop().catch((err) => {
-        logger.warn('AskUserQuestion MCP server stop error:', err);
-      });
     });
 
     const onSignal = (signal: NodeJS.Signals) => {
-      this.unlinkPendingInterventionConfigsSync();
       // Defer to Electron's normal quit flow so the rest of the app gets a
       // chance to tear down. The `before-quit` handler above is idempotent.
       try {

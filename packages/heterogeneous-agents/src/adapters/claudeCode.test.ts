@@ -159,7 +159,7 @@ describe('ClaudeCodeAdapter', () => {
       expect(toolStart).toBeDefined();
     });
 
-    it('rewrites mcp__lobe_cc__ask_user_question to apiName=askUserQuestion', () => {
+    it('rewrites AskUserQuestion to apiName=askUserQuestion', () => {
       const adapter = new ClaudeCodeAdapter();
       adapter.adapt({ subtype: 'init', type: 'system' });
 
@@ -183,7 +183,7 @@ describe('ClaudeCodeAdapter', () => {
             {
               id: 'tu_aq_1',
               input: askInput,
-              name: 'mcp__lobe_cc__ask_user_question',
+              name: 'AskUserQuestion',
               type: 'tool_use',
             },
           ],

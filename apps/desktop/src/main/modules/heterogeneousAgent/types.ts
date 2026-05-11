@@ -1,3 +1,5 @@
+import type { CanUseTool } from '@anthropic-ai/claude-agent-sdk';
+
 export interface HeterogeneousAgentImageAttachment {
   id: string;
   url: string;
@@ -20,12 +22,6 @@ export interface HeterogeneousAgentBuildPlanParams {
   args: string[];
   helpers: HeterogeneousAgentBuildPlanHelpers;
   imageList: HeterogeneousAgentImageAttachment[];
-  /**
-   * Optional path to an MCP config JSON written by the controller (e.g. for
-   * the local `lobe_cc` AskUserQuestion server). Drivers that recognize the
-   * field append `--mcp-config <path>`; others ignore it.
-   */
-  mcpConfigPath?: string;
   prompt: string;
   resumeSessionId?: string;
 }
@@ -38,6 +34,18 @@ export interface HeterogeneousAgentStartStreamParams extends HeterogeneousAgentB
    * settles.
    */
   abortSignal: AbortSignal;
+  /**
+   * SDK permission callback. The controller wires this end-to-end:
+   * - `AskUserQuestion`: emit `agent_intervention_request` and await the
+   *   user's submission via the `submitIntervention` IPC, then return
+   *   `{ behavior: 'allow', updatedInput: { questions, answers } }` so the
+   *   CLI synthesises a `tool_result` containing the user's pick.
+   * - Other built-in tools (Bash / Write / Edit / ...): currently auto-allow
+   *   (matching the previous `--permission-mode bypassPermissions` behavior);
+   *   per-tool approval UI lands in a follow-up.
+   * The driver passes this straight to `query()`'s `canUseTool` option.
+   */
+  canUseTool?: CanUseTool;
   /** Working directory for the spawned subprocess. */
   cwd: string;
   /** Forwarded environment (proxy + per-session env). */
