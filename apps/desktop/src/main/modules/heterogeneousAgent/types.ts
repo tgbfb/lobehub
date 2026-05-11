@@ -35,6 +35,14 @@ export interface HeterogeneousAgentStartStreamParams extends HeterogeneousAgentB
    */
   abortSignal: AbortSignal;
   /**
+   * Writable cache directory for image attachments (rooted under
+   * `appStoragePath`, NOT the workspace `cwd`). The controller owns the
+   * location so cached bytes stay inside the desktop app's own storage —
+   * keeping read-only workspaces functional and avoiding hidden cache folders
+   * inside the user's project.
+   */
+  cacheDir: string;
+  /**
    * SDK permission callback. The controller wires this end-to-end:
    * - `AskUserQuestion`: emit `agent_intervention_request` and await the
    *   user's submission via the `submitIntervention` IPC, then return

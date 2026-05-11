@@ -1147,6 +1147,10 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       handle = await driver.startStream!({
         abortSignal: ac.signal,
         args: session.args,
+        // Pin image caching to the desktop's own storage. The workspace `cwd`
+        // is off-limits — it may be read-only and we don't litter user
+        // projects with hidden cache folders.
+        cacheDir: this.fileCacheDir,
         canUseTool,
         cwd,
         env,

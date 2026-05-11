@@ -100,6 +100,7 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
     const {
       abortSignal,
       args,
+      cacheDir,
       canUseTool,
       cwd,
       env,
@@ -119,7 +120,12 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
       );
     }
 
-    const content = await buildUserContent(prompt, imageList, `${cwd}/.heerogeneous-tracing`);
+    // `cacheDir` must point at the desktop app's storage (e.g.
+    // `<appStoragePath>/heteroAgent/files`) — NOT the workspace `cwd`. URL
+    // image sources write through `normalizeImage`, and a workspace-rooted
+    // cache would (a) pollute the user's project with a hidden folder and
+    // (b) fail outright on read-only workspaces.
+    const content = await buildUserContent(prompt, imageList, cacheDir);
 
     const ac = new AbortController();
     const onAbort = () => ac.abort();

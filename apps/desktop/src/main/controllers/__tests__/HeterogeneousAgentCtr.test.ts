@@ -21,6 +21,7 @@ vi.mock('electron', () => ({
     getPath: vi.fn((name: string) => (name === 'desktop' ? FAKE_DESKTOP_PATH : `/fake/${name}`)),
     isPackaged: false,
     on: vi.fn(),
+    quit: vi.fn(),
   },
   ipcMain: { handle: vi.fn() },
 }));
@@ -54,6 +55,75 @@ vi.mock('node:child_process', async (importOriginal) => {
     },
   };
 });
+
+// LOBE-8745 swapped Claude Code's transport from `spawn()` to the
+// `@anthropic-ai/claude-agent-sdk`. Mock the SDK's `query()` so claude-code
+// sendPrompt tests can observe what the driver hands the SDK (cwd, extraArgs,
+// canUseTool, user-message content, etc.) and feed parsed SDK messages back
+// through the pipeline without spawning a real CLI.
+const { detectCliMock, queryMock, sdkQueryCalls, sdkState } = vi.hoisted(() => {
+  type QueryCall = {
+    collectedUserMessages: any[];
+    options: any;
+    prompt: any;
+  };
+  const sdkQueryCalls: QueryCall[] = [];
+  const sdkState = {
+    closeSpy: vi.fn(),
+    interruptSpy: vi.fn(async () => undefined),
+    nextError: undefined as unknown,
+    nextMessages: [] as any[],
+  };
+
+  const queryMock = vi.fn(({ options, prompt }: any) => {
+    const call: QueryCall = { collectedUserMessages: [], options, prompt };
+    sdkQueryCalls.push(call);
+    const messagesForCall = [...sdkState.nextMessages];
+    sdkState.nextMessages = [];
+    const errorForCall = sdkState.nextError;
+    sdkState.nextError = undefined;
+
+    const q: any = {
+      async *[Symbol.asyncIterator]() {
+        if (prompt && typeof prompt[Symbol.asyncIterator] === 'function') {
+          for await (const msg of prompt) call.collectedUserMessages.push(msg);
+        }
+        if (errorForCall) throw errorForCall;
+        for (const m of messagesForCall) yield m;
+      },
+      close: sdkState.closeSpy,
+      interrupt: sdkState.interruptSpy,
+    };
+    return q;
+  });
+
+  // Default to "claude available at /usr/bin/claude" so the SDK path doesn't
+  // throw `CliNotFound` before tests can observe the query call. Individual
+  // tests opt into the unavailable path via `mockResolvedValueOnce`. Typed as
+  // a loose status object so `{ available: false }` overrides don't trip
+  // path/version inference from the default value.
+  type DetectorStatus = {
+    available: boolean;
+    error?: string;
+    path?: string;
+    version?: string;
+  };
+  const detectCliMock = vi.fn<(...args: any[]) => Promise<DetectorStatus>>(async () => ({
+    available: true,
+    path: '/usr/bin/claude',
+    version: 'claude 1.0.0 (Claude Code)',
+  }));
+
+  return { detectCliMock, queryMock, sdkQueryCalls, sdkState };
+});
+
+vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: queryMock,
+}));
+
+vi.mock('@/modules/toolDetectors', () => ({
+  detectHeterogeneousCliCommand: detectCliMock,
+}));
 
 /**
  * Build a fake ChildProcess that immediately exits cleanly. Records every
@@ -200,20 +270,30 @@ describe('HeterogeneousAgentCtr', () => {
     });
   });
 
-  describe('sendPrompt (claude-code)', () => {
+  describe('sendPrompt (claude-code) — SDK transport (LOBE-8745)', () => {
+    // Claude Code now flows through `@anthropic-ai/claude-agent-sdk`'s
+    // `query()` instead of `spawn()`. The mock at the top of the file captures
+    // each call so we can assert on what the controller hands the SDK without
+    // a real CLI. Codex still uses the spawn path and is tested separately.
     beforeEach(() => {
       spawnCalls.length = 0;
       execFileMock.mockReset();
+      sdkQueryCalls.length = 0;
+      sdkState.nextMessages = [];
+      sdkState.nextError = undefined;
+      sdkState.closeSpy.mockClear();
+      sdkState.interruptSpy.mockClear();
+      queryMock.mockClear();
+      detectCliMock.mockClear();
     });
 
     const runSendPrompt = async (
       prompt: string,
       sessionOverrides: Record<string, any> = {},
-      stdoutLines: string[] = [],
+      sdkMessages: any[] = [],
       sendPromptOverrides: Partial<{ imageList: Array<{ id: string; url: string }> }> = {},
     ) => {
-      const { proc, writes } = createFakeProc({ stdoutLines });
-      nextFakeProc = proc;
+      sdkState.nextMessages = sdkMessages;
 
       const ctr = new HeterogeneousAgentCtr({
         appStoragePath,
@@ -226,34 +306,22 @@ describe('HeterogeneousAgentCtr', () => {
       });
       await ctr.sendPrompt({ operationId: 'op-test', prompt, sessionId, ...sendPromptOverrides });
 
-      const { args: cliArgs, command, options } = spawnCalls[0];
-      return { cliArgs, command, ctr, options, sessionId, writes };
+      const call = sdkQueryCalls.at(-1)!;
+      const userMessage = call.collectedUserMessages[0];
+      const userContent = userMessage?.message?.content ?? [];
+      return { call, ctr, sessionId, userContent };
     };
 
-    it('passes prompt via stdin stream-json — never as a positional arg', async () => {
+    it('passes prompt via SDK user message — never as a CLI positional arg', async () => {
       const prompt = '-- 这是破折号测试 --help';
-      const { cliArgs, writes } = await runSendPrompt(prompt);
+      const { call, userContent } = await runSendPrompt(prompt);
 
-      // Prompt must never appear in argv (that is what previously broke CC's arg parser).
-      expect(cliArgs).not.toContain(prompt);
-
-      // Stream-json input must be wired up.
-      expect(cliArgs).toContain('--input-format');
-      expect(cliArgs).toContain('--output-format');
-      expect(cliArgs.filter((a) => a === 'stream-json')).toHaveLength(2);
-
-      // Exactly one stdin write, carrying the prompt as a user message JSON line.
-      expect(writes).toHaveLength(1);
-      const line = writes[0].trimEnd();
-      expect(line.endsWith('\n') || writes[0].endsWith('\n')).toBe(true);
-      const msg = JSON.parse(line);
-      expect(msg).toMatchObject({
-        message: {
-          content: [{ text: prompt, type: 'text' }],
-          role: 'user',
-        },
-        type: 'user',
-      });
+      // The SDK takes the prompt as part of an `AsyncIterable<SDKUserMessage>`
+      // payload; argv-style extras (`extraArgs`) is reserved for `--flag` pairs
+      // and must never carry the prompt.
+      const extraArgValues = Object.values(call.options.extraArgs ?? {});
+      expect(extraArgValues).not.toContain(prompt);
+      expect(userContent).toEqual([{ text: prompt, type: 'text' }]);
     });
 
     it.each([
@@ -263,40 +331,46 @@ describe('HeterogeneousAgentCtr', () => {
       '-p -- mixed',
       'normal prompt with -dash- inside',
     ])('accepts dash-containing prompt without leaking to argv: %s', async (prompt) => {
-      const { cliArgs, writes } = await runSendPrompt(prompt);
+      const { call, userContent } = await runSendPrompt(prompt);
 
-      expect(cliArgs).not.toContain(prompt);
-      expect(writes).toHaveLength(1);
-      const msg = JSON.parse(writes[0].trimEnd());
-      expect(msg.message.content[0].text).toBe(prompt);
+      const extraArgValues = Object.values(call.options.extraArgs ?? {});
+      expect(extraArgValues).not.toContain(prompt);
+      expect(userContent[0]).toEqual({ text: prompt, type: 'text' });
     });
 
     it('falls back to the user Desktop when no cwd is supplied', async () => {
-      const { options } = await runSendPrompt('hello');
+      const { call } = await runSendPrompt('hello');
 
       // When launched from Finder the Electron parent cwd is `/` — the
       // controller must override that with the user's Desktop so CC writes
       // land somewhere sensible.
-      expect(options.cwd).toBe(FAKE_DESKTOP_PATH);
+      expect(call.options.cwd).toBe(FAKE_DESKTOP_PATH);
     });
 
     it('respects an explicit cwd passed to startSession', async () => {
       const explicitCwd = '/Users/fake/projects/my-repo';
-      const { options } = await runSendPrompt('hello', { cwd: explicitCwd });
+      const { call } = await runSendPrompt('hello', { cwd: explicitCwd });
 
-      expect(options.cwd).toBe(explicitCwd);
+      expect(call.options.cwd).toBe(explicitCwd);
+    });
+
+    it('forwards the resolved CLI path so the SDK does not fall back to a bundled binary', async () => {
+      const { call } = await runSendPrompt('hello');
+
+      // `apps/desktop/.pnpmfile.cjs` strips the SDK's bundled platform binary
+      // at install. Without an explicit path the SDK would ENOENT inside its
+      // own resolver — the controller MUST pass `pathToClaudeCodeExecutable`.
+      expect(call.options.pathToClaudeCodeExecutable).toBe('/usr/bin/claude');
     });
 
     it('omits the empty text block when only images are attached', async () => {
-      const { writes } = await runSendPrompt('', {}, [], {
+      const { userContent } = await runSendPrompt('', { cwd: appStoragePath }, [], {
         imageList: [{ id: 'image-1', url: 'data:image/png;base64,UE5HX1RFU1Q=' }],
       });
 
-      expect(writes).toHaveLength(1);
-      const msg = JSON.parse(writes[0].trimEnd());
       // Anthropic rejects `{ text: '', type: 'text' }` with
       // "messages: text content blocks must be non-empty".
-      expect(msg.message.content).toEqual([
+      expect(userContent).toEqual([
         {
           source: { data: 'UE5HX1RFU1Q=', media_type: 'image/png', type: 'base64' },
           type: 'image',
@@ -304,14 +378,77 @@ describe('HeterogeneousAgentCtr', () => {
       ]);
     });
 
-    it('captures the Claude Code session id from stream-json init events', async () => {
+    it('caches URL-fetched image attachments under appStoragePath, never inside the workspace cwd', async () => {
+      // The prior implementation cached URL images under
+      // `${cwd}/.heerogeneous-tracing`. That broke read-only workspaces and
+      // littered user projects with a hidden cache folder. The controller now
+      // pins the cache directory to its own storage (`appStoragePath/...`) —
+      // matches what the legacy spawn path always did.
+      const workspaceCwd = await mkdtemp(path.join(tmpdir(), 'lobehub-hetero-cwd-'));
+      const fetcher = vi.fn(async (url: string) => {
+        if (!url.startsWith('https://example.test/image.png')) {
+          throw new Error(`Unexpected fetch URL: ${url}`);
+        }
+        return new Response(Buffer.from('REMOTE_IMAGE_BYTES'), {
+          headers: { 'content-type': 'image/png' },
+          status: 200,
+        });
+      });
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = fetcher as unknown as typeof fetch;
+
+      try {
+        const { call } = await runSendPrompt('inspect this', { cwd: workspaceCwd }, [], {
+          imageList: [{ id: 'image-1', url: 'https://example.test/image.png' }],
+        });
+
+        // The controller must hand the SDK driver an `appStoragePath`-rooted
+        // cache directory, not the workspace cwd.
+        const expectedCacheDir = path.join(appStoragePath, 'heteroAgent/files');
+        expect(call.options.cwd).toBe(workspaceCwd);
+        expect(fetcher).toHaveBeenCalledTimes(1);
+        await expect(readdir(expectedCacheDir)).resolves.toEqual(
+          expect.arrayContaining([expect.stringMatching(/^[a-f0-9]{64}(?:\.meta)?$/)]),
+        );
+        // No hidden cache folder ever appears inside the workspace.
+        await expect(access(path.join(workspaceCwd, '.heerogeneous-tracing'))).rejects.toThrow();
+      } finally {
+        globalThis.fetch = originalFetch;
+        await rm(workspaceCwd, { force: true, recursive: true });
+      }
+    });
+
+    it('captures the Claude Code session id from SDK init messages', async () => {
       const { ctr, sessionId } = await runSendPrompt('hello', {}, [
-        `${JSON.stringify({ session_id: 'sess_cc_123', subtype: 'init', type: 'system' })}\n`,
+        { model: 'claude-3-5-sonnet', session_id: 'sess_cc_123', subtype: 'init', type: 'system' },
       ]);
 
       await expect(ctr.getSessionInfo({ sessionId })).resolves.toEqual({
         agentSessionId: 'sess_cc_123',
       });
+    });
+
+    it('fails the SDK preflight when the resolved CLI is unavailable', async () => {
+      // `runSdkStream` re-runs CLI detection so the bundled-binary fallback is
+      // never relied on. When detection reports unavailable, the controller
+      // must broadcast a session error and reject before invoking `query()`.
+      detectCliMock.mockResolvedValueOnce({ available: false });
+      // Also override the preflight call (default-command path) so it doesn't
+      // short-circuit via `toolDetectorManager` first.
+      const ctr = new HeterogeneousAgentCtr({
+        appStoragePath,
+        storeManager: { get: vi.fn() },
+        toolDetectorManager: { detect: vi.fn().mockResolvedValue({ available: false }) },
+      } as any);
+      const { sessionId } = await ctr.startSession({
+        agentType: 'claude-code',
+        command: 'claude',
+      });
+
+      await expect(
+        ctr.sendPrompt({ operationId: 'op-test', prompt: 'hello', sessionId }),
+      ).rejects.toThrow('Claude Code CLI was not found');
+      expect(queryMock).not.toHaveBeenCalled();
     });
   });
 
@@ -386,23 +523,10 @@ describe('HeterogeneousAgentCtr', () => {
     });
 
     it('fails fast when a customized Claude command is unavailable instead of checking the default detector', async () => {
-      execFileMock.mockImplementation(
-        (
-          file: string,
-          _args: string[],
-          optionsOrCallback: unknown,
-          callback?: (error: Error | null, stdout: string, stderr: string) => void,
-        ) => {
-          const resolvedCallback =
-            typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
-
-          resolvedCallback?.(
-            Object.assign(new Error(`${file} not found`), { code: 'ENOENT' }),
-            '',
-            '',
-          );
-        },
-      );
+      // Customized commands skip the shared `toolDetectorManager` and route
+      // through `detectHeterogeneousCliCommand` directly so the SDK preflight
+      // still rejects unknown binaries.
+      detectCliMock.mockResolvedValueOnce({ available: false });
 
       const detect = vi.fn().mockResolvedValue({ available: true });
       const ctr = new HeterogeneousAgentCtr({
@@ -420,6 +544,7 @@ describe('HeterogeneousAgentCtr', () => {
       ).rejects.toThrow('Claude Code CLI was not found');
 
       expect(detect).not.toHaveBeenCalled();
+      expect(detectCliMock).toHaveBeenCalledWith('claude-code', 'claude-alt');
       expect(spawnCalls).toHaveLength(0);
     });
 
@@ -803,29 +928,30 @@ describe('HeterogeneousAgentCtr', () => {
     });
   });
 
-  describe('app-quit cleanup of AskUserQuestion temp configs (LOBE-8725)', () => {
-    // The async exit-handler cleanup races Electron's main-process teardown
-    // and used to leak `lobe-cc-mcp-<opId>.json` files in `os.tmpdir()` on
-    // every quit. The controller now unlinks pending intervention temp
-    // configs *synchronously* from `before-quit` AND from process signal
-    // handlers (SIGTERM / SIGINT — `before-quit` doesn't fire on external
-    // kills). These tests exercise both paths against real files.
+  describe('app-quit cleanup of pending AskUserQuestion interventions (LOBE-8725 → LOBE-8746)', () => {
+    // LOBE-8746 retired the MCP-bridge `lobe-cc-mcp-<opId>.json` files; pending
+    // AskUserQuestion entries are now in-memory `canUseTool` resolvers on
+    // `opIdToInterventions`. The `before-quit` handler still has to settle
+    // them on app teardown (so the SDK callback returns a deny payload and the
+    // renderer's intervention UI doesn't sit on `pending`), and SIGTERM/SIGINT
+    // must defer to Electron's quit flow on external kills.
 
     /**
-     * Drop a temp `lobe-cc-mcp-<id>.json` and stash it on the controller's
-     * `opIdToIntervention` map under the same key, so the quit hook treats
-     * it like a real pending intervention and tries to unlink it.
+     * Seed a pending intervention slot on `opIdToInterventions` keyed by
+     * `operationId` → `toolCallId`. Returns the captured `resolve` spy so the
+     * caller can assert the cleanup settled it with `session_ended`.
      */
-    const seedPendingIntervention = async (ctr: HeterogeneousAgentCtr, opId: string) => {
-      const tmpConfigPath = path.join(tmpdir(), `lobe-cc-mcp-test-${opId}.json`);
-      await writeFile(tmpConfigPath, '{"mcpServers":{}}');
-      const slot = {
-        bridge: {} as any,
-        pumpDone: Promise.resolve(),
-        tmpConfigPath,
-      };
-      (ctr as any).opIdToIntervention.set(opId, slot);
-      return tmpConfigPath;
+    const seedPendingIntervention = (
+      ctr: HeterogeneousAgentCtr,
+      opId: string,
+      toolCallId = 'tool-1',
+    ) => {
+      const resolve = vi.fn();
+      const slot = { identifier: 'claude-code', resolve };
+      const opMap = new Map<string, any>([[toolCallId, slot]]);
+      const interventions = (ctr as any).opIdToInterventions as Map<string, Map<string, any>>;
+      interventions.set(opId, opMap);
+      return { resolve, toolCallId };
     };
 
     const captureRegisteredHandler = (
@@ -838,7 +964,7 @@ describe('HeterogeneousAgentCtr', () => {
       return match[1];
     };
 
-    it('before-quit synchronously unlinks every pending intervention temp config', async () => {
+    it('before-quit resolves every pending intervention with session_ended and clears the map', async () => {
       const electron = (await import('electron')) as any;
       electron.app.on.mockClear();
 
@@ -847,70 +973,83 @@ describe('HeterogeneousAgentCtr', () => {
         storeManager: { get: vi.fn() },
       } as any);
 
-      const fileA = await seedPendingIntervention(ctr, 'opA');
-      const fileB = await seedPendingIntervention(ctr, 'opB');
+      const { resolve: resolveA, toolCallId: tcA } = seedPendingIntervention(ctr, 'opA');
+      const { resolve: resolveB, toolCallId: tcB } = seedPendingIntervention(ctr, 'opB');
 
       ctr.afterAppReady();
       const beforeQuit = captureRegisteredHandler(electron.app.on, 'before-quit');
       beforeQuit();
 
-      await expect(access(fileA)).rejects.toThrow();
-      await expect(access(fileB)).rejects.toThrow();
+      expect(resolveA).toHaveBeenCalledWith({
+        cancelReason: 'session_ended',
+        cancelled: true,
+        toolCallId: tcA,
+      });
+      expect(resolveB).toHaveBeenCalledWith({
+        cancelReason: 'session_ended',
+        cancelled: true,
+        toolCallId: tcB,
+      });
+      expect((ctr as any).opIdToInterventions.size).toBe(0);
     });
 
-    it('SIGTERM handler unlinks pending intervention temp configs (external-kill path)', async () => {
+    it('SIGTERM handler defers to electronApp.quit so before-quit runs (external-kill path)', async () => {
       // External kills (test harness, OS shutdown) skip Electron's lifecycle
-      // events entirely — `before-quit` never fires, so the controller has to
-      // hook the raw process signal too. Stub `process.on` so the handler is
-      // *recorded* but never actually attached to the test runner's process
-      // (otherwise the test leaks a SIGTERM listener that survives the test).
-      // Same for `process.exit` — the controller's fail-safe shouldn't get a
-      // chance to actually exit the worker if its `setTimeout(...).unref()`
-      // ever fires before mockRestore.
+      // events entirely — `before-quit` never fires, so the controller hooks
+      // the raw process signals and re-enters Electron's quit flow. Stub
+      // `process.on` and `process.exit` so this test never leaks a real
+      // signal listener or actually exits the test worker if the fail-safe
+      // `setTimeout(..., 1000)` fires before mockRestore.
       const electron = (await import('electron')) as any;
       electron.app.on.mockClear();
+      electron.app.quit.mockClear();
       const processOnSpy = vi.spyOn(process, 'on').mockImplementation(() => process);
       const processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
-      const ctr = new HeterogeneousAgentCtr({
-        appStoragePath,
-        storeManager: { get: vi.fn() },
-      } as any);
-      const file = await seedPendingIntervention(ctr, 'opSigterm');
+      try {
+        const ctr = new HeterogeneousAgentCtr({
+          appStoragePath,
+          storeManager: { get: vi.fn() },
+        } as any);
+        seedPendingIntervention(ctr, 'opSigterm');
 
-      ctr.afterAppReady();
-      const sigterm = captureRegisteredHandler(processOnSpy, 'SIGTERM');
-      sigterm();
+        ctr.afterAppReady();
+        const sigterm = captureRegisteredHandler(processOnSpy, 'SIGTERM');
+        sigterm();
 
-      await expect(access(file)).rejects.toThrow();
-
-      processOnSpy.mockRestore();
-      processExitSpy.mockRestore();
+        expect(electron.app.quit).toHaveBeenCalled();
+      } finally {
+        processOnSpy.mockRestore();
+        processExitSpy.mockRestore();
+      }
     });
 
-    it('SIGINT handler unlinks pending intervention temp configs (Ctrl-C path)', async () => {
+    it('SIGINT handler defers to electronApp.quit so before-quit runs (Ctrl-C path)', async () => {
       const electron = (await import('electron')) as any;
       electron.app.on.mockClear();
+      electron.app.quit.mockClear();
       const processOnSpy = vi.spyOn(process, 'on').mockImplementation(() => process);
       const processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
-      const ctr = new HeterogeneousAgentCtr({
-        appStoragePath,
-        storeManager: { get: vi.fn() },
-      } as any);
-      const file = await seedPendingIntervention(ctr, 'opSigint');
+      try {
+        const ctr = new HeterogeneousAgentCtr({
+          appStoragePath,
+          storeManager: { get: vi.fn() },
+        } as any);
+        seedPendingIntervention(ctr, 'opSigint');
 
-      ctr.afterAppReady();
-      const sigint = captureRegisteredHandler(processOnSpy, 'SIGINT');
-      sigint();
+        ctr.afterAppReady();
+        const sigint = captureRegisteredHandler(processOnSpy, 'SIGINT');
+        sigint();
 
-      await expect(access(file)).rejects.toThrow();
-
-      processOnSpy.mockRestore();
-      processExitSpy.mockRestore();
+        expect(electron.app.quit).toHaveBeenCalled();
+      } finally {
+        processOnSpy.mockRestore();
+        processExitSpy.mockRestore();
+      }
     });
 
-    it('cleanup is idempotent — already-deleted files do not throw', async () => {
+    it('cleanup is idempotent — before-quit on an empty intervention map does not throw', async () => {
       const electron = (await import('electron')) as any;
       electron.app.on.mockClear();
 
@@ -918,15 +1057,19 @@ describe('HeterogeneousAgentCtr', () => {
         appStoragePath,
         storeManager: { get: vi.fn() },
       } as any);
-      const file = await seedPendingIntervention(ctr, 'opIdempotent');
-
-      // Pre-delete the file out from under the controller — simulates a
-      // partial cleanup race where the async exit handler beat us to it.
-      await unlink(file);
+      const { resolve } = seedPendingIntervention(ctr, 'opIdempotent');
 
       ctr.afterAppReady();
       const beforeQuit = captureRegisteredHandler(electron.app.on, 'before-quit');
+
+      // First fire resolves the pending entry and clears the map.
       expect(() => beforeQuit()).not.toThrow();
+      expect(resolve).toHaveBeenCalledTimes(1);
+
+      // Second fire (e.g. a partial cleanup race where another path already
+      // settled the map) must be a no-op rather than throwing on an empty map.
+      expect(() => beforeQuit()).not.toThrow();
+      expect(resolve).toHaveBeenCalledTimes(1);
     });
   });
 });
