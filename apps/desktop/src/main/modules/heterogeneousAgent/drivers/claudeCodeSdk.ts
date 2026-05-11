@@ -1,4 +1,6 @@
+import type { SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import type { MessageParam } from '@anthropic-ai/sdk/resources';
 import { normalizeImage } from '@lobechat/heterogeneous-agents/spawn';
 
 import type {
@@ -20,12 +22,14 @@ import type {
  * Failures are escalated to the caller so a partially-attached prompt never
  * reaches the model — matches the existing `resolveCliImagePaths` contract.
  */
+type ContentBlock = Exclude<MessageParam['content'], string>[number];
+
 const buildUserContent = async (
   prompt: string,
   imageList: HeterogeneousAgentImageAttachment[] | undefined,
   cacheDir: string,
-): Promise<Array<Record<string, unknown>>> => {
-  const content: Array<Record<string, unknown>> = [];
+): Promise<ContentBlock[]> => {
+  const content: ContentBlock[] = [];
   if (prompt && prompt.length > 0) content.push({ text: prompt, type: 'text' });
   if (!imageList?.length) return content;
 
@@ -42,7 +46,15 @@ const buildUserContent = async (
       content.push({
         source: {
           data: result.value.buffer.toString('base64'),
-          media_type: result.value.mediaType,
+          // SDK MessageParam restricts media types to the four formats CC
+          // accepts natively. `normalizeImage` returns a broader string from
+          // the raw response; cast at the boundary — upstream validation
+          // already ensured the type is image/* with one of these subtypes.
+          media_type: result.value.mediaType as
+            | 'image/gif'
+            | 'image/jpeg'
+            | 'image/png'
+            | 'image/webp',
           type: 'base64',
         },
         type: 'image',
@@ -121,12 +133,20 @@ export const claudeCodeSdkDriver: HeterogeneousAgentDriver = {
     const extraArgs = parseExtraArgs(args);
     if (mcpConfigPath) extraArgs['mcp-config'] = mcpConfigPath;
 
-    const q = query({
-      prompt: {
+    // The SDK expects `prompt: string | AsyncIterable<SDKUserMessage>`. We
+    // always use the iterable form so future phases can append follow-up user
+    // messages (mid-run injection, queued messages with priority semantics)
+    // through the same channel without rebuilding the transport.
+    async function* promptStream(): AsyncGenerator<SDKUserMessage, void> {
+      yield {
         message: { content, role: 'user' },
         parent_tool_use_id: null,
         type: 'user',
-      },
+      };
+    }
+
+    const q = query({
+      prompt: promptStream(),
       options: {
         abortController: ac,
         allowDangerouslySkipPermissions: true,

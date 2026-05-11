@@ -20,6 +20,7 @@ import type { AskUserBridge } from '@lobechat/heterogeneous-agents/askUser';
 import { AskUserMcpServer } from '@lobechat/heterogeneous-agents/askUser';
 import type { AgentContentBlock } from '@lobechat/heterogeneous-agents/spawn';
 import {
+  AgentSdkEventPipeline,
   AgentStreamPipeline,
   buildAgentInput,
   materializeImageToPath,
@@ -837,11 +838,33 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
           })
         : undefined;
 
+    const driver = getHeterogeneousAgentDriver(session.agentType);
+
+    // SDK-backed transport (Claude Code): the driver pumps already-parsed
+    // provider messages, no child process to babysit here. `runSdkStream`
+    // broadcasts its own session-error and rethrows so the renderer's IPC
+    // promise rejects, matching the spawn path. Codex still goes through
+    // the spawn path below.
+    if (driver.startStream) {
+      await this.runSdkStream(session, params, driver, intervention);
+      return;
+    }
+
+    if (!driver.buildSpawnPlan) {
+      if (intervention) {
+        await intervention.cleanup().catch((cleanupErr) => {
+          logger.warn('AskUserQuestion cleanup error during pre-spawn failure:', cleanupErr);
+        });
+      }
+      throw new Error(
+        `Driver for ${session.agentType} implements neither startStream nor buildSpawnPlan`,
+      );
+    }
+
     let spawnPlan;
     let traceSession;
     let cwd: string;
     try {
-      const driver = getHeterogeneousAgentDriver(session.agentType);
       spawnPlan = await driver.buildSpawnPlan({
         args: session.args,
         helpers: {
@@ -1044,6 +1067,218 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
   }
 
   /**
+   * SDK-backed transport for Claude Code. The driver yields parsed provider
+   * messages directly (no JSONL framing); we pump them through
+   * `AgentSdkEventPipeline` (same adapter as the spawn path) and broadcast
+   * the resulting `AgentStreamEvent`s.
+   *
+   * Cancellation: `AbortController` plumbed into the SDK's `query()` via
+   * `session.cancel`. `cancelSession` / `stopSession` / `before-quit` flip
+   * `cancelledByUs` and abort; the resulting `AbortError` thrown by the
+   * iterator is treated as a clean shutdown (matches the spawn path's
+   * "signal-induced exit = complete" rule).
+   *
+   * The SDK doesn't fall back to its bundled platform binary because
+   * `apps/desktop/.pnpmfile.cjs` strips those optional deps at install — we
+   * also require `pathToClaudeCodeExecutable` at the driver boundary so a
+   * missing system `claude` surfaces as `CliNotFound` instead of a confusing
+   * ENOENT from somewhere inside the SDK.
+   */
+  private async runSdkStream(
+    session: AgentSession,
+    params: SendPromptParams,
+    driver: ReturnType<typeof getHeterogeneousAgentDriver>,
+    intervention: { cleanup: () => Promise<void>; tmpConfigPath: string } | undefined,
+  ): Promise<void> {
+    const cwd = session.cwd || electronApp.getPath('desktop');
+    const command = this.resolveSessionCommand(session);
+    const cliStatus = await detectHeterogeneousCliCommand(
+      session.agentType === 'claude-code' ? 'claude-code' : 'codex',
+      command,
+    );
+    if (!cliStatus?.available || !cliStatus.path) {
+      const sessionError =
+        this.buildCliMissingError(session) ?? `Claude Code CLI not found: ${command}`;
+      this.broadcast('heteroAgentSessionError', {
+        error: sessionError,
+        sessionId: session.sessionId,
+      });
+      if (intervention) {
+        await intervention.cleanup().catch((cleanupErr) => {
+          logger.warn('AskUserQuestion cleanup error after CLI-missing:', cleanupErr);
+        });
+      }
+      throw new Error(typeof sessionError === 'string' ? sessionError : sessionError.message);
+    }
+
+    const proxyEnv = buildProxyEnv(this.app.storeManager.get('networkProxy'));
+    const env = { ...process.env, ...proxyEnv, ...session.env };
+
+    let traceSession;
+    try {
+      traceSession = await this.createCliTraceSession({
+        cliArgs: session.args,
+        cwd,
+        imageList: params.imageList ?? [],
+        session,
+        stdinPayload: undefined,
+      });
+    } catch (err) {
+      if (intervention) {
+        await intervention.cleanup().catch((cleanupErr) => {
+          logger.warn('AskUserQuestion cleanup error during pre-spawn failure:', cleanupErr);
+        });
+      }
+      throw err;
+    }
+
+    const ac = new AbortController();
+    session.cancel = () => ac.abort();
+    const stderrChunks: string[] = [];
+
+    logger.info(
+      'Starting SDK stream:',
+      session.agentType,
+      `(cwd: ${cwd}, claude: ${cliStatus.path})`,
+    );
+
+    let handle;
+    try {
+      handle = await driver.startStream!({
+        abortSignal: ac.signal,
+        args: session.args,
+        cwd,
+        env,
+        helpers: {
+          buildClaudeStreamJsonInput: (prompt, imageList) =>
+            this.buildStreamJsonInput(prompt, imageList),
+          resolveCliImagePaths: (imageList) => this.resolveCliImagePaths(imageList),
+        },
+        imageList: params.imageList ?? [],
+        mcpConfigPath: intervention?.tmpConfigPath,
+        onStderr: (chunk) => {
+          void this.appendCliTraceFile(traceSession, 'stderr.log', chunk);
+          stderrChunks.push(chunk);
+        },
+        pathToClaudeCodeExecutable: cliStatus.path,
+        prompt: params.prompt,
+        resumeSessionId: session.agentSessionId,
+      });
+    } catch (err) {
+      session.cancel = undefined;
+      logger.error('SDK startStream failed:', err);
+      if (intervention) {
+        await intervention.cleanup().catch((cleanupErr) => {
+          logger.warn('AskUserQuestion cleanup error after startStream failure:', cleanupErr);
+        });
+      }
+      void this.writeCliTraceJson(traceSession, 'process-error.json', {
+        message: err instanceof Error ? err.message : String(err),
+        name: err instanceof Error ? err.name : 'Error',
+      });
+      await this.flushCliTrace(traceSession);
+      const sessionError = this.getSessionErrorPayload(err, session);
+      this.broadcast('heteroAgentSessionError', {
+        error: sessionError,
+        sessionId: session.sessionId,
+      });
+      throw new Error(typeof sessionError === 'string' ? sessionError : sessionError.message, {
+        cause: err,
+      });
+    }
+
+    const pipeline = new AgentSdkEventPipeline({
+      agentType: session.agentType,
+      operationId: params.operationId,
+    });
+
+    // Same ordering guarantee as the spawn path: serialize broadcast batches
+    // so events emitted from in-flight `process()` calls land before flush()'s
+    // final batch — `pipeline.process` is synchronous today but the chain is
+    // free + keeps the codepaths shaped alike.
+    let broadcastQueue: Promise<void> = Promise.resolve();
+    const enqueueBatch = (events: ReturnType<AgentSdkEventPipeline['process']>) => {
+      if (events.length === 0) return;
+      broadcastQueue = broadcastQueue.then(() => {
+        if (pipeline.sessionId && pipeline.sessionId !== session.agentSessionId) {
+          session.agentSessionId = pipeline.sessionId;
+        }
+        for (const event of events) {
+          this.broadcast('heteroAgentEvent', { event, sessionId: session.sessionId });
+        }
+      });
+    };
+
+    try {
+      for await (const message of handle.messages) {
+        void this.appendCliTraceFile(
+          traceSession,
+          'messages.jsonl',
+          `${JSON.stringify(message)}\n`,
+        );
+        enqueueBatch(pipeline.process(message));
+      }
+      enqueueBatch(pipeline.flush());
+      await broadcastQueue;
+
+      void this.writeCliTraceJson(traceSession, 'exit.json', {
+        cancelledByUs: !!session.cancelledByUs,
+        finishedAt: new Date().toISOString(),
+      });
+      await this.flushCliTrace(traceSession);
+      this.broadcast('heteroAgentSessionComplete', { sessionId: session.sessionId });
+    } catch (err) {
+      await broadcastQueue.catch(() => {
+        /* already logged */
+      });
+
+      // AbortError or cancelledByUs → clean shutdown (mirrors the spawn path's
+      // signal-induced-exit treatment so user cancels and Electron quits don't
+      // pollute topics with misleading "Agent error" messages).
+      const isAbort =
+        err instanceof Error &&
+        (err.name === 'AbortError' || /aborted|cancelled/i.test(err.message));
+      if (session.cancelledByUs || isAbort) {
+        void this.writeCliTraceJson(traceSession, 'exit.json', {
+          cancelledByUs: true,
+          finishedAt: new Date().toISOString(),
+          reason: 'abort',
+        });
+        await this.flushCliTrace(traceSession);
+        this.broadcast('heteroAgentSessionComplete', { sessionId: session.sessionId });
+      } else {
+        logger.error('SDK stream iterator error:', err);
+        void this.writeCliTraceJson(traceSession, 'process-error.json', {
+          message: err instanceof Error ? err.message : String(err),
+          name: err instanceof Error ? err.name : 'Error',
+          stderrTail: stderrChunks.join('').slice(-1000),
+        });
+        await this.flushCliTrace(traceSession);
+        const sessionError = this.getSessionErrorPayload(err, session);
+        this.broadcast('heteroAgentSessionError', {
+          error: sessionError,
+          sessionId: session.sessionId,
+        });
+        throw new Error(typeof sessionError === 'string' ? sessionError : sessionError.message, {
+          cause: err,
+        });
+      }
+    } finally {
+      session.cancel = undefined;
+      try {
+        handle.close();
+      } catch (closeErr) {
+        logger.warn('SDK handle close error:', closeErr);
+      }
+      if (intervention) {
+        await intervention.cleanup().catch((cleanupErr) => {
+          logger.warn('AskUserQuestion cleanup error:', cleanupErr);
+        });
+      }
+    }
+  }
+
+  /**
    * Get session info (agent's internal session ID for multi-turn resume).
    */
   @IpcMethod()
@@ -1085,21 +1320,34 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
   }
 
   /**
-   * Cancel an ongoing session: SIGINT the CC tree, escalate to SIGKILL after
-   * 2s if the CLI hasn't exited (some tool calls swallow SIGINT). The
-   * `exit` handler on the spawned proc broadcasts completion and clears
-   * `session.process`, so the escalation is a no-op when the graceful path
-   * already landed.
+   * Cancel an ongoing session.
+   *
+   * SDK path (CC): call `session.cancel` (the SDK `AbortController.abort`),
+   * which makes the iterator throw `AbortError` — `runSdkStream`'s catch
+   * routes that through `heteroAgentSessionComplete`.
+   *
+   * Spawn path (Codex): SIGINT the process tree, escalate to SIGKILL after
+   * 2s if the CLI hasn't exited.
    */
   @IpcMethod()
   async cancelSession(params: CancelSessionParams): Promise<void> {
     const session = this.sessions.get(params.sessionId);
-    if (!session?.process || session.process.killed) return;
+    if (!session) return;
 
+    if (session.cancel) {
+      session.cancelledByUs = true;
+      try {
+        session.cancel();
+      } catch (err) {
+        logger.warn('SDK cancel handle threw:', err);
+      }
+      return;
+    }
+
+    if (!session.process || session.process.killed) return;
     session.cancelledByUs = true;
     const proc = session.process;
     this.killProcessTree(proc, 'SIGINT');
-
     setTimeout(() => {
       if (session.process === proc && !proc.killed) {
         logger.warn('Session did not exit after SIGINT, escalating to SIGKILL:', params.sessionId);
@@ -1116,7 +1364,14 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     const session = this.sessions.get(params.sessionId);
     if (!session) return;
 
-    if (session.process && !session.process.killed) {
+    if (session.cancel) {
+      session.cancelledByUs = true;
+      try {
+        session.cancel();
+      } catch (err) {
+        logger.warn('SDK cancel handle threw on stopSession:', err);
+      }
+    } else if (session.process && !session.process.killed) {
       session.cancelledByUs = true;
       const proc = session.process;
       this.killProcessTree(proc, 'SIGTERM');
@@ -1185,7 +1440,14 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     electronApp.on('before-quit', () => {
       this.unlinkPendingInterventionConfigsSync();
       for (const [, session] of this.sessions) {
-        if (session.process && !session.process.killed) {
+        if (session.cancel) {
+          session.cancelledByUs = true;
+          try {
+            session.cancel();
+          } catch {
+            /* abort handle may already be cleared — fine */
+          }
+        } else if (session.process && !session.process.killed) {
           session.cancelledByUs = true;
           this.killProcessTree(session.process, 'SIGTERM');
         }
