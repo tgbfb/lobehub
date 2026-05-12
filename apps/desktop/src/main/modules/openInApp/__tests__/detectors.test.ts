@@ -228,7 +228,7 @@ describe('detectAllApps', () => {
     expect(finder?.installed).toBe(true);
   });
 
-  it('merges extracted icons onto installed apps only', async () => {
+  it('does not call extractAllIcons by default (env flag off)', async () => {
     mockedAccess.mockRejectedValue(new Error('missing'));
     mockedExecFile.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: any) => {
       const callback = typeof _opts === 'function' ? _opts : cb;
@@ -236,39 +236,12 @@ describe('detectAllApps', () => {
       callback(err, '', '');
       return undefined as any;
     });
-
-    vi.mocked(extractAllIcons).mockResolvedValueOnce(
-      new Map([['finder', 'data:image/png;base64,FAKE']]),
-    );
 
     const apps = await detectAllApps('darwin');
 
+    expect(extractAllIcons).not.toHaveBeenCalled();
     const finder = apps.find((a) => a.id === 'finder');
-    expect(finder?.icon).toBe('data:image/png;base64,FAKE');
-
-    // not-installed apps must not have an icon field
-    const xcode = apps.find((a) => a.id === 'xcode');
-    expect(xcode?.installed).toBe(false);
-    expect(xcode?.icon).toBeUndefined();
-  });
-
-  it('passes only installed AppIds to extractAllIcons', async () => {
-    mockedAccess.mockRejectedValue(new Error('missing'));
-    mockedExecFile.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: any) => {
-      const callback = typeof _opts === 'function' ? _opts : cb;
-      const err: NodeJS.ErrnoException = new Error('fail');
-      callback(err, '', '');
-      return undefined as any;
-    });
-
-    vi.mocked(extractAllIcons).mockResolvedValueOnce(new Map());
-
-    await detectAllApps('darwin');
-
-    expect(extractAllIcons).toHaveBeenCalledTimes(1);
-    const [ids, platform] = vi.mocked(extractAllIcons).mock.calls[0];
-    expect(platform).toBe('darwin');
-    // only finder is ALWAYS_INSTALLED on darwin; all others fail probes
-    expect(ids).toEqual(['finder']);
+    expect(finder?.installed).toBe(true);
+    expect(finder?.icon).toBeUndefined();
   });
 });

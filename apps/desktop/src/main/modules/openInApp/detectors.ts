@@ -10,6 +10,14 @@ import { extractAllIcons } from './iconExtractor';
 import type { DetectStrategy } from './registry';
 import { ALWAYS_INSTALLED, APP_REGISTRY } from './registry';
 
+// Set `LOBE_OPEN_IN_APP_ENABLE_ICONS=1` to opt back into real icon extraction
+// via `app.getFileIcon`. Disabled by default because Electron 41 + macOS 26
+// crashes the entire process (EXC_BREAKPOINT inside [NSWorkspace
+// iconForContentType:] / [NSImage recache]) the moment getFileIcon resolves
+// a non-trivial .app bundle. Renderer falls back to lucide icons when the
+// `icon` field is absent — distinct per app category and stable.
+const ICON_EXTRACTION_ENABLED = process.env.LOBE_OPEN_IN_APP_ENABLE_ICONS === '1';
+
 const logger = createLogger('modules:openInApp:detectors');
 
 const execFileAsync = promisify(execFile);
@@ -86,10 +94,14 @@ export const detectAllApps = async (
   >;
   const installedFlags = await Promise.all(entries.map(([id]) => detectApp(id, platform)));
 
-  // Extract icons in parallel ONLY for installed apps — icon extraction is best-effort
-  // and must never break detection (extractAllIcons swallows errors).
-  const installedIds = entries.filter((_entry, i) => installedFlags[i]).map(([id]) => id);
-  const icons = await extractAllIcons(installedIds, platform);
+  // Icon extraction is gated behind an env flag because it crashes Electron on
+  // macOS 26 (see ICON_EXTRACTION_ENABLED comment above).
+  const installedIds = ICON_EXTRACTION_ENABLED
+    ? entries.filter((_entry, i) => installedFlags[i]).map(([id]) => id)
+    : [];
+  const icons = ICON_EXTRACTION_ENABLED
+    ? await extractAllIcons(installedIds, platform)
+    : new Map<OpenInAppId, string>();
 
   return entries.map(([id, descriptor], i) => {
     const installed = installedFlags[i];
