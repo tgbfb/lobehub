@@ -34,6 +34,7 @@ const mockedExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn
 const mockedGetFileIcon = vi.mocked(app.getFileIcon);
 
 interface FakeImage {
+  getSize: () => { height: number; width: number };
   isEmpty: () => boolean;
   resize: (opts: { height: number; quality: string; width: number }) => FakeImage;
   toDataURL: () => string;
@@ -41,6 +42,7 @@ interface FakeImage {
 
 const makeFakeImage = (dataUrl: string, opts: { empty?: boolean } = {}): FakeImage => {
   const img: FakeImage = {
+    getSize: () => ({ height: 128, width: 128 }),
     isEmpty: () => Boolean(opts.empty),
     resize: () => img,
     toDataURL: () => dataUrl,
@@ -77,7 +79,7 @@ describe('extractAppIcon', () => {
 
       expect(result).toBe('data:image/png;base64,MOCK');
       expect(mockedGetFileIcon).toHaveBeenCalledWith('/Applications/Visual Studio Code.app', {
-        size: 'normal',
+        size: 'large',
       });
     });
 
@@ -139,7 +141,7 @@ describe('extractAppIcon', () => {
       expect(result).toBe('data:image/png;base64,WIN');
       expect(mockedGetFileIcon).toHaveBeenCalledWith(
         'C:\\Program Files\\Microsoft VS Code\\Code.exe',
-        { size: 'normal' },
+        { size: 'large' },
       );
     });
 
@@ -153,7 +155,7 @@ describe('extractAppIcon', () => {
       await extractAppIcon('vscode', 'win32');
 
       expect(mockedGetFileIcon).toHaveBeenCalledWith('C:\\path\\one\\Code.exe', {
-        size: 'normal',
+        size: 'large',
       });
     });
 

@@ -13,8 +13,13 @@ const logger = createLogger('modules:openInApp:iconExtractor');
 
 const execFileAsync = promisify(execFile);
 
-/** px — covers retina at the 14-16px render size */
-const ICON_SIZE = 32;
+/** Source request size from getFileIcon. macOS returns the canonical 128×128
+ *  bundle icon at `large`; `normal` (32×32) often degrades to the generic
+ *  application placeholder when the high-res rendition cannot be loaded. */
+const SOURCE_SIZE = 'large' as const;
+/** Output px — we downscale once on the main side so the IPC payload stays
+ *  small while still looking crisp at the renderer's 16-20px display size. */
+const ICON_SIZE = 64;
 
 const resolveDarwinBundlePath = async (id: OpenInAppId): Promise<string | undefined> => {
   const strategy = APP_REGISTRY[id]?.detect.darwin;
@@ -50,10 +55,19 @@ const resolveWin32ExePath = async (id: OpenInAppId): Promise<string | undefined>
 
 const extractFromPath = async (filePath: string): Promise<string | undefined> => {
   try {
-    const icon = await app.getFileIcon(filePath, { size: 'normal' });
-    if (icon.isEmpty()) return undefined;
+    const icon = await app.getFileIcon(filePath, { size: SOURCE_SIZE });
+    if (icon.isEmpty()) {
+      logger.debug(`getFileIcon returned empty image for ${filePath}`);
+      return undefined;
+    }
+    const sourceSize = icon.getSize();
     const resized = icon.resize({ height: ICON_SIZE, quality: 'better', width: ICON_SIZE });
-    return resized.toDataURL();
+    const dataUrl = resized.toDataURL();
+    logger.debug(
+      `extracted icon for ${filePath} (source ${sourceSize.width}x${sourceSize.height}, ` +
+        `payload ${Math.round(dataUrl.length / 1024)}KB)`,
+    );
+    return dataUrl;
   } catch (error) {
     logger.debug(`getFileIcon failed for ${filePath}: ${(error as Error).message}`);
     return undefined;

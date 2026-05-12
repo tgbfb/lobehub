@@ -15,7 +15,7 @@ interface AppIconProps {
   size?: number;
 }
 
-const AppIcon = ({ id, icon, size = 14 }: AppIconProps) => {
+const AppIcon = ({ id, icon, size = 16 }: AppIconProps) => {
   if (icon) {
     return (
       <img
