@@ -85,13 +85,29 @@ const dispatchOnBeforeCall = async (data: ToolStartData | undefined): Promise<vo
 };
 
 /**
+ * Real gateway `tool_end` events ship `data.payload` as the
+ * `{ parentMessageId, toolCalling }` wrapper, NOT a flat `ChatToolPayload`
+ * (see `src/server/modules/AgentRuntime/RuntimeExecutors.ts` — both the
+ * single-tool and batch publish sites). Unwrap defensively, falling back to
+ * the flat shape so we tolerate test fixtures / future emission paths that
+ * pass the payload directly.
+ */
+const unwrapToolPayload = (raw: unknown): ChatToolPayloadLike | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const wrapper = raw as { toolCalling?: unknown };
+  if (wrapper.toolCalling && typeof wrapper.toolCalling === 'object') {
+    return wrapper.toolCalling as ChatToolPayloadLike;
+  }
+  return raw as ChatToolPayloadLike;
+};
+
+/**
  * Route a `tool_end` event to the executor's optional `onAfterCall` hook so
  * tool packages can react to their own mutations (e.g. invalidate store
  * caches) regardless of whether the tool ran client- or server-side.
  */
 const dispatchOnAfterCall = async (data: ToolEndData | undefined): Promise<void> => {
-  const payload = data?.payload as ChatToolPayloadLike | undefined;
-  const identity = readToolPayload(payload);
+  const identity = readToolPayload(unwrapToolPayload(data?.payload));
   if (!identity) return;
 
   const executor = getExecutor(identity.identifier);
