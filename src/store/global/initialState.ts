@@ -272,7 +272,7 @@ export interface SystemStatus {
    * Lifted to global so external triggers (e.g. the diff badge in the input bar)
    * can switch the panel to "review" when revealing the right panel.
    */
-  workingSidebarTab?: 'resources' | 'review';
+  workingSidebarTab?: 'resources' | 'review' | 'files';
   zenMode?: boolean;
 }
 
