@@ -701,6 +701,56 @@ describe('createCallbacksTransformer', () => {
     expect(onFinal).toHaveBeenCalledWith(expectedData);
   });
 
+  it('should keep streaming when per-chunk callbacks throw', async () => {
+    const error = new Error('text callback failed');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onCompletion = vi.fn();
+    const onText = vi.fn(() => {
+      throw error;
+    });
+    const transformer = createCallbacksTransformer({ onCompletion, onText });
+
+    const chunks = ['event: text\n', 'data: "Hello"\n\n'];
+
+    try {
+      await expect(processChunks(transformer, chunks)).resolves.toBeDefined();
+
+      expect(onText).toHaveBeenCalledWith('Hello');
+      expect(onCompletion).toHaveBeenCalledWith(expect.objectContaining({ text: 'Hello' }));
+      expect(consoleError).toHaveBeenCalledWith(
+        '[createCallbacksTransformer] onText callback error:',
+        error,
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('should continue final callbacks when completion callback throws', async () => {
+    const error = new Error('completion callback failed');
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onCompletion = vi.fn(() => {
+      throw error;
+    });
+    const onFinal = vi.fn();
+    const transformer = createCallbacksTransformer({ onCompletion, onFinal });
+
+    const chunks = ['event: text\n', 'data: "Hello"\n\n'];
+
+    try {
+      await expect(processChunks(transformer, chunks)).resolves.toBeDefined();
+
+      expect(onCompletion).toHaveBeenCalledOnce();
+      expect(onFinal).toHaveBeenCalledWith(expect.objectContaining({ text: 'Hello' }));
+      expect(consoleError).toHaveBeenCalledWith(
+        '[createCallbacksTransformer] onCompletion callback error:',
+        error,
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('should capture finishReason from stop chunks and include in final data', async () => {
     const onCompletion = vi.fn();
     const onFinal = vi.fn();
