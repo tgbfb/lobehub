@@ -1,16 +1,16 @@
 import type { OpenInAppId } from '@lobechat/electron-client-ipc';
 import { Cursor } from '@lobehub/icons';
 import { CodeIcon, FolderIcon, FolderOpenIcon, TerminalIcon } from 'lucide-react';
-import type { ComponentType, SVGAttributes } from 'react';
+import type { FC } from 'react';
 
 // Renderer-side mapping from AppId → icon component. The displayName comes from
 // the main-process detectApps result (the source of truth), so we only map icons here.
-type IconLike =
-  | ComponentType<{ size?: number | string }>
-  | ComponentType<SVGAttributes<SVGElement>>;
+// `FC<any>` is the widest shape accepted by `@lobehub/ui`'s `Icon` component and
+// covers both lucide-react icons and `@lobehub/icons` brand icons.
+type IconLike = FC<any>;
 
 export const APP_ICONS: Record<OpenInAppId, IconLike> = {
-  cursor: Cursor as unknown as IconLike,
+  cursor: Cursor as IconLike,
   explorer: FolderIcon,
   files: FolderOpenIcon,
   finder: FolderIcon,
