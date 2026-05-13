@@ -14,16 +14,13 @@ import GroupItem from '../List/AgentGroupItem';
 import AgentItem from '../List/AgentItem';
 
 interface ContentProps {
-  open: boolean;
   searchKeyword: string;
 }
 
 const Content = memo<ContentProps>(({ searchKeyword }) => {
-  // Use server-side search if there's a keyword
   const trimmedKeyword = searchKeyword.trim();
   const isSearching = trimmedKeyword.length > 0;
 
-  // Search agents using homeStore
   const [closeAllAgentsDrawer, useSearchAgents] = useHomeStore((s) => [
     s.closeAllAgentsDrawer,
     s.useSearchAgents,
@@ -32,10 +29,8 @@ const Content = memo<ContentProps>(({ searchKeyword }) => {
     isSearching ? trimmedKeyword : undefined,
   );
 
-  // Get all agents from homeStore (ungrouped agents for default view)
   const allUngroupedAgents = useHomeStore(homeAgentListSelectors.ungroupedAgents, isEqual);
 
-  // Filter and display - searchResults already returns SidebarAgentItem[]
   const displayItems = isSearching ? searchResults || [] : allUngroupedAgents;
 
   const count = displayItems.length;
@@ -43,7 +38,6 @@ const Content = memo<ContentProps>(({ searchKeyword }) => {
   // Close on navigation because the Home layout stays mounted offscreen across route changes.
   const handleNavigate = closeAllAgentsDrawer;
 
-  // Show loading skeleton when searching
   if (isSearching && (isSearchLoading || !searchResults)) {
     return (
       <Flexbox gap={1} paddingBlock={1} paddingInline={4}>
@@ -52,7 +46,6 @@ const Content = memo<ContentProps>(({ searchKeyword }) => {
     );
   }
 
-  // Show empty state when no agents
   if (count === 0) {
     return <AgentSelectionEmpty search={isSearching} />;
   }
