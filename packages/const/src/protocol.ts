@@ -8,8 +8,8 @@ export const withElectronProtocolIfElectron = (url: string) => {
 
 /**
  * Custom protocol the desktop main process exposes for serving arbitrary
- * absolute local-disk files to the renderer (e.g. binary image previews in
- * the project Files tree). Backed by `LocalFileProtocolManager` in
+ * absolute local-disk files to the renderer (e.g. project file previews).
+ * Backed by `LocalFileProtocolManager` in
  * `apps/desktop`.
  */
 export const LOCAL_FILE_PROTOCOL_SCHEME = 'localfile';

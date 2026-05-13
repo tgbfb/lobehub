@@ -44,12 +44,7 @@ export const extensionToLanguage = (ext: string): string => {
   return EXT_TO_LANG[ext.toLowerCase()] ?? 'txt';
 };
 
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp', 'ico']);
-
-export const isImageExtension = (ext: string): boolean => IMAGE_EXTS.has(ext.toLowerCase());
-
 export const getFileExtension = (filename: string): string => {
-  // handle dotfiles like ".gitignore" — no extension
   const base = filename.split('/').at(-1) ?? filename;
   if (base.startsWith('.') && !base.slice(1).includes('.')) return '';
   const dotIdx = base.lastIndexOf('.');

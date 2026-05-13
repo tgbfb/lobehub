@@ -508,6 +508,108 @@ describe('chatDockSlice', () => {
     });
   });
 
+  describe('closeLeftLocalFileTabs', () => {
+    it('should close tabs to the left and keep active when active remains open', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.openLocalFile({ filePath: '/path/a.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/b.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/c.ts', workingDirectory: '/path' });
+      });
+
+      act(() => {
+        result.current.closeLeftLocalFileTabs('/path/b.ts');
+      });
+
+      expect(result.current.openLocalFiles.map((f) => f.filePath)).toEqual([
+        '/path/b.ts',
+        '/path/c.ts',
+      ]);
+      expect(result.current.activeLocalFilePath).toBe('/path/c.ts');
+    });
+
+    it('should activate target tab when closing the active tab on the left', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.openLocalFile({ filePath: '/path/a.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/b.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/c.ts', workingDirectory: '/path' });
+        result.current.setActiveLocalFile('/path/a.ts');
+      });
+
+      act(() => {
+        result.current.closeLeftLocalFileTabs('/path/c.ts');
+      });
+
+      expect(result.current.openLocalFiles.map((f) => f.filePath)).toEqual(['/path/c.ts']);
+      expect(result.current.activeLocalFilePath).toBe('/path/c.ts');
+    });
+  });
+
+  describe('closeRightLocalFileTabs', () => {
+    it('should close tabs to the right and keep active when active remains open', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.openLocalFile({ filePath: '/path/a.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/b.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/c.ts', workingDirectory: '/path' });
+        result.current.setActiveLocalFile('/path/a.ts');
+      });
+
+      act(() => {
+        result.current.closeRightLocalFileTabs('/path/b.ts');
+      });
+
+      expect(result.current.openLocalFiles.map((f) => f.filePath)).toEqual([
+        '/path/a.ts',
+        '/path/b.ts',
+      ]);
+      expect(result.current.activeLocalFilePath).toBe('/path/a.ts');
+    });
+
+    it('should activate target tab when closing the active tab on the right', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.openLocalFile({ filePath: '/path/a.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/b.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/c.ts', workingDirectory: '/path' });
+      });
+
+      act(() => {
+        result.current.closeRightLocalFileTabs('/path/a.ts');
+      });
+
+      expect(result.current.openLocalFiles.map((f) => f.filePath)).toEqual(['/path/a.ts']);
+      expect(result.current.activeLocalFilePath).toBe('/path/a.ts');
+    });
+  });
+
+  describe('closeOtherLocalFileTabs', () => {
+    it('should close every tab except the target and activate it', () => {
+      const { result } = renderHook(() => useChatStore());
+
+      act(() => {
+        result.current.openLocalFile({ filePath: '/path/a.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/b.ts', workingDirectory: '/path' });
+        result.current.openLocalFile({ filePath: '/path/c.ts', workingDirectory: '/path' });
+      });
+
+      act(() => {
+        result.current.closeOtherLocalFileTabs('/path/b.ts');
+      });
+
+      expect(result.current.openLocalFiles).toEqual([
+        { filePath: '/path/b.ts', workingDirectory: '/path' },
+      ]);
+      expect(result.current.activeLocalFilePath).toBe('/path/b.ts');
+      expect(result.current.portalStack[0]).toEqual({ type: PortalViewType.LocalFile });
+    });
+  });
+
   describe('setActiveLocalFile', () => {
     it('should update activeLocalFilePath', () => {
       const { result } = renderHook(() => useChatStore());

@@ -1,9 +1,11 @@
 'use client';
 
+import { ContextMenuTrigger, type GenericItemType } from '@lobehub/ui';
 import { ScrollArea } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import { XIcon } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/selectors';
@@ -95,53 +97,95 @@ const SCROLL_AREA_SCROLLBAR_STYLE = {
 };
 
 const TabStrip = memo(() => {
+  const { t } = useTranslation('chat');
   const openLocalFiles = useChatStore(chatPortalSelectors.openLocalFiles);
   const activeLocalFilePath = useChatStore(chatPortalSelectors.activeLocalFilePath);
   const setActiveLocalFile = useChatStore((s) => s.setActiveLocalFile);
   const closeLocalFileTab = useChatStore((s) => s.closeLocalFileTab);
+  const closeLeftLocalFileTabs = useChatStore((s) => s.closeLeftLocalFileTabs);
+  const closeOtherLocalFileTabs = useChatStore((s) => s.closeOtherLocalFileTabs);
+  const closeRightLocalFileTabs = useChatStore((s) => s.closeRightLocalFileTabs);
+
+  const getContextMenuItems = useCallback(
+    (filePath: string, index: number): GenericItemType[] => [
+      {
+        disabled: index === 0,
+        key: 'closeLeft',
+        label: t('workingPanel.localFile.closeLeft'),
+        onClick: () => closeLeftLocalFileTabs(filePath),
+      },
+      {
+        disabled: index === openLocalFiles.length - 1,
+        key: 'closeRight',
+        label: t('workingPanel.localFile.closeRight'),
+        onClick: () => closeRightLocalFileTabs(filePath),
+      },
+      {
+        disabled: openLocalFiles.length <= 1,
+        key: 'closeOther',
+        label: t('workingPanel.localFile.closeOther'),
+        onClick: () => closeOtherLocalFileTabs(filePath),
+      },
+      { type: 'divider' },
+      {
+        key: 'close',
+        label: t('workingPanel.localFile.close'),
+        onClick: () => closeLocalFileTab(filePath),
+      },
+    ],
+    [
+      closeLeftLocalFileTabs,
+      closeLocalFileTab,
+      closeOtherLocalFileTabs,
+      closeRightLocalFileTabs,
+      openLocalFiles.length,
+      t,
+    ],
+  );
 
   if (openLocalFiles.length === 0) return null;
 
   return (
     <ScrollArea
+      scrollFade
       contentProps={{ style: SCROLL_AREA_CONTENT_STYLE }}
-      scrollFade="horizontal"
       scrollbarProps={{ orientation: 'horizontal', style: SCROLL_AREA_SCROLLBAR_STYLE }}
       style={SCROLL_AREA_STYLE}
     >
-      {openLocalFiles.map(({ filePath }) => {
+      {openLocalFiles.map(({ filePath }, index) => {
         const filename = filePath.split('/').at(-1) ?? filePath;
         const isActive = filePath === activeLocalFilePath;
 
         return (
-          <div
-            aria-selected={isActive}
-            className={`${styles.tabItem} ${isActive ? styles.tabItemActive : ''}`}
-            key={filePath}
-            role="tab"
-            tabIndex={0}
-            title={filePath}
-            onClick={() => setActiveLocalFile(filePath)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setActiveLocalFile(filePath);
-              }
-            }}
-          >
-            <span className={styles.tabLabel}>{filename}</span>
-            <button
-              aria-label={`Close ${filename}`}
-              className={styles.tabClose}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                closeLocalFileTab(filePath);
+          <ContextMenuTrigger items={() => getContextMenuItems(filePath, index)} key={filePath}>
+            <div
+              aria-selected={isActive}
+              className={`${styles.tabItem} ${isActive ? styles.tabItemActive : ''}`}
+              role="tab"
+              tabIndex={0}
+              title={filePath}
+              onClick={() => setActiveLocalFile(filePath)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveLocalFile(filePath);
+                }
               }}
             >
-              <XIcon size={12} />
-            </button>
-          </div>
+              <span className={styles.tabLabel}>{filename}</span>
+              <button
+                aria-label={`Close ${filename}`}
+                className={styles.tabClose}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeLocalFileTab(filePath);
+                }}
+              >
+                <XIcon size={12} />
+              </button>
+            </div>
+          </ContextMenuTrigger>
         );
       })}
     </ScrollArea>

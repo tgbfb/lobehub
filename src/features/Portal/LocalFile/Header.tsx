@@ -1,6 +1,6 @@
 'use client';
 
-import { DESKTOP_HEADER_ICON_SIZE } from '@lobechat/const';
+import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@lobechat/const';
 import { ActionIcon } from '@lobehub/ui';
 import { ArrowLeft, X } from 'lucide-react';
 import { Fragment, memo } from 'react';
@@ -34,7 +34,7 @@ const Header = memo(() => {
       left={
         <Fragment>
           {canGoBack && (
-            <ActionIcon icon={ArrowLeft} size={DESKTOP_HEADER_ICON_SIZE} onClick={goBack} />
+            <ActionIcon icon={ArrowLeft} size={DESKTOP_HEADER_ICON_SMALL_SIZE} onClick={goBack} />
           )}
           <TabStrip />
         </Fragment>
@@ -43,7 +43,7 @@ const Header = memo(() => {
         <Fragment>
           <ActionIcon
             icon={X}
-            size={DESKTOP_HEADER_ICON_SIZE}
+            size={DESKTOP_HEADER_ICON_SMALL_SIZE}
             onClick={() => {
               if (params.aid && params.topicId && isTopicPageRoute) {
                 navigate(SESSION_CHAT_TOPIC_URL(params.aid, params.topicId));

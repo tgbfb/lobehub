@@ -83,6 +83,52 @@ export class ChatPortalActionImpl {
     }
   };
 
+  closeLeftLocalFileTabs = (filePath: string): void => {
+    const { openLocalFiles, activeLocalFilePath } = this.#get();
+    const idx = openLocalFiles.findIndex((f) => f.filePath === filePath);
+    if (idx <= 0) return;
+
+    const nextFiles = openLocalFiles.slice(idx);
+    const nextActive = nextFiles.some((f) => f.filePath === activeLocalFilePath)
+      ? activeLocalFilePath
+      : filePath;
+
+    this.#set(
+      { activeLocalFilePath: nextActive, openLocalFiles: nextFiles },
+      false,
+      'closeLeftLocalFileTabs',
+    );
+  };
+
+  closeOtherLocalFileTabs = (filePath: string): void => {
+    const { openLocalFiles } = this.#get();
+    const target = openLocalFiles.find((f) => f.filePath === filePath);
+    if (!target) return;
+
+    this.#set(
+      { activeLocalFilePath: filePath, openLocalFiles: [target] },
+      false,
+      'closeOtherLocalFileTabs',
+    );
+  };
+
+  closeRightLocalFileTabs = (filePath: string): void => {
+    const { openLocalFiles, activeLocalFilePath } = this.#get();
+    const idx = openLocalFiles.findIndex((f) => f.filePath === filePath);
+    if (idx < 0 || idx >= openLocalFiles.length - 1) return;
+
+    const nextFiles = openLocalFiles.slice(0, idx + 1);
+    const nextActive = nextFiles.some((f) => f.filePath === activeLocalFilePath)
+      ? activeLocalFilePath
+      : filePath;
+
+    this.#set(
+      { activeLocalFilePath: nextActive, openLocalFiles: nextFiles },
+      false,
+      'closeRightLocalFileTabs',
+    );
+  };
+
   closeMessageDetail = (): void => {
     const { portalStack } = this.#get();
     if (getCurrentViewType(portalStack) === PortalViewType.MessageDetail) {

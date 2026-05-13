@@ -7,7 +7,7 @@ import { memo } from 'react';
 import NavHeader from '@/features/NavHeader';
 import OpenInAppButton from '@/features/OpenInAppButton';
 import { useAgentStore } from '@/store/agent';
-import { agentByIdSelectors } from '@/store/agent/selectors';
+import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 
@@ -44,6 +44,9 @@ const Header = memo(() => {
   const agentWorkingDirectory = useAgentStore((s) =>
     agentId ? agentByIdSelectors.getAgentWorkingDirectoryById(agentId)(s) : undefined,
   );
+  const isLocalSystemEnabled = useAgentStore((s) =>
+    agentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(s) : false,
+  );
   const effectiveWorkingDirectory = topicWorkingDirectory || agentWorkingDirectory || '';
 
   return (
@@ -69,7 +72,9 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            <OpenInAppButton workingDirectory={effectiveWorkingDirectory} />
+            {isLocalSystemEnabled && (
+              <OpenInAppButton workingDirectory={effectiveWorkingDirectory} />
+            )}
             <ShareButton />
             <WorkingPanelToggle />
           </Flexbox>

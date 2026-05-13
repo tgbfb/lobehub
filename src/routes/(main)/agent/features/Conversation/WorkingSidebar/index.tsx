@@ -8,7 +8,7 @@ import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@/const/layoutTokens';
 import { useRepoType } from '@/features/ChatInput/RuntimeConfig/useRepoType';
 import RightPanel from '@/features/RightPanel';
 import { useAgentStore } from '@/store/agent';
-import { agentByIdSelectors } from '@/store/agent/selectors';
+import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
@@ -79,11 +79,14 @@ const AgentWorkingSidebar = memo(() => {
   const agentWorkingDirectory = useAgentStore((s) =>
     activeAgentId ? agentByIdSelectors.getAgentWorkingDirectoryById(activeAgentId)(s) : undefined,
   );
+  const isLocalSystemEnabled = useAgentStore((s) =>
+    activeAgentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(activeAgentId)(s) : false,
+  );
   const workingDirectory = topicWorkingDirectory || agentWorkingDirectory;
   const repoType = useRepoType(workingDirectory);
 
-  const filesAvailable = !!workingDirectory;
-  const reviewAvailable = !!workingDirectory && !!repoType;
+  const filesAvailable = isLocalSystemEnabled && !!workingDirectory;
+  const reviewAvailable = isLocalSystemEnabled && !!workingDirectory && !!repoType;
   // Topic metadata is preferred for resuming a coding session, but Review and
   // Files are project-scoped and should also work before a topic has bound
   // metadata. Fall back to a still-visible tab when the stored choice is gone.
@@ -137,7 +140,9 @@ const AgentWorkingSidebar = memo(() => {
               )}
             </div>
           ) : (
-            <Text strong>{t('workingPanel.space')}</Text>
+            <Flexbox paddingInline={8}>
+              <Text strong>{t('workingPanel.space')}</Text>
+            </Flexbox>
           )}
           <ActionIcon
             icon={PanelRightCloseIcon}

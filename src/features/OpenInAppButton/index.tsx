@@ -79,7 +79,8 @@ const styles = createStaticStyles(({ css }) => ({
     display: inline-flex;
     align-items: stretch;
 
-    height: 22px;
+    height: 24px;
+    border: 1px solid ${cssVar.colorBorderSecondary};
     border-radius: 6px;
   `,
 }));

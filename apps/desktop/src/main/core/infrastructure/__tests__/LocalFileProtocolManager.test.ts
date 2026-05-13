@@ -86,6 +86,23 @@ describe('LocalFileProtocolManager', () => {
     expect(response.headers.get('Content-Length')).toBe('11'); // 'image-bytes'.length
   });
 
+  it('serves source files as text through the localfile protocol', async () => {
+    const manager = new LocalFileProtocolManager();
+    manager.registerHandler();
+    const handler = protocolHandlerRef.current;
+
+    const response = await handler({
+      headers: new Headers(),
+      method: 'GET',
+      url: 'localfile://file/Users/alice/project/App.tsx',
+    });
+
+    expect(mockStat).toHaveBeenCalledWith('/Users/alice/project/App.tsx');
+    expect(mockReadFile).toHaveBeenCalledWith('/Users/alice/project/App.tsx');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+  });
+
   it('decodes percent-encoded characters in the path', async () => {
     const manager = new LocalFileProtocolManager();
     manager.registerHandler();

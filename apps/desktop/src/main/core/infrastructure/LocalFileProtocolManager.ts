@@ -36,7 +36,7 @@ const getMimeType = (filePath: string): string => {
 
 /**
  * Custom `localfile://` protocol that serves arbitrary local files to the
- * Electron renderer (e.g. binary image previews for the project Files tree).
+ * Electron renderer (e.g. previews for the project Files tree).
  *
  * URL shape: `localfile://file/<percent-encoded-absolute-path>`
  *   - host is fixed to `file` so the scheme behaves as `standard`

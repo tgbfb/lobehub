@@ -156,7 +156,7 @@ export class App {
     // should register before app ready
     this.rendererUrlManager.configureRendererLoader();
 
-    // Serves arbitrary local files (e.g. project image previews) via
+    // Serves arbitrary local files (e.g. project file previews) via
     // `localfile://` to the renderer. Active in both dev and prod.
     this.localFileProtocolManager.registerHandler();
 
