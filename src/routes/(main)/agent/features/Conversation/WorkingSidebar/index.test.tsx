@@ -161,6 +161,12 @@ vi.mock('@/store/agent/selectors', () => ({
       (state: { agentWorkingDirectoryById?: Record<string, string | undefined> }) =>
         state.agentWorkingDirectoryById?.[agentId],
   },
+  chatConfigByIdSelectors: {
+    isLocalSystemEnabledById:
+      (_agentId: string) =>
+      (_state: Record<string, unknown>) =>
+        true,
+  },
 }));
 
 vi.mock('@/store/chat', () => ({
