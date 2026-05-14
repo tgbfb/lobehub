@@ -12,6 +12,7 @@ export const notifications = pgTable(
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
+    workspaceId: text('workspace_id'),
 
     /** High-level grouping for preference toggles, e.g. `budget`, `subscription` */
     category: text('category').notNull(),
@@ -38,6 +39,7 @@ export const notifications = pgTable(
   (table) => [
     /** General-purpose FK index for cascade deletes and unfiltered queries */
     index('idx_notifications_user').on(table.userId),
+    index('idx_notifications_workspace').on(table.workspaceId),
     /** Inbox list: non-archived notifications ordered by time, with cursor pagination */
     index('idx_notifications_user_active')
       .on(table.userId, table.createdAt)

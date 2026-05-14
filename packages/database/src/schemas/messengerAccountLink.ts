@@ -24,6 +24,7 @@ export const messengerAccountLinks = pgTable(
     userId: text('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
+    workspaceId: text('workspace_id'),
 
     platform: varchar('platform', { length: 50 }).notNull(),
 
@@ -77,6 +78,7 @@ export const messengerAccountLinks = pgTable(
       t.tenantId,
     ),
     index('messenger_account_links_active_agent_idx').on(t.activeAgentId),
+    index('messenger_account_links_workspace_id_idx').on(t.workspaceId),
   ],
 );
 

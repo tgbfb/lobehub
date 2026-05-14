@@ -57,6 +57,7 @@ export const agentOperations = pgTable(
      * so this column is intentionally not a foreign key.
      */
     userId: text('user_id').notNull(),
+    workspaceId: text('workspace_id'),
 
     agentId: text('agent_id').references(() => agents.id, { onDelete: 'set null' }),
     topicId: text('topic_id').references(() => topics.id, { onDelete: 'set null' }),
@@ -127,6 +128,7 @@ export const agentOperations = pgTable(
   },
   (t) => [
     index('agent_operations_user_id_idx').on(t.userId),
+    index('agent_operations_workspace_id_idx').on(t.workspaceId),
     index('agent_operations_agent_id_idx').on(t.agentId),
     index('agent_operations_topic_id_idx').on(t.topicId),
     index('agent_operations_thread_id_idx').on(t.threadId),
