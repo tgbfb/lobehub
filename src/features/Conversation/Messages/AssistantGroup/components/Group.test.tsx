@@ -322,6 +322,45 @@ describe('Group', () => {
     });
   });
 
+  // Regression: LOBE-9075
+  // The final assistant block after a tool call must carry contentOverride so
+  // MessageContent (which self-subscribes from the store since #14470) renders
+  // the canonical flatten-time content even when a streaming-chunk sync gap
+  // leaves the store-side content empty.
+  it('sets contentOverride on a trailing answer block that follows a workflow', () => {
+    const summary = '理清楚了。先说结论：根因是 ...';
+
+    render(
+      <Group
+        id="assistant-1"
+        messageIndex={0}
+        blocks={[
+          blk({
+            content: '',
+            id: 'block-1',
+            tools: [
+              { apiName: 'bash', id: 'tool-1' } as any,
+              { apiName: 'grep', id: 'tool-2' } as any,
+            ],
+          }),
+          blk({
+            content: summary,
+            id: 'block-2',
+          }),
+        ]}
+      />,
+    );
+
+    const answers = parseAnswerSegments();
+    expect(answers).toHaveLength(1);
+    expect(answers[0]).toMatchObject({
+      content: summary,
+      contentOverride: summary,
+      domId: 'block-2__answer',
+      id: 'block-2',
+    });
+  });
+
   it('renders a single tool call inline instead of folding it', () => {
     render(
       <Group

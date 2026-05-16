@@ -310,7 +310,12 @@ const appendPostToolBlocks = (
   }
 
   for (const block of postBlocks.slice(index)) {
-    appendAnswerBlock(segments, block);
+    // Wrap in createAnswerRenderBlock so contentOverride is set from the
+    // flatten-time block content. MessageContent self-subscribes from the
+    // store (introduced by #14470) and a streaming-chunk sync gap can leave
+    // the store-side content empty even though the canonical block carries
+    // the full text. Without the override the card renders blank.
+    appendAnswerBlock(segments, createAnswerRenderBlock(block));
   }
 };
 
