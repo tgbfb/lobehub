@@ -289,7 +289,7 @@ describe('google contextBuilders', () => {
     });
 
     it('recovers functionCall.args from element[0] when arguments parse to an array', async () => {
-      // LOBE-8201 — same defense as Anthropic: prefer partial recovery from
+      // guard Anthropic tool_use.input against non-object parsed arguments (e.g. arrays from malformed JSON) that cause Anthropic API 400 errors — same defense as Anthropic: prefer partial recovery from
       // element[0] over total loss when malformed JSON parses to an array.
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const message = {

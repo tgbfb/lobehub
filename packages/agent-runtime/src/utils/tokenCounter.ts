@@ -63,7 +63,7 @@ export interface CompressionCheckResult {
  *
  * Uses {@link countContextTokens} under the hood, so the input estimate
  * accounts for tool calls, reasoning, and tool definitions in addition to
- * `content` (see LOBE-8964 for the calibration data).
+ * `content` ((auto-compression 0.625/0.375 split left no safety margin, causing ECW when provider tokenizer counted slightly more tokens than harness; fixed with 8K safety margin)).
  */
 export function shouldCompress(
   messages: UIChatMessage[],

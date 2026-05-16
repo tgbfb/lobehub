@@ -97,12 +97,12 @@ describe('BuiltinToolsExecutor truncated arguments', () => {
     expect(mockApiHandler).not.toHaveBeenCalled();
   });
 
-  // LOBE-7761: verify the self-reflection signal survives the new persist-time
+  // invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and poisoned subsequent requests to strict providers like NVIDIA NIM, causing 400 errors: verify the self-reflection signal survives the new persist-time
   // sanitizer. The fix sanitizes `tool_calls[].arguments` only at DB/state
   // boundaries (to unbreak strict providers), so the raw bad string must still
   // reach the executor — otherwise the model loses the "fix your JSON syntax"
   // feedback and degrades to a generic "missing required field" error.
-  it('emits INVALID_JSON_ARGUMENTS for the LOBE-7761 Qwen shape with raw args echoed', async () => {
+  it('emits INVALID_JSON_ARGUMENTS for the invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and p Qwen shape with raw args echoed', async () => {
     const invalid = '{, "description": "Create data models", "language": "python"}';
 
     const result = await executor.execute(buildPayload(invalid), context);

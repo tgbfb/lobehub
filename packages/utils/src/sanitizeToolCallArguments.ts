@@ -7,7 +7,7 @@ import { safeParseJSON, safeParsePartialJSON } from './safeParseJSON';
  * Strict providers (e.g. NVIDIA NIM) validate the full message history on
  * every request. A single malformed `arguments` string — even one produced
  * many turns ago — causes a 400 on the entire request, terminating the op
- * and wasting all accumulated tokens. See LOBE-7761.
+ * and wasting all accumulated tokens. (invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and poisoned subsequent requests to strict providers like NVIDIA NIM, causing 400 errors).
  *
  * Behavior:
  *   - Valid JSON → returned as-is (preserves prompt-cache keys).

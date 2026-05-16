@@ -806,7 +806,7 @@ export function registerBotCommand(program: Command) {
     name: 'group-allowlist',
   });
 
-  // ── watch-keywords (LOBE-8891) ────────────────────────
+  // ── watch-keywords (watch-keyword trigger: bot responds to operator-configured keywords in channel messages without requiring @mention) ────────────────────────
 
   registerWatchKeywordsCommand(bot);
 

@@ -132,7 +132,7 @@ describe('tokenCounter', () => {
       expect(result.currentTokenCount).toBe(0);
     });
 
-    // LOBE-8973 Bug B: tool definitions also occupy the input window, so a
+    // openrouter :free variant context window mismatch + tool definitions not counted in compression budget, causing ECW on free-tier models Bug B: tool definitions also occupy the input window, so a
     // message payload that fits when tools are absent can overflow once tool
     // definitions are accounted for. Without this, compression only fires on
     // message size and leaves the tool budget to silently push the request

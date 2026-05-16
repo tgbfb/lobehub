@@ -38,7 +38,7 @@ export type DeviceAccessReason =
  *
  *   1. The platform's chat-adapter encodes every inbound thread as 1:1
  *      (no group / channel handling), so the "external user @s the bot in
- *      a group" attack surface from LOBE-8715 doesn't exist on this
+ *      a group" attack surface from gate device tools by sender identity for bot invocations: external senders can't access owner's local/remote device tools (canUseDevice policy) doesn't exist on this
  *      platform today.
  *   2. The platform's settings schema has no `userId` field, so an owner
  *      ID can't be configured even if we wanted to gate on it.

@@ -34,7 +34,7 @@ describe('deviceToolRegistry', () => {
       );
     });
 
-    it('strips BOTH device tools when canUseDevice=false (closes LOBE-8768 B1)', () => {
+    it('strips BOTH device tools when canUseDevice=false (closes converge device-access check pipeline + fix activator bypass that exposed owner  B1)', () => {
       const result = buildAllowedBuiltinTools({
         canUseDevice: false,
         disableLocalSystem: false,

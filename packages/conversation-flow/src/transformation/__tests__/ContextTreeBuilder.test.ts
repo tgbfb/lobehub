@@ -429,9 +429,9 @@ describe('ContextTreeBuilder', () => {
   });
 
   // ────────────────────────────────────────────────────
-  // LOBE-8998: AssistantGroupNode embeds SignalCallbacksNode children
+  // external signal callbacks: Monitor-style reactive reply detection + SignalCallbacks UI block in AssistantGroup (Phase 1): AssistantGroupNode embeds SignalCallbacksNode children
   // ────────────────────────────────────────────────────
-  describe('AssistantGroup with signal callbacks (LOBE-8998)', () => {
+  describe('AssistantGroup with signal callbacks (external signal callbacks: Monitor-style reactive reply detection + SignalCallba)', () => {
     it('appends SignalCallbacksNode at the end of AssistantGroup children', () => {
       const signalMeta = (sequence: number) => ({
         signal: {

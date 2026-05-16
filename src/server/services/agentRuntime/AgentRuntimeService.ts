@@ -860,7 +860,7 @@ export class AgentRuntimeService {
 
         // Finalize tracing snapshot. The error catch below uses the same
         // recorder so propagated failures still write the canonical S3
-        // snapshot instead of orphaning the partial (LOBE-8533).
+        // snapshot instead of orphaning the partial (tool dispatch silently crashed without finalizing trace snapshots; now snapshot is uploaded on error paths to prevent dangling operations).
         await this.traceRecorder.finalize(operationId, {
           appendEventsToLastStep: completionSignalEvents,
           completionReason: reason,
@@ -953,7 +953,7 @@ export class AgentRuntimeService {
       // RuntimeExecutors) leave the partial as an orphan at
       // `_partial/<op>.json.zst` and the canonical
       // `agent-traces/<agentId>/<topicId>/<op>.json.zst` returns 404 — see
-      // LOBE-8533.
+      // tool dispatch silently crashed without finalizing trace snapshots; now snapshot is uploaded on error paths to prevent dangling operations.
       //
       // `failedStep` synthesizes a step record for the failure because the
       // real step never reached `appendStepToPartial` — it threw before the

@@ -364,7 +364,7 @@ export function normalizeAllowFromEntries(raw: unknown): Array<{ id: string; nam
   return [];
 }
 
-// ---------- Watch keywords (LOBE-8891) ----------
+// ---------- Watch keywords (watch-keyword trigger: bot responds to operator-configured keywords in channel messages without requiring @mention) ----------
 
 /**
  * Entry shape persisted under `settings.watchKeywords`. `keyword` is what the

@@ -151,7 +151,7 @@ describe('GeneralChatAgent', () => {
       expect(result).toEqual(expectCompressionInstruction(state.messages));
     });
 
-    // LOBE-8973 Bug B: state.tools must feed into the compression budget,
+    // openrouter :free variant context window mismatch + tool definitions not counted in compression budget, causing ECW on free-tier models Bug B: state.tools must feed into the compression budget,
     // otherwise large tool manifests (16-22K tokens observed on openrouter)
     // slip past the threshold and overflow the model context window.
     it('should fold state.tools into the compression budget on init', async () => {
@@ -227,7 +227,7 @@ describe('GeneralChatAgent', () => {
       });
     });
 
-    // Regression for LOBE-8696: when the LLM emits tool_calls whose names
+    // Regression for: harness silently completed operations when LLM returned malformed tool_call names (missing ____ prefix); now recovers via apiName fallback matching in ToolNameResolver: when the LLM emits tool_calls whose names
     // can't be resolved (e.g. `activateTools` instead of
     // `lobe-activator____activateTools`), the agent used to silently finish
     // with "completed without tool calls". Surface the unresolved names so
@@ -766,7 +766,7 @@ describe('GeneralChatAgent', () => {
       expect(result).toEqual(expectCompressionInstruction(state.messages));
     });
 
-    // LOBE-8973 follow-up: when state.forceFinish is set, RuntimeExecutors strips
+    // openrouter :free variant context window mismatch + tool definitions not counted in compression budget, causing ECW on free-tier models follow-up: when state.forceFinish is set, RuntimeExecutors strips
     // every tool before the LLM call (buildStepToolDelta returns deactivatedToolIds
     // ['*']). The compression budget must mirror that stripping — otherwise the
     // tool schemas push the budget over threshold and we burn an extra summarization

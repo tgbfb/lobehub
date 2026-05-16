@@ -372,12 +372,12 @@ describe('Multi-Round Tool Execution', () => {
 
     expect(finalState.status).toBe('done');
 
-    // After LOBE-5143: state.messages stores parse()-processed UIChatMessage[]
+    // After the fix for call_llm now rebuilds messages through MessagesEngine on every invocation instead of reusing setup-time snapshot, preserving system role/knowledge across multi-step execution: state.messages stores parse()-processed UIChatMessage[]
     // Tool messages are wrapped in virtual 'assistantGroup' nodes by conversation-flow parse()
     // The chain detector combines consecutive assistant+tool rounds into a single assistantGroup
     expect(finalState.messages.length).toBeGreaterThan(0);
 
-    // After LOBE-5143: state.messages stores parse()-processed UIChatMessage[]
+    // After the fix for call_llm now rebuilds messages through MessagesEngine on every invocation instead of reusing setup-time snapshot, preserving system role/knowledge across multi-step execution: state.messages stores parse()-processed UIChatMessage[]
     // Tool messages are wrapped in virtual 'assistantGroup' nodes by conversation-flow parse()
     // The chain detector combines consecutive assistant+tool rounds into a single assistantGroup
     expect(finalState.messages.length).toBeGreaterThan(0);

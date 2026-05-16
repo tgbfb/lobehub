@@ -148,7 +148,7 @@ describe('MessageContentProcessor', () => {
       );
     });
 
-    // LOBE-7214 regression: historical messages are often persisted in the
+    // when switching to non-vision models, historical image_url content parts were not downgraded, causing provider 400 errors (e.g. DeepSeek expecting only text parts) regression: historical messages are often persisted in the
     // multimodal parts form (content is an array of {type: 'text' | 'image_url'}).
     // They bypass the legacy `imageList` code path. Switching to a non-vision
     // model (e.g. deepseek-chat) previously caused the processor to forward the
@@ -954,7 +954,7 @@ describe('MessageContentProcessor', () => {
       });
     });
 
-    // LOBE-7214: assistant multimodal content (image generation output) must
+    // when switching to non-vision models, historical image_url content parts were not downgraded, causing provider 400 errors (e.g. DeepSeek expecting only text parts): assistant multimodal content (image generation output) must
     // also be downgraded when the target model lacks vision. Without this,
     // image parts get serialized back to `image_url` and DeepSeek 400s.
     it('should downgrade assistant multimodal image parts to placeholder text when vision is disabled', async () => {

@@ -707,9 +707,9 @@ describe('FlatListBuilder', () => {
   });
 
   // ────────────────────────────────────────────────────
-  // LOBE-8998: signal callbacks attached on virtual AssistantGroup
+  // external signal callbacks: Monitor-style reactive reply detection + SignalCallbacks UI block in AssistantGroup (Phase 1): signal callbacks attached on virtual AssistantGroup
   // ────────────────────────────────────────────────────
-  describe('signal callbacks (LOBE-8998)', () => {
+  describe('signal callbacks (external signal callbacks: Monitor-style reactive reply detection + SignalCallba)', () => {
     it('attaches signalCallbacks to the virtual group and processes callback messages', () => {
       const signalMeta = (sequence: number) =>
         ({

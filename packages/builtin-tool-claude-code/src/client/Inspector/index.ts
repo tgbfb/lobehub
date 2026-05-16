@@ -42,7 +42,7 @@ export const ClaudeCodeInspectors = {
     translationKey: ClaudeCodeApiName.Grep,
   }),
   // Monitor is a long-running tracked tool — its turns drive a SignalCallbacks
-  // accordion below the AssistantGroup (LOBE-8998). The dedicated inspector
+  // accordion below the AssistantGroup (external signal callbacks: Monitor-style reactive reply detection + SignalCallbacks UI block in AssistantGroup (Phase 1)). The dedicated inspector
   // uses the lucide `Monitor` (screen) icon to match the tool name.
   [ClaudeCodeApiName.Monitor]: MonitorInspector,
   [ClaudeCodeApiName.Read]: ReadInspector,

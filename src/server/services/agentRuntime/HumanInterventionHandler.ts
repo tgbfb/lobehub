@@ -163,7 +163,7 @@ export class HumanInterventionHandler {
    * tools to be resolved or (b) resume LLM once this is the last one.
    * Returning a `phase: 'user_input'` nextContext while pendingToolsCalling
    * is non-empty would cause executeStep to run runtime.step immediately,
-   * resuming the LLM with an unresolved batch — see LOBE-7151 review P1.
+   * resuming the LLM with an unresolved batch — (server-side human approval flow: replicate client-side approve/reject/resume logic in server executor with skipCreateToolMessage support and proper tool message state management)review P1.
    */
   private rejectAndContinue(
     state: any,

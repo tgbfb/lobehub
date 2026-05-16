@@ -9,7 +9,7 @@ import { MessageToolCallSchema } from '../types';
 // carried by a subsequent delta. Passing `null` through the strict
 // MessageToolCallSchema throws ZodError mid-stream and kills the entire
 // operation. Coerce to '' so parsing succeeds; the merge logic below patches
-// the name in once a later delta supplies it. See LOBE-8199.
+// the name in once a later delta supplies it. (tolerate null function.name in streaming tool_call deltas (NVIDIA NIM sends name=null in first chunk, fills later); now defers name resolution until complete).
 const normalizeChunkForParse = <T extends Omit<MessageToolCallChunk, 'index'>>(chunk: T): T => {
   if (chunk.function && chunk.function.name == null) {
     return { ...chunk, function: { ...chunk.function, name: '' } };

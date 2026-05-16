@@ -436,7 +436,7 @@ export class MessagesEngine {
       // PlaceholderVariablesProcessor only walks `message.content`, so it MUST
       // run after the hoist or it would silently miss every placeholder buried
       // inside an assistantGroup. (Regression discovered while wiring lobehub
-      // skill identity placeholders — see LOBE-6882.)
+      // skill identity placeholders — (inject current agent identity (agentId, topicId, model, etc.) into context when LobeHub skill is activated, avoiding wasted tool-search round trips).)
       new PlaceholderVariablesProcessor({ variableGenerators: variableGenerators || {} }),
 
       // =============================================

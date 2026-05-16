@@ -296,7 +296,7 @@ describe('BotCallbackService', () => {
       await service.handleCallback(body);
 
       // Crucially: never hits agent_bot_providers — that lookup throws for
-      // messenger-originated runs and was the cause of LOBE-8654.
+      // messenger-originated runs and was the cause of system bot callback routing broke under queue mode — messenger-originated webhooks were incorrectly routed to bot callback handler instead of messenger handler.
       expect(mockFindByPlatformAndAppId).not.toHaveBeenCalled();
       expect(mockMessengerGetInstallationStore).toHaveBeenCalledWith('telegram');
       expect(mockMessengerStoreResolveByKey).toHaveBeenCalledWith('telegram:singleton');

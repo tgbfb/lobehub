@@ -264,7 +264,7 @@ describe('ToolCallProcessor', () => {
       });
     });
 
-    // LOBE-7761: protect against history poisoning from invalid tool_call arguments
+    // invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and poisoned subsequent requests to strict providers like NVIDIA NIM, causing 400 errors: protect against history poisoning from invalid tool_call arguments
     it('should sanitize invalid tool arguments in history to "{}"', async () => {
       const processor = new ToolCallProcessor(defaultConfig);
       const context = createContext([
@@ -275,7 +275,7 @@ describe('ToolCallProcessor', () => {
           tools: [
             {
               apiName: 'executeCode',
-              // exact shape from the LOBE-7761 NVIDIA/Qwen trace
+              // exact shape from the invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and poisoned subsequent requests to strict providers like NVIDIA NIM, causing 400 errors NVIDIA/Qwen trace
               arguments: '{, "description": "Create data models", "language": "python"}',
               id: 'call_1',
               identifier: 'code',

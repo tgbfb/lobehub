@@ -181,7 +181,7 @@ const GroupMessage = memo<GroupMessageProps>(
           the same "agent reply" block. The ChatItem body gap (16px) would
           otherwise stretch them apart and the natural narrative — initial
           reply → callbacks → summary — reads as three disconnected
-          sections (LOBE-8998).
+          sections (external signal callbacks: Monitor-style reactive reply detection + SignalCallbacks UI block in AssistantGroup (Phase 1)).
         */}
         <Flexbox gap={4}>
           {children && children.length > 0 && (

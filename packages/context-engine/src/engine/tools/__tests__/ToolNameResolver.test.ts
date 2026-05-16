@@ -714,7 +714,7 @@ describe('ToolNameResolver', () => {
       expect(result).toEqual([]);
     });
 
-    // Regression for LOBE-8696: some models (e.g. deepseek-v4-pro) drop the
+    // Regression for: harness silently completed operations when LLM returned malformed tool_call names (missing ____ prefix); now recovers via apiName fallback matching in ToolNameResolver: some models (e.g. deepseek-v4-pro) drop the
     // `<identifier>____` prefix and emit only the bare API name. When that
     // bare name uniquely matches an API in the available manifests, we should
     // recover the identifier from the manifest instead of silently dropping

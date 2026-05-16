@@ -245,7 +245,7 @@ describe('RuntimeExecutors', () => {
       );
     });
 
-    it('should throw ConversationParentMissing if parent preflight misses (LOBE-7158)', async () => {
+    it('should throw ConversationParentMissing if parent preflight misses (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
       // parent existence preflight — if the parent row was deleted between
       // operation kickoff and call_llm, fail fast before spending LLM tokens
       // on a chain that would hit a FK violation anyway.
@@ -1476,8 +1476,8 @@ describe('RuntimeExecutors', () => {
       expect(result.nextContext!.phase).toBe('tool_result');
     });
 
-    it('should re-throw when messageModel.create fails (LOBE-7158: no silent swallow)', async () => {
-      // Before LOBE-7158 we silently swallowed this error and returned
+    it('should re-throw when messageModel.create fails (runtime silently continued after tool/assistant message persist failure, causing: no silent swallow)', async () => {
+      // Before the fix for runtime silently continued after tool/assistant message persist failure, causing cascading errors; fixed by fail-fast on FK violations and parent existence preflight we silently swallowed this error and returned
       // `parentMessageId: undefined`, which let the operation continue into
       // the next step and re-hit the same failure without context. The fix
       // requires the executor to propagate so the whole step fails.
@@ -1503,7 +1503,7 @@ describe('RuntimeExecutors', () => {
       await expect(executors.call_tool!(instruction, state)).rejects.toThrow('Database error');
     });
 
-    it('should throw ConversationParentMissing on a parent_id FK violation (LOBE-7158)', async () => {
+    it('should throw ConversationParentMissing on a parent_id FK violation (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
       // Simulate the drizzle + postgres-js wrapped error shape.
       const fkError: any = new Error(
         'Failed query: insert into "messages" ... violates foreign key constraint',
@@ -2285,8 +2285,8 @@ describe('RuntimeExecutors', () => {
       expect(result.nextContext!.phase).toBe('tools_batch_result');
     });
 
-    it('should propagate persist failures instead of silently falling back (LOBE-7158)', async () => {
-      // Before LOBE-7158 we fell back to the original parentMessageId here,
+    it('should propagate persist failures instead of silently falling back (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
+      // Before the fix for runtime silently continued after tool/assistant message persist failure, causing cascading errors; fixed by fail-fast on FK violations and parent existence preflight we fell back to the original parentMessageId here,
       // which was itself the deleted parent that caused the failure — so the
       // next step would hit the same FK violation with no context. The fix
       // requires the batch to short-circuit on persist failure.
@@ -2316,7 +2316,7 @@ describe('RuntimeExecutors', () => {
       );
     });
 
-    it('should throw ConversationParentMissing on a parent_id FK violation (LOBE-7158)', async () => {
+    it('should throw ConversationParentMissing on a parent_id FK violation (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
       const fkError: any = new Error(
         'Failed query: insert into "messages" ... violates foreign key constraint',
       );
@@ -2402,8 +2402,8 @@ describe('RuntimeExecutors', () => {
       expect(result.nextContext!.phase).toBe('tools_batch_result');
     });
 
-    it('should fail the batch if tool message creation fails for any tool (LOBE-7158)', async () => {
-      // Before LOBE-7158 we swallowed per-tool persist failures and kept
+    it('should fail the batch if tool message creation fails for any tool (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
+      // Before the fix for runtime silently continued after tool/assistant message persist failure, causing cascading errors; fixed by fail-fast on FK violations and parent existence preflight we swallowed per-tool persist failures and kept
       // going. The fix requires the batch to abort — a FK violation on one
       // tool means every concurrent tool has the same doomed parent.
       mockMessageModel.create
@@ -2569,7 +2569,7 @@ describe('RuntimeExecutors', () => {
       );
     });
 
-    // LOBE-5143: After DB refresh, state.messages stores raw UIChatMessage[]
+    // call_llm now rebuilds messages through MessagesEngine on every invocation instead of reusing setup-time snapshot, preserving system role/knowledge across multi-step execution: After DB refresh, state.messages stores raw UIChatMessage[]
     // and call_llm re-injects context via serverMessagesEngine on each invocation
     it('should store raw UIChatMessage[] from DB after refresh (context re-injected by call_llm)', async () => {
       // DB only stores raw user/assistant/tool messages, NOT MessagesEngine injections
@@ -3183,8 +3183,8 @@ describe('RuntimeExecutors', () => {
       });
     });
 
-    it('should propagate persist failures instead of silently swallowing (LOBE-7158)', async () => {
-      // The pre-LOBE-7158 behavior logged the error and kept walking the
+    it('should propagate persist failures instead of silently swallowing (runtime silently continued after tool/assistant message persist failure, causing)', async () => {
+      // The pre- the fix for runtime silently continued after tool/assistant message persist failure, causing cascading errors; fixed by fail-fast on FK violations and parent existence preflight behavior logged the error and kept walking the
       // aborted-tool list. That left a half-persisted state and hid the real
       // cause from ops. Now we fail fast.
       mockMessageModel.create

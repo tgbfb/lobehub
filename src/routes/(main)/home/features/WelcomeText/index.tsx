@@ -57,7 +57,7 @@ interface AutoLinkPattern {
 }
 
 // Bare references the model might emit without the markdown link form.
-// Used as a fallback so e.g. plain "LOBE-8516" inside the welcome still
+// Used as a fallback so e.g. plain "Cloud Claude Code integration V3 architecture: shared spawn producer, lh hetero exec CLI, server ingestion via tRPC" inside the welcome still
 // becomes clickable.
 const AUTO_LINK_PATTERNS: AutoLinkPattern[] = [
   {

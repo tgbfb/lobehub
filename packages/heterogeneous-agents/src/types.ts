@@ -53,7 +53,7 @@ export interface StreamStartData {
    * `metadata.signal` so MessageCollector can collect signal-tagged
    * toolless assistants into a SignalCallbacksNode.
    *
-   * Phase 2 (LOBE-8999) promotes the persisted shape to a dedicated
+   * Phase 2 (Phase 2: promote message.signal from metadata to dedicated DB column + unify source taxonomy with agent-signal package) promotes the persisted shape to a dedicated
    * `messages.signal` column; the event peer field name stays
    * `externalSignal` regardless.
    */

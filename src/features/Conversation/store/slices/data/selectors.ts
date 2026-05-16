@@ -162,7 +162,7 @@ const findBlockById = (
     }
     // Post-task summary blocks live in a separate field on virtual
     // assistantGroup messages so they render AFTER `<SignalCallbacks>`
-    // (LOBE-8998). Same lookup contract as `children` — the renderer
+    // (external signal callbacks: Monitor-style reactive reply detection + SignalCallbacks UI block in AssistantGroup (Phase 1)). Same lookup contract as `children` — the renderer
     // identifies blocks by id regardless of which slot they came from.
     if ((message as { taskCompletions?: AssistantContentBlock[] }).taskCompletions) {
       const block = (

@@ -283,7 +283,7 @@ describe('anthropicHelpers', () => {
             type: 'function',
             function: {
               name: 'search',
-              // LOBE-7761 Qwen shape — upstream sanitize should catch this, but
+              // invalid tool_call arguments (e.g. '{, ...' from Qwen) persisted in history and poisoned subsequent requests to strict providers like NVIDIA NIM, causing 400 errors Qwen shape — upstream sanitize should catch this, but
               // if it doesn't we want noise in the logs rather than a silent drop.
               arguments: '{, "query": "anthropic"}',
             },
@@ -342,7 +342,7 @@ describe('anthropicHelpers', () => {
     });
 
     it('recovers tool_call input from element[0] when arguments parse to a multi-element array', async () => {
-      // LOBE-8201 — model emitted long writeLocalFile args containing many
+      // guard Anthropic tool_use.input against non-object parsed arguments (e.g. arrays from malformed JSON) that cause Anthropic API 400 errors — model emitted long writeLocalFile args containing many
       // unescaped quotes, which JSON.parse re-segmented into a top-level array.
       // element[0] usually still carries the first legit key (e.g. `content`),
       // so prefer partial recovery over total loss.
