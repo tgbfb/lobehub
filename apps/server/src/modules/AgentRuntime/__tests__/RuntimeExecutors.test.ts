@@ -3260,9 +3260,9 @@ describe('RuntimeExecutors', () => {
 
       // Import real implementations directly from source (bypassing the @lobechat/model-runtime mock)
       const { consumeStreamUntilDone: realConsume } =
-        await import('../../../../../packages/model-runtime/src/utils/consumeStream');
+        await import('../../../../../../packages/model-runtime/src/utils/consumeStream');
       const { createCallbacksTransformer } =
-        await import('../../../../../packages/model-runtime/src/core/streams/protocol');
+        await import('../../../../../../packages/model-runtime/src/core/streams/protocol');
 
       // Use real consumeStreamUntilDone so the stream is actually consumed
       vi.mocked(consumeStreamUntilDone).mockImplementation(realConsume);

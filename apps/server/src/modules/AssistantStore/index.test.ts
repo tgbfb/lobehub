@@ -188,7 +188,6 @@ describe('AssistantStore', () => {
     global.fetch = vi.fn().mockRejectedValue(new Error('something else'));
     const store = new AssistantStore();
 
-     
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(store.getAgentIndex()).rejects.toThrow('something else');
