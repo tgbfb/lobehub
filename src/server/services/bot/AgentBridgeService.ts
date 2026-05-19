@@ -38,6 +38,53 @@ import {
 
 const log = debug('lobe-server:bot:agent-bridge');
 
+/**
+ * Convert hook-event JSON-safe attachments (`{ data?: base64, fetchUrl? }`)
+ * into chat-sdk `Attachment` shape (`{ data?: Buffer, url? }`) so they can
+ * ride along `thread.post({ markdown, attachments })` in local mode. Returns
+ * `undefined` when there are no attachments to send.
+ */
+function hookEventAttachmentsToChatSdk(
+  attachments:
+    | Array<{
+        data?: string;
+        fetchUrl?: string;
+        mimeType?: string;
+        name?: string;
+        type: 'image' | 'file' | 'video' | 'audio';
+      }>
+    | undefined,
+):
+  | Array<{
+      data?: Buffer;
+      mimeType?: string;
+      name?: string;
+      type: 'image' | 'file' | 'video' | 'audio';
+      url?: string;
+    }>
+  | undefined {
+  if (!attachments?.length) return undefined;
+  const out = [];
+  for (const att of attachments) {
+    if (att.fetchUrl) {
+      out.push({
+        mimeType: att.mimeType,
+        name: att.name,
+        type: att.type,
+        url: att.fetchUrl,
+      });
+    } else if (att.data) {
+      out.push({
+        data: Buffer.from(att.data, 'base64'),
+        mimeType: att.mimeType,
+        name: att.name,
+        type: att.type,
+      });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 const EXECUTION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 // If the last activity in a bot topic is older than this threshold,
@@ -1230,18 +1277,31 @@ export class AgentBridgeService {
 
                     const chunks = splitMessage(finalText, charLimit);
 
+                    // Convert hook-event attachments (JSON-safe) to chat-sdk
+                    // Attachment shape. Only the *last* chunk carries
+                    // attachments so a multi-chunk reply doesn't repeat the
+                    // image/file once per chunk.
+                    const lastChunkAttachments = hookEventAttachmentsToChatSdk(
+                      event.attachments as any,
+                    );
+                    const lastIdx = chunks.length - 1;
+                    const buildPostable = (chunk: string, idx: number) =>
+                      idx === lastIdx && lastChunkAttachments?.length
+                        ? { attachments: lastChunkAttachments, markdown: chunk }
+                        : { markdown: chunk };
+
                     try {
                       if (progressMessage) {
                         if (chunks[0] !== lastProgressText) {
-                          await progressMessage.edit({ markdown: chunks[0] });
+                          await progressMessage.edit(buildPostable(chunks[0], 0));
                           lastProgressText = chunks[0];
                         }
                         for (let i = 1; i < chunks.length; i++) {
-                          await thread.post({ markdown: chunks[i] });
+                          await thread.post(buildPostable(chunks[i], i));
                         }
                       } else {
-                        for (const chunk of chunks) {
-                          await thread.post({ markdown: chunk });
+                        for (let i = 0; i < chunks.length; i++) {
+                          await thread.post(buildPostable(chunks[i], i));
                         }
                       }
                     } catch (error) {

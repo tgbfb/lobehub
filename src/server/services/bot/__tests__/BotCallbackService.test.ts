@@ -697,6 +697,82 @@ describe('BotCallbackService', () => {
 
       await expect(service.handleCallback(body)).resolves.toBeUndefined();
     });
+
+    // ==================== Attachments ====================
+
+    it('should pass attachments through to messenger when present on single-chunk reply', async () => {
+      const body = makeBody({
+        attachments: [
+          {
+            fetchUrl: 'https://cdn.example.com/foo.png',
+            mimeType: 'image/png',
+            name: 'foo.png',
+            type: 'image',
+          },
+        ],
+        lastAssistantContent: 'Here is the image you asked for.',
+        reason: 'completed',
+        type: 'completion',
+      });
+
+      await service.handleCallback(body);
+
+      expect(mockEditMessage).toHaveBeenCalledWith(
+        'progress-msg-1',
+        expect.objectContaining({
+          attachments: [
+            expect.objectContaining({
+              fetchUrl: 'https://cdn.example.com/foo.png',
+              type: 'image',
+            }),
+          ],
+          content: expect.stringContaining('Here is the image you asked for.'),
+        }),
+      );
+    });
+
+    it('should only attach to the last chunk in a multi-chunk reply', async () => {
+      const longContent = 'A'.repeat(2000) + '\n\n' + 'B'.repeat(2000);
+      const body = makeBody({
+        attachments: [{ fetchUrl: 'https://cdn.example.com/bar.png', type: 'image' }],
+        lastAssistantContent: longContent,
+        reason: 'completed',
+        type: 'completion',
+      });
+
+      await service.handleCallback(body);
+
+      // First chunk goes through editMessage as a plain string — no attachments.
+      expect(mockEditMessage).toHaveBeenCalledTimes(1);
+      const firstCallArg = mockEditMessage.mock.calls[0][1];
+      expect(typeof firstCallArg).toBe('string');
+
+      // Last chunk goes through createMessage with the attachments.
+      const lastCreateArg = mockCreateMessage.mock.calls.at(-1)?.[0];
+      expect(lastCreateArg).toMatchObject({
+        attachments: [{ fetchUrl: 'https://cdn.example.com/bar.png', type: 'image' }],
+      });
+    });
+
+    it('should fall back to createMessage with attachments when edit fails', async () => {
+      mockEditMessage.mockRejectedValueOnce(new Error('edit failed'));
+
+      const body = makeBody({
+        attachments: [{ data: 'aGVsbG8=', mimeType: 'image/png', type: 'image' }],
+        lastAssistantContent: 'reply',
+        reason: 'completed',
+        type: 'completion',
+      });
+
+      await service.handleCallback(body);
+
+      expect(mockCreateMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [{ data: 'aGVsbG8=', mimeType: 'image/png', type: 'image' }],
+          content: expect.stringContaining('reply'),
+        }),
+      );
+    });
   });
 
   // ==================== Message splitting ====================

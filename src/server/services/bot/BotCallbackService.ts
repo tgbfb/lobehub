@@ -15,7 +15,13 @@ import { messengerPlatformRegistry } from '@/server/services/messenger/platforms
 import { SystemAgentService } from '@/server/services/systemAgent';
 
 import { AgentBridgeService } from './AgentBridgeService';
-import type { BotReplyLocale, PlatformClient, PlatformMessenger, UsageStats } from './platforms';
+import type {
+  BotMessageAttachment,
+  BotReplyLocale,
+  PlatformClient,
+  PlatformMessenger,
+  UsageStats,
+} from './platforms';
 import {
   getBotReplyLocale,
   getStepReactionEmoji,
@@ -37,6 +43,14 @@ const log = debug('lobe-server:bot:callback');
 
 export interface BotCallbackBody {
   applicationId: string;
+  /**
+   * Outbound attachments (images/files) extracted from the agent's final
+   * assistant message or recent tool results. Forwarded to the platform
+   * messenger so platforms with attachment support (WeChat) can deliver them
+   * alongside the reply text. Platforms without attachment support silently
+   * drop these.
+   */
+  attachments?: BotMessageAttachment[];
   content?: string;
   cost?: number;
   duration?: number;
@@ -346,7 +360,8 @@ export class BotCallbackService {
     charLimit?: number,
     canEdit = true,
   ): Promise<void> {
-    const { reason, lastAssistantContent, errorMessage, errorType, operationId } = body;
+    const { reason, lastAssistantContent, errorMessage, errorType, operationId, attachments } =
+      body;
 
     if (reason === 'error') {
       log(
@@ -398,12 +413,26 @@ export class BotCallbackService {
       return;
     }
 
-    await this.deliverFirstChunk(messenger, progressMessageId, chunks[0], canEdit);
+    // Attach outbound attachments to the *last* chunk only so we don't send
+    // the same image/file once per chunk.
+    const lastIndex = chunks.length - 1;
+    const firstChunkAttachments = lastIndex === 0 ? attachments : undefined;
+
+    await this.deliverFirstChunk(
+      messenger,
+      progressMessageId,
+      chunks[0],
+      canEdit,
+      firstChunkAttachments,
+    );
     // Each remaining chunk gets its own try/catch so a single transient failure
     // (rate-limit, network blip) doesn't drop everything that follows.
     for (let i = 1; i < chunks.length; i++) {
       try {
-        await messenger.createMessage(chunks[i]);
+        const isLast = i === lastIndex;
+        await messenger.createMessage(
+          isLast && attachments?.length ? { attachments, content: chunks[i] } : chunks[i],
+        );
       } catch (error) {
         log('handleCompletion: failed to send chunk %d: %O', i, error);
       }
@@ -421,17 +450,20 @@ export class BotCallbackService {
     progressMessageId: string,
     text: string,
     canEdit: boolean,
+    attachments?: BotMessageAttachment[],
   ): Promise<void> {
+    const payload = attachments && attachments.length > 0 ? { attachments, content: text } : text;
+
     if (canEdit && progressMessageId) {
       try {
-        await messenger.editMessage(progressMessageId, text);
+        await messenger.editMessage(progressMessageId, payload);
         return;
       } catch (error) {
         log('handleCompletion: editMessage failed, falling back to createMessage: %O', error);
       }
     }
     try {
-      await messenger.createMessage(text);
+      await messenger.createMessage(payload);
     } catch (error) {
       log('handleCompletion: createMessage fallback failed: %O', error);
     }
