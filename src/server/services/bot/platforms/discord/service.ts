@@ -41,6 +41,7 @@ import type { MessageRuntimeService } from '@/server/services/toolExecution/serv
 
 import type { DiscordApi } from './api';
 import { MAX_DISCORD_HISTORY_LIMIT } from './const';
+import { batchDiscordFiles, materializeAttachmentsForDiscord } from './sendAttachments';
 
 /**
  * Normalize a Discord API message object to MessageItem.
@@ -71,8 +72,37 @@ export class DiscordMessageService implements MessageRuntimeService {
   // ==================== Core Message Operations ====================
 
   sendMessage = async (params: SendMessageParams): Promise<SendMessageState> => {
-    const result = await this.api.createMessage(params.channelId, params.content);
-    return { channelId: params.channelId, messageId: result.id, platform: 'discord' };
+    if (!params.attachments?.length) {
+      const result = await this.api.createMessage(params.channelId, params.content);
+      return { channelId: params.channelId, messageId: result.id, platform: 'discord' };
+    }
+
+    const files = await materializeAttachmentsForDiscord(params.attachments);
+    if (files.length === 0) {
+      // All attachments failed to materialize — fall back to text-only so the
+      // reply still reaches the user.
+      const result = await this.api.createMessage(params.channelId, params.content);
+      return { channelId: params.channelId, messageId: result.id, platform: 'discord' };
+    }
+
+    // Discord caps attachments per message at 10. The first batch carries the
+    // text content; subsequent batches send empty-content follow-ups so the
+    // reply body isn't repeated.
+    const batches = batchDiscordFiles(files);
+    let firstResult: { id: string } | undefined;
+    for (const [i, batch] of batches.entries()) {
+      const result = await this.api.createMessage(
+        params.channelId,
+        i === 0 ? params.content : '',
+        batch,
+      );
+      if (i === 0) firstResult = result;
+    }
+    return {
+      channelId: params.channelId,
+      messageId: firstResult?.id,
+      platform: 'discord',
+    };
   };
 
   readMessages = async (params: ReadMessagesParams): Promise<ReadMessagesState> => {
