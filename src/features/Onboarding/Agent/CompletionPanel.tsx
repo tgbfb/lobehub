@@ -8,6 +8,7 @@ import { useAgentMeta } from '@/features/Conversation/hooks/useAgentMeta';
 import LobeMessage from '@/routes/onboarding/components/LobeMessage';
 
 import FeedbackPanel from './FeedbackPanel';
+import MessengerIntegrations from './MessengerIntegrations';
 import { staticStyle } from './staticStyle';
 
 interface CompletionPanelProps {
@@ -55,6 +56,7 @@ const CompletionPanel = memo<CompletionPanelProps>(
           {showFeedback && topicId && (
             <FeedbackPanel hasPriorFeedback={!!feedbackSubmitted} topicId={topicId} />
           )}
+          <MessengerIntegrations />
         </Flexbox>
       </Center>
     );
