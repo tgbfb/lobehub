@@ -20,8 +20,13 @@ import { getAgentRuntimeRedisClient } from '@/server/modules/AgentRuntime/redis'
 import { AiAgentService } from '@/server/services/aiAgent';
 import { AgentBridgeService } from '@/server/services/bot/AgentBridgeService';
 import { buildBotContext } from '@/server/services/bot/buildBotContext';
+import { submitBotFeedback } from '@/server/services/bot/feedbackSubmit';
 import type { PlatformClient } from '@/server/services/bot/platforms';
-import { renderInlineError } from '@/server/services/bot/replyTemplate';
+import {
+  renderCommandReply,
+  renderFeedbackSubmitted,
+  renderInlineError,
+} from '@/server/services/bot/replyTemplate';
 
 import { getInstallationStore } from './installations';
 import type { InstallationCredentials } from './installations/types';
@@ -101,6 +106,7 @@ const HELP_TEXT = [
   '• /agents — list your agents and switch the active one',
   '• /new — start a new conversation',
   '• /stop — stop the current execution',
+  '• /feedback <message> — send feedback to the LobeHub team (no AI reply)',
 ].join('\n');
 
 /**
@@ -812,6 +818,35 @@ export class MessengerRouter {
           await ctx.reply('Stop requested.');
         },
         name: 'stop',
+      },
+      {
+        description: 'Send feedback directly to the LobeHub team (no AI reply)',
+        handler: async (ctx) => {
+          // Feedback is tied to a LobeHub account so the team can follow up;
+          // an unbound user has no email/identity to attach. Mirror the
+          // `/new` / `/stop` "you need to /start" guard for consistency.
+          if (!ctx.link) {
+            await ctx.reply('You need to /start to bind your account first.');
+            return;
+          }
+          const body = ctx.args.trim();
+          if (!body) {
+            await ctx.reply(renderCommandReply('cmdFeedbackUsage'));
+            return;
+          }
+          const result = await submitBotFeedback(ctx.serverDB, {
+            body,
+            platform: ctx.platform,
+            threadId: ctx.thread?.id ?? ctx.chatId,
+            userId: ctx.link.userId,
+          });
+          if (!result.success) {
+            await ctx.reply(renderCommandReply('cmdFeedbackError'));
+            return;
+          }
+          await ctx.reply(renderFeedbackSubmitted(result.issueUrl));
+        },
+        name: 'feedback',
       },
       {
         description: 'Show usage',

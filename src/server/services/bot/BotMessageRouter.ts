@@ -21,6 +21,7 @@ import {
   peekPairingRequest,
   releasePairingClaim,
 } from './dmPairingStore';
+import { submitBotFeedback } from './feedbackSubmit';
 import {
   type BotPlatformRuntimeContext,
   type BotReplyLocale,
@@ -53,6 +54,7 @@ import {
   renderDmPairing,
   renderDmRejected,
   renderError,
+  renderFeedbackSubmitted,
   renderGroupRejected,
   renderInlineError,
   renderSenderRejected,
@@ -1622,6 +1624,40 @@ export class BotMessageRouter {
           await ctx.post(renderApproveSuccess(approvedLabel, ctx.replyLocale));
         },
         name: 'approve',
+      },
+      {
+        description: 'Send feedback directly to the LobeHub team (no AI reply)',
+        // Declaring the argument so Discord/Slack surface a `/feedback <message>`
+        // prompt instead of registering the command as zero-arg (see the
+        // `options` comment on the BotCommand interface).
+        options: [
+          {
+            description: 'Your feedback message',
+            name: 'message',
+            required: true,
+          },
+        ],
+        handler: async (ctx) => {
+          log('command /feedback: agent=%s, platform=%s', agentId, platform);
+          const body = ctx.args.trim();
+          if (!body) {
+            await ctx.post(renderCommandReply('cmdFeedbackUsage', ctx.replyLocale));
+            return;
+          }
+          const result = await submitBotFeedback(serverDB, {
+            applicationId,
+            body,
+            platform,
+            threadId: ctx.threadId,
+            userId,
+          });
+          if (!result.success) {
+            await ctx.post(renderCommandReply('cmdFeedbackError', ctx.replyLocale));
+            return;
+          }
+          await ctx.post(renderFeedbackSubmitted(result.issueUrl, ctx.replyLocale));
+        },
+        name: 'feedback',
       },
     ];
   }
