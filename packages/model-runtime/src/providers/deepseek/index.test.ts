@@ -123,6 +123,16 @@ describe('LobeDeepSeekAI', () => {
       expect((runtime as any).baseURL).toBe(anthropicBaseURL);
     });
 
+    it('should pass configured timeout to the Anthropic SDK client', () => {
+      const runtime = new LobeDeepSeekAnthropicAI({
+        apiKey: 'test',
+        baseURL: anthropicBaseURL,
+        timeout: 3_600_000,
+      });
+
+      expect((runtime as any).client._options.timeout).toBe(3_600_000);
+    });
+
     it('should let sdkType override legacy baseURL suffix routing', async () => {
       const router = await resolveRouter(anthropicBaseURL, 'openai');
 

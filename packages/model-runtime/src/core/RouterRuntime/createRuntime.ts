@@ -58,6 +58,7 @@ interface ProviderIniOptions extends Record<string, any> {
   region?: string;
   sdkType?: string;
   sessionToken?: string;
+  timeout?: number;
 }
 
 /**
