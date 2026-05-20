@@ -16,6 +16,7 @@ import { documentHistories } from './documentHistory';
 import { documents, files, knowledgeBases } from './file';
 import { generationBatches, generations, generationTopics } from './generation';
 import { messageGroups, messages, messagesFiles, messageTranslates } from './message';
+import { pageShares } from './pageShare';
 import { chunks, documentChunks, unstructuredChunks } from './rag';
 import { sessionGroups, sessions } from './session';
 import { threads, topicDocuments, topics } from './topic';
@@ -246,8 +247,20 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
     relationName: 'fileDocuments',
   }),
   topics: many(topicDocuments),
+  shares: many(pageShares),
   chunks: many(documentChunks),
   histories: many(documentHistories),
+}));
+
+export const pageSharesRelations = relations(pageShares, ({ one }) => ({
+  document: one(documents, {
+    fields: [pageShares.documentId],
+    references: [documents.id],
+  }),
+  user: one(users, {
+    fields: [pageShares.userId],
+    references: [users.id],
+  }),
 }));
 
 export const documentHistoriesRelations = relations(documentHistories, ({ one }) => ({

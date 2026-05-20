@@ -19,6 +19,7 @@ export * from './messengerInstallation';
 export * from './nextauth';
 export * from './notification';
 export * from './oidc';
+export * from './pageShare';
 export * from './rag';
 export * from './ragEvals';
 export * from './rbac';

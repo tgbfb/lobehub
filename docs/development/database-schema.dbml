@@ -1212,6 +1212,22 @@ table oidc_sessions {
   }
 }
 
+table page_shares {
+  id text [pk, not null]
+  document_id text [not null]
+  user_id text [not null]
+  visibility text [not null, default: 'private']
+  page_view_count integer [not null, default: 0]
+  accessed_at "timestamp with time zone" [not null, default: `now()`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  updated_at "timestamp with time zone" [not null, default: `now()`]
+
+  indexes {
+    document_id [name: 'page_shares_document_id_unique', unique]
+    user_id [name: 'page_shares_user_id_idx']
+  }
+}
+
 table chunks {
   id uuid [pk, not null, default: `gen_random_uuid()`]
   text text
@@ -2166,6 +2182,10 @@ ref: messages.topic_id - topics.id
 ref: threads.source_message_id - messages.id
 
 ref: messages.message_group_id > message_groups.id
+
+ref: page_shares.document_id > documents.id
+
+ref: page_shares.user_id - users.id
 
 ref: sessions.group_id - session_groups.id
 
