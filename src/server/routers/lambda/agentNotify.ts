@@ -159,22 +159,35 @@ export const agentNotifyRouter = router({
     // 2a. Assistant mode: write message directly without triggering LLM
     if (role === 'assistant') {
       try {
-        // Update existing message if messageId provided (single-bubble progress updates)
-        if (messageId) {
-          await ctx.messageModel.update(messageId, { content });
-          void publishRemoteHeteroEvent(messageId);
+        // Resolve the target message ID:
+        // 1. Caller-supplied messageId (subsequent notify calls with --message-id)
+        // 2. Placeholder assistantMessageId seeded by execAgent (first notify call for remote hetero)
+        // Using the placeholder avoids creating a second empty bubble in the UI.
+        const placeholderMessageId = (topic.metadata as any)?.runningOperation
+          ?.assistantMessageId as string | undefined;
+        const resolvedMessageId = messageId ?? placeholderMessageId;
+
+        // Update existing message if we have a resolved target
+        if (resolvedMessageId) {
+          // done=true with empty content + existing placeholder → just signal completion, no update.
+          if (done && !content) {
+            void publishRemoteHeteroEvent();
+            return { messageId: resolvedMessageId, operationId: undefined, topicId };
+          }
+          await ctx.messageModel.update(resolvedMessageId, { content });
+          void publishRemoteHeteroEvent(resolvedMessageId);
           if (shouldContinue) {
             const result = await ctx.aiAgentService.execAgent({
               agentId,
               appContext: { threadId, topicId },
-              parentMessageId: messageId,
+              parentMessageId: resolvedMessageId,
               prompt: '',
               resume: true,
               trigger: RequestTrigger.Notify,
             });
-            return { messageId, operationId: result.operationId, topicId };
+            return { messageId: resolvedMessageId, operationId: result.operationId, topicId };
           }
-          return { messageId, operationId: undefined, topicId };
+          return { messageId: resolvedMessageId, operationId: undefined, topicId };
         }
 
         // done=true with no messageId and empty content → just signal completion, no DB write.
