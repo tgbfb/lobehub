@@ -13,6 +13,13 @@ const useMatchMock = vi.hoisted(() => vi.fn());
 const useNavigateMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@lobehub/ui', () => ({
+  Accordion: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  AccordionItem: ({ children, title }: { children?: ReactNode; title?: ReactNode }) => (
+    <div>
+      {title}
+      {children}
+    </div>
+  ),
   ActionIcon: ({ onClick, title }: { onClick?: (e: React.MouseEvent) => void; title?: string }) => (
     <button aria-label={title} onClick={onClick}>
       {title}
@@ -43,7 +50,10 @@ vi.mock('antd', () => ({
       modal: { confirm: modalConfirm },
     }),
   },
-  Spin: () => <div data-testid="spin" />,
+}));
+
+vi.mock('@/components/NeuralNetworkLoading', () => ({
+  default: () => <div data-testid="neural-network-loading" />,
 }));
 
 vi.mock('@/libs/swr', () => ({
@@ -119,8 +129,8 @@ vi.mock('@/services/agentDocument', () => ({
 }));
 
 vi.mock('@/store/agent', () => ({
-  useAgentStore: (selector: (state: { activeAgentId: string }) => unknown) =>
-    selector({ activeAgentId: 'agent-1' }),
+  useAgentStore: (selector: (state: { activeAgentId: string; agentMap: object }) => unknown) =>
+    selector({ activeAgentId: 'agent-1', agentMap: {} }),
 }));
 
 const openDocument = vi.fn();
@@ -138,12 +148,16 @@ vi.mock('@/store/chat/selectors', () => ({
 }));
 
 const skillBundleRow = {
+  category: 'skill',
   createdAt: new Date('2026-05-09T00:00:00Z'),
   description: 'Use for YouTube comments',
   documentId: 'skill-bundle-doc',
   fileType: 'skills/bundle',
   filename: 'youtube-comment-retrieval-workflow',
   id: 'skill-bundle-row',
+  isFolder: true,
+  isSkillBundle: true,
+  isSkillIndex: false,
   parentId: null,
   sourceType: 'agent-signal',
   templateId: 'agent-skill',
@@ -152,12 +166,16 @@ const skillBundleRow = {
 };
 
 const skillIndexRow = {
+  category: 'skill',
   createdAt: new Date('2026-05-09T00:00:00Z'),
   description: 'Use for YouTube comments',
   documentId: 'skill-index-doc',
   fileType: 'skills/index',
   filename: 'SKILL.md',
   id: 'skill-index-row',
+  isFolder: false,
+  isSkillBundle: false,
+  isSkillIndex: true,
   parentId: 'skill-bundle-doc',
   sourceType: 'agent-signal',
   templateId: 'agent-skill',
@@ -166,12 +184,16 @@ const skillIndexRow = {
 };
 
 const fileDocRow = {
+  category: 'document',
   createdAt: new Date('2026-04-16T00:00:00Z'),
   description: 'A short brief',
   documentId: 'doc-content-1',
   fileType: 'agent/document',
   filename: 'brief.md',
   id: 'doc-1',
+  isFolder: false,
+  isSkillBundle: false,
+  isSkillIndex: false,
   parentId: null,
   sourceType: 'file',
   templateId: null,
@@ -180,12 +202,16 @@ const fileDocRow = {
 };
 
 const webDocRow = {
+  category: 'web',
   createdAt: new Date('2026-04-16T00:00:00Z'),
   description: 'Crawled page',
   documentId: 'doc-content-2',
   fileType: 'article',
   filename: 'example.com',
   id: 'doc-2',
+  isFolder: false,
+  isSkillBundle: false,
+  isSkillIndex: false,
   parentId: null,
   sourceType: 'web',
   templateId: null,
@@ -389,6 +415,6 @@ describe('AgentDocumentsGroup', () => {
     });
 
     render(<AgentDocumentsGroup />);
-    expect(screen.getByTestId('spin')).toBeInTheDocument();
+    expect(screen.getByTestId('neural-network-loading')).toBeInTheDocument();
   });
 });
