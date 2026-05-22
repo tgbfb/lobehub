@@ -378,8 +378,10 @@ export default {
   'platformAgent.create.descriptionPlaceholder': 'Brief description (optional)',
   'platformAgent.create.fetchingProfile': 'Fetching profile...',
   'platformAgent.create.noDevices': 'No devices connected',
-  'platformAgent.create.noDevicesHint':
-    'Run the command below on the machine you want to connect, then click Refresh:',
+  'platformAgent.create.noDevicesDesktopHint':
+    'Install the Desktop App — it connects automatically after login',
+  'platformAgent.create.downloadDesktop': 'Download Desktop App',
+  'platformAgent.create.noDevicesCliHint': 'Or connect any machine via CLI, then click Refresh:',
   'platformAgent.create.noDevicesCmd': 'lh connect',
   'platformAgent.create.refresh': 'Refresh',
   'platformAgent.create.selectDevice': 'Select a device',

@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+
 import type { AgentRunRequestMessage } from '@lobechat/device-gateway-client';
 import type { GatewayConnectionStatus } from '@lobechat/electron-client-ipc';
 
@@ -192,6 +194,10 @@ export default class GatewayConnectionCtr extends ControllerModule {
       renameLocalFile: () => this.localFileCtr.handleRenameFile(args),
       searchLocalFiles: searchFiles,
       writeLocalFile: writeFile,
+
+      // Platform agent capability probing
+      checkPlatformCapability: () => this.checkPlatformCapability(args),
+      getAgentProfile: () => this.getAgentProfile(args),
     };
 
     const handler = methodMap[apiName];
@@ -202,5 +208,48 @@ export default class GatewayConnectionCtr extends ControllerModule {
     }
 
     return handler();
+  }
+
+  // ─── Platform Capability Probing ───
+
+  private async checkPlatformCapability(args: {
+    platform: string;
+  }): Promise<{ available: boolean; reason?: string; version?: string }> {
+    const { platform } = args;
+
+    const binaryMap: Record<string, string> = {
+      hermes: 'hermes',
+      openclaw: 'openclaw',
+    };
+
+    const binary = binaryMap[platform];
+    if (!binary) {
+      return { available: false, reason: `Unknown platform: ${platform}` };
+    }
+
+    const whichCmd = process.platform === 'win32' ? `where ${binary}` : `which ${binary}`;
+
+    try {
+      execSync(whichCmd, { stdio: 'pipe' });
+    } catch {
+      return { available: false, reason: `${platform} is not installed on this device` };
+    }
+
+    try {
+      const raw = execSync(`${binary} --version`, {
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }).trim();
+      return { available: true, version: raw };
+    } catch {
+      return { available: true };
+    }
+  }
+
+  private async getAgentProfile(_args: {
+    platform: string;
+  }): Promise<{ avatar?: string; description?: string; title?: string }> {
+    // Future: forward to platform-specific CLI (e.g. `openclaw profile --json`)
+    return {};
   }
 }

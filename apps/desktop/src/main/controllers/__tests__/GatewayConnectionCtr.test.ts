@@ -1,3 +1,5 @@
+import type { execSync as ExecSyncType } from 'node:child_process';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { App } from '@/core/App';
@@ -123,6 +125,12 @@ vi.mock('node:crypto', () => ({
   randomUUID: vi.fn(() => 'mock-device-uuid'),
 }));
 
+const execSyncMock = vi.hoisted(() => vi.fn());
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<{ execSync: typeof ExecSyncType }>();
+  return { ...actual, execSync: execSyncMock };
+});
+
 vi.mock('node:os', () => ({
   default: { hostname: vi.fn(() => 'mock-hostname') },
 }));
@@ -130,6 +138,13 @@ vi.mock('node:os', () => ({
 vi.mock('@lobechat/device-gateway-client', () => ({
   GatewayClient: MockGatewayClient,
 }));
+
+vi.mock('execa', () => ({
+  execa: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+}));
+
+vi.mock('fast-glob', () => ({ default: vi.fn().mockResolvedValue([]) }));
+vi.mock('fflate', () => ({ unzipSync: vi.fn() }));
 
 // ─── Mock Controllers ───
 
@@ -573,6 +588,128 @@ describe('GatewayConnectionCtr', () => {
 
       expect(mockBroadcast).toHaveBeenCalledWith('gatewayConnectionStatusChanged', {
         status: 'disconnected',
+      });
+    });
+  });
+
+  // ─── Platform Capability Probing ───
+
+  describe('platform capability probing', () => {
+    async function connectAndOpen() {
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+      const client = MockGatewayClient.lastInstance!;
+      client.simulateConnected();
+      return client;
+    }
+
+    beforeEach(() => {
+      execSyncMock.mockReset();
+    });
+
+    it('returns available:true with version when binary is installed', async () => {
+      execSyncMock.mockImplementation((cmd: string) => {
+        if (cmd.startsWith('which ') || cmd.startsWith('where '))
+          return '/usr/local/bin/openclaw\n';
+        if (cmd.includes('--version')) return 'openclaw 1.2.3\n';
+        return '';
+      });
+
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest(
+        'checkPlatformCapability',
+        { platform: 'openclaw' },
+        'req-cap',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith({
+        requestId: 'req-cap',
+        result: {
+          content: JSON.stringify({ available: true, version: 'openclaw 1.2.3' }),
+          success: true,
+        },
+      });
+    });
+
+    it('returns available:true without version when --version command fails', async () => {
+      execSyncMock.mockImplementation((cmd: string) => {
+        if (cmd.startsWith('which ') || cmd.startsWith('where '))
+          return '/usr/local/bin/openclaw\n';
+        throw new Error('version command failed');
+      });
+
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest(
+        'checkPlatformCapability',
+        { platform: 'openclaw' },
+        'req-cap-nover',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith({
+        requestId: 'req-cap-nover',
+        result: {
+          content: JSON.stringify({ available: true }),
+          success: true,
+        },
+      });
+    });
+
+    it('returns available:false when binary is not installed', async () => {
+      execSyncMock.mockImplementation(() => {
+        throw new Error('command not found');
+      });
+
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest(
+        'checkPlatformCapability',
+        { platform: 'openclaw' },
+        'req-missing',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith({
+        requestId: 'req-missing',
+        result: {
+          content: JSON.stringify({
+            available: false,
+            reason: 'openclaw is not installed on this device',
+          }),
+          success: true,
+        },
+      });
+    });
+
+    it('returns available:false for unknown platform', async () => {
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest(
+        'checkPlatformCapability',
+        { platform: 'unknownBot' },
+        'req-unknown-plat',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith({
+        requestId: 'req-unknown-plat',
+        result: {
+          content: JSON.stringify({ available: false, reason: 'Unknown platform: unknownBot' }),
+          success: true,
+        },
+      });
+    });
+
+    it('getAgentProfile returns empty object', async () => {
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest('getAgentProfile', { platform: 'openclaw' }, 'req-profile');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith({
+        requestId: 'req-profile',
+        result: {
+          content: JSON.stringify({}),
+          success: true,
+        },
       });
     });
   });
