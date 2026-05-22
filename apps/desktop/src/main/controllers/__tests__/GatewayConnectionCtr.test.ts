@@ -6,6 +6,7 @@ import type { App } from '@/core/App';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 
 import GatewayConnectionCtr from '../GatewayConnectionCtr';
+import HeterogeneousAgentCtr from '../HeterogeneousAgentCtr';
 import LocalFileCtr from '../LocalFileCtr';
 import RemoteServerConfigCtr from '../RemoteServerConfigCtr';
 import ShellCommandCtr from '../ShellCommandCtr';
@@ -33,6 +34,7 @@ const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
     });
 
     sendToolCallResponse = vi.fn();
+    sendAgentRunAck = vi.fn();
 
     constructor(options: any) {
       super();
@@ -71,6 +73,22 @@ const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
 
     simulateError(message: string) {
       this.emit('error', new Error(message));
+    }
+
+    simulateAgentRunRequest(
+      agentType: string,
+      operationId = 'op-1',
+      prompt = 'hello',
+      jwt = 'mock-jwt',
+    ) {
+      this.emit('agent_run_request', {
+        agentType,
+        jwt,
+        operationId,
+        prompt,
+        topicId: 'topic-1',
+        type: 'agent_run_request',
+      });
     }
 
     simulateReconnecting(delay: number) {
@@ -177,6 +195,11 @@ const mockShellCommandCtr = {
   handleRunCommand: vi.fn().mockResolvedValue({ success: true, stdout: '' }),
 } as unknown as ShellCommandCtr;
 
+const mockHeterogeneousAgentCtr = {
+  sendPrompt: vi.fn().mockResolvedValue(undefined),
+  startSession: vi.fn().mockResolvedValue({ sessionId: 'mock-session-id' }),
+} as unknown as HeterogeneousAgentCtr;
+
 const mockRemoteServerConfigCtr = {
   getAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   isRemoteServerConfigured: vi.fn().mockResolvedValue(true),
@@ -193,6 +216,7 @@ const mockApp = {
     if (Cls === RemoteServerConfigCtr) return mockRemoteServerConfigCtr;
     if (Cls === LocalFileCtr) return mockLocalFileCtr;
     if (Cls === ShellCommandCtr) return mockShellCommandCtr;
+    if (Cls === HeterogeneousAgentCtr) return mockHeterogeneousAgentCtr;
     return null;
   }),
   getService: vi.fn((Cls) => {
@@ -588,6 +612,68 @@ describe('GatewayConnectionCtr', () => {
 
       expect(mockBroadcast).toHaveBeenCalledWith('gatewayConnectionStatusChanged', {
         status: 'disconnected',
+      });
+    });
+  });
+
+  // ─── Agent Run Routing ───
+
+  describe('agent run routing', () => {
+    async function connectAndOpen() {
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+      const client = MockGatewayClient.lastInstance!;
+      client.simulateConnected();
+      return client;
+    }
+
+    beforeEach(() => {
+      vi.mocked(mockHeterogeneousAgentCtr.startSession).mockClear();
+      vi.mocked(mockHeterogeneousAgentCtr.sendPrompt).mockClear();
+    });
+
+    it.each([
+      ['openclaw', 'openclaw'],
+      ['hermes', 'hermes'],
+      ['codex', 'codex'],
+      ['claude-code', 'claude'],
+    ] as const)('uses command "%s" for agentType "%s"', async (agentType, expectedCommand) => {
+      const client = await connectAndOpen();
+      client.simulateAgentRunRequest(agentType);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockHeterogeneousAgentCtr.startSession).toHaveBeenCalledWith(
+        expect.objectContaining({ agentType, command: expectedCommand }),
+      );
+    });
+
+    it('sends accepted ack and fires sendPrompt', async () => {
+      const client = await connectAndOpen();
+      client.simulateAgentRunRequest('openclaw', 'op-xyz');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendAgentRunAck).toHaveBeenCalledWith({
+        operationId: 'op-xyz',
+        status: 'accepted',
+      });
+      expect(mockHeterogeneousAgentCtr.sendPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ operationId: 'op-xyz', sessionId: 'mock-session-id' }),
+      );
+    });
+
+    it('sends rejected ack when startSession throws', async () => {
+      vi.mocked(mockHeterogeneousAgentCtr.startSession).mockRejectedValueOnce(
+        new Error('binary not found'),
+      );
+
+      const client = await connectAndOpen();
+      client.simulateAgentRunRequest('openclaw', 'op-fail');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(client.sendAgentRunAck).toHaveBeenCalledWith({
+        operationId: 'op-fail',
+        reason: 'binary not found',
+        status: 'rejected',
       });
     });
   });

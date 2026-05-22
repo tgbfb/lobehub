@@ -127,11 +127,15 @@ export default class GatewayConnectionCtr extends ControllerModule {
     try {
       const ctr = this.heterogeneousAgentCtr;
 
+      // Map agentType to binary name.
+      // claude-code → `claude` CLI; all other platforms use their type name as the binary.
+      const command = request.agentType === 'claude-code' ? 'claude' : request.agentType;
+
       // Create a session for the hetero agent.
       const { sessionId } = await ctr.startSession({
         agentType: request.agentType,
         args: [],
-        command: request.agentType === 'codex' ? 'codex' : 'claude',
+        command,
         cwd: request.cwd,
         // Inject LOBEHUB_JWT so the CLI authenticates against heteroIngest.
         env: { LOBEHUB_JWT: request.jwt },
