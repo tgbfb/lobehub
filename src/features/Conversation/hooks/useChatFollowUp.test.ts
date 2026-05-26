@@ -146,24 +146,6 @@ describe('useChatFollowUp', () => {
       assertEmpty(result.current);
     });
 
-    it('when no allowed follow-up model exists', () => {
-      (useEnabledChatModels as unknown as Mock).mockReturnValue([
-        {
-          children: [{ id: 'gpt-5-thinking' }],
-          id: 'openai',
-          name: 'OpenAI',
-          source: 'builtin',
-        },
-      ] as EnabledProviderWithModels[]);
-
-      const { result } = renderWith({
-        agentChatConfig: VALID_AGENT,
-        conversationKey: CONVERSATION_KEY,
-        topicId: TOPIC_ID,
-      });
-      assertEmpty(result.current);
-    });
-
     it('when conversationKey is missing', () => {
       const { result } = renderWith({
         agentChatConfig: VALID_AGENT,
@@ -253,7 +235,7 @@ describe('useChatFollowUp', () => {
       expect(fetchFor).toHaveBeenCalledTimes(1);
     });
 
-    it('enables after enabled chat models load', async () => {
+    it('updates fallback config after enabled chat models load', async () => {
       (useEnabledChatModels as unknown as Mock).mockReturnValue([
         {
           children: [{ id: 'gpt-5-thinking' }],
@@ -264,13 +246,19 @@ describe('useChatFollowUp', () => {
       ] as EnabledProviderWithModels[]);
 
       const { rerender, result } = renderEnabled({ threadId: 'thread-1' });
-      expect(result.current.onAssistantTurnSettled).toBeUndefined();
+      await result.current.onAssistantTurnSettled?.('m', { reason: 'completed' });
+      expect(fetchFor).toHaveBeenLastCalledWith(CONVERSATION_KEY, {
+        hint: { kind: 'chat' },
+        modelConfig: { model: 'gpt-5-thinking', provider: 'openai' },
+        threadId: 'thread-1',
+        topicId: TOPIC_ID,
+      });
 
       (useEnabledChatModels as unknown as Mock).mockReturnValue(ENABLED_CHAT_MODELS);
       rerender();
 
       await result.current.onAssistantTurnSettled?.('m', { reason: 'completed' });
-      expect(fetchFor).toHaveBeenCalledWith(CONVERSATION_KEY, {
+      expect(fetchFor).toHaveBeenLastCalledWith(CONVERSATION_KEY, {
         hint: { kind: 'chat' },
         modelConfig: { model: VALID_GLOBAL.model, provider: VALID_GLOBAL.provider },
         threadId: 'thread-1',

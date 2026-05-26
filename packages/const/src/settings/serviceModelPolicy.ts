@@ -27,40 +27,9 @@ export interface ServiceModelPolicy {
   source: ServiceModelSource;
 }
 
-const LOW_LATENCY_JSON_ALLOW = [
-  { model: 'gpt-4o-mini', provider: 'openai' },
-  { model: 'gpt-4.1-mini', provider: 'openai' },
-  { model: 'claude-3-5-haiku*', provider: 'anthropic' },
-  { model: 'gemini-2.0-flash-lite', provider: 'google' },
-  { model: 'gemini-2.5-flash-lite*', provider: 'google' },
-  { model: 'gemini-2.0-flash-lite', provider: 'vertexai' },
-  { model: 'gemini-2.5-flash-lite*', provider: 'vertexai' },
-  { model: 'deepseek-chat', provider: 'deepseek' },
-] as const satisfies readonly ServiceModelMatcher[];
-
-const FAST_TEXT_ALLOW = [
-  ...LOW_LATENCY_JSON_ALLOW,
-  { model: 'gemini-2.0-flash', provider: 'google' },
-  { model: 'gemini-2.0-flash', provider: 'vertexai' },
-] as const satisfies readonly ServiceModelMatcher[];
-
-const TEXT_TASK_DENY = [
-  { model: '*thinking*', provider: '*' },
-  { model: '*reasoning*', provider: '*' },
-  { model: '*image*', provider: '*' },
-  { model: '*vision*', provider: '*' },
-  { model: '*video*', provider: '*' },
-  { model: '*search-preview*', provider: '*' },
-  { model: '*morph*', provider: '*' },
-  { model: '*embedding*', provider: '*' },
-] as const satisfies readonly ServiceModelMatcher[];
-
-const STRUCTURED_TASK_DENY = [
-  ...TEXT_TASK_DENY,
-  { model: '*r1*', provider: '*' },
-  { model: '*o1*', provider: '*' },
-  { model: '*o3*', provider: '*' },
-  { model: '*o4*', provider: '*' },
+const INPUT_COMPLETION_DENY = [
+  { model: '*gpt-5.4-pro', provider: '*' },
+  { model: '*gpt-5.5-pro', provider: '*' },
 ] as const satisfies readonly ServiceModelMatcher[];
 
 const policy = ({
@@ -81,75 +50,26 @@ const policy = ({
 });
 
 export const SERVICE_MODEL_POLICIES = {
-  agentMeta: policy({
-    allow: FAST_TEXT_ALLOW,
-    deny: TEXT_TASK_DENY,
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  followUpAction: policy({
-    allow: LOW_LATENCY_JSON_ALLOW,
-    deny: STRUCTURED_TASK_DENY,
-    invalidSelection: 'empty',
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  generationTopic: policy({
-    allow: FAST_TEXT_ALLOW,
-    deny: TEXT_TASK_DENY,
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  historyCompress: policy({
-    deny: TEXT_TASK_DENY,
-    mode: 'denylist',
-    source: 'chat',
-  }),
+  agentMeta: policy({ mode: 'denylist', source: 'chat' }),
+  followUpAction: policy({ mode: 'denylist', source: 'chat' }),
+  generationTopic: policy({ mode: 'denylist', source: 'chat' }),
+  historyCompress: policy({ mode: 'denylist', source: 'chat' }),
   inputCompletion: policy({
-    allow: LOW_LATENCY_JSON_ALLOW,
-    deny: STRUCTURED_TASK_DENY,
+    deny: INPUT_COMPLETION_DENY,
     invalidSelection: 'empty',
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  memoryAnalysisAgentConfig: policy({
-    deny: TEXT_TASK_DENY,
     mode: 'denylist',
     source: 'chat',
   }),
-  promptRewrite: policy({
-    allow: FAST_TEXT_ALLOW,
-    deny: TEXT_TASK_DENY,
-    invalidSelection: 'empty',
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  thread: policy({
-    allow: FAST_TEXT_ALLOW,
-    deny: TEXT_TASK_DENY,
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  topic: policy({
-    allow: FAST_TEXT_ALLOW,
-    deny: TEXT_TASK_DENY,
-    mode: 'allowlist',
-    source: 'chat',
-  }),
-  translation: policy({
-    deny: TEXT_TASK_DENY,
-    mode: 'denylist',
-    source: 'chat',
-  }),
+  memoryAnalysisAgentConfig: policy({ mode: 'denylist', source: 'chat' }),
+  promptRewrite: policy({ mode: 'denylist', source: 'chat' }),
+  thread: policy({ mode: 'denylist', source: 'chat' }),
+  topic: policy({ mode: 'denylist', source: 'chat' }),
+  translation: policy({ mode: 'denylist', source: 'chat' }),
   userMemoryEmbedding: policy({
     mode: 'denylist',
     source: 'embedding',
   }),
-  userMemoryPersonaWriter: policy({
-    deny: TEXT_TASK_DENY,
-    mode: 'denylist',
-    source: 'chat',
-  }),
+  userMemoryPersonaWriter: policy({ mode: 'denylist', source: 'chat' }),
 } as const satisfies Record<UserServiceModelConfigKey, ServiceModelPolicy>;
 
 const wildcardMatch = (pattern: string, value: string) => {

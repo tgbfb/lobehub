@@ -62,23 +62,23 @@ describe('resolveSystemAgentModelConfig', () => {
     expect(result).toEqual({ model: 'private-model', provider: 'openai-compatible' });
   });
 
-  it('should fall back when configured topic model is disallowed', async () => {
+  it('should fall back when configured input completion model is denied', async () => {
     const result = await resolveSystemAgentModelConfig({
       enabledModels: [
         {
           abilities: {},
           enabled: true,
-          id: 'gpt-5-thinking',
+          id: 'gpt-5.4-pro',
           providerId: 'openai',
           type: 'chat',
         },
         ...enabledChatModels,
       ] as EnabledAiModel[],
       taskConfig: {
-        model: 'gpt-5-thinking',
+        model: 'gpt-5.4-pro',
         provider: 'openai',
       },
-      taskKey: 'topic',
+      taskKey: 'inputCompletion',
     });
 
     expect(result).toEqual({ model: 'gpt-4o-mini', provider: 'openai' });

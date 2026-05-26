@@ -13,8 +13,8 @@ describe('serviceModelPolicy', () => {
     {
       children: [
         { abilities: { reasoning: true }, id: 'gpt-4o-mini' },
-        { abilities: { reasoning: false }, id: 'gpt-5-thinking' },
-        { abilities: { vision: false }, id: 'gpt-image-1' },
+        { abilities: { reasoning: true }, id: 'gpt-5.4-pro' },
+        { abilities: { reasoning: true }, id: 'gpt-5.5-pro' },
         { abilities: { functionCall: true }, id: 'private-fast-json' },
       ],
       id: 'openai',
@@ -28,23 +28,32 @@ describe('serviceModelPolicy', () => {
     },
   ];
 
-  it('returns a policy that allows openai gpt-4o-mini for input completion', () => {
+  it('allows regular input completion models', () => {
     const policy = getServiceModelPolicy('inputCompletion');
 
     expect(
       isServiceModelCandidateAllowed(policy, { model: 'gpt-4o-mini', provider: 'openai' }),
     ).toBe(true);
+    expect(
+      isServiceModelCandidateAllowed(policy, { model: 'private-fast-json', provider: 'custom' }),
+    ).toBe(true);
   });
 
-  it('denies wildcard-matched unsuitable input completion models', () => {
+  it('denies only the configured GPT Pro models for input completion', () => {
     const policy = getServiceModelPolicy('inputCompletion');
 
     expect(
-      isServiceModelCandidateAllowed(policy, { model: 'gpt-5-thinking', provider: 'openai' }),
+      isServiceModelCandidateAllowed(policy, { model: 'gpt-5.4-pro', provider: 'openai' }),
     ).toBe(false);
     expect(
-      isServiceModelCandidateAllowed(policy, { model: 'gpt-image-1', provider: 'openai' }),
+      isServiceModelCandidateAllowed(policy, { model: 'gpt-5.5-pro', provider: 'openai' }),
     ).toBe(false);
+    expect(
+      isServiceModelCandidateAllowed(policy, { model: 'openai/gpt-5.5-pro', provider: 'custom' }),
+    ).toBe(false);
+    expect(isServiceModelCandidateAllowed(policy, { model: 'gpt-5.4', provider: 'openai' })).toBe(
+      true,
+    );
   });
 
   it('lets deny rules override allow rules', () => {
@@ -61,7 +70,7 @@ describe('serviceModelPolicy', () => {
     ).toBe(false);
   });
 
-  it('allows arbitrary models in denylist mode unless they match deny rules', () => {
+  it('allows arbitrary models in unrestricted denylist policies', () => {
     const policy = getServiceModelPolicy('historyCompress');
 
     expect(
@@ -69,25 +78,31 @@ describe('serviceModelPolicy', () => {
     ).toBe(true);
     expect(
       isServiceModelCandidateAllowed(policy, { model: 'my-thinking-model', provider: 'custom' }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('filters provider groups using manual provider and model rules', () => {
+  it('filters only input completion denied models from provider groups', () => {
     const policy = getServiceModelPolicy('inputCompletion');
 
     expect(filterServiceModelCandidates(policy, providerGroups)).toEqual([
       {
-        children: [{ abilities: { reasoning: true }, id: 'gpt-4o-mini' }],
+        children: [
+          { abilities: { reasoning: true }, id: 'gpt-4o-mini' },
+          { abilities: { functionCall: true }, id: 'private-fast-json' },
+        ],
         id: 'openai',
       },
       {
-        children: [{ abilities: { reasoning: true }, id: 'claude-3-5-haiku-latest' }],
+        children: [
+          { abilities: { reasoning: true }, id: 'claude-3-5-haiku-latest' },
+          { abilities: { reasoning: false }, id: 'claude-opus-4-thinking' },
+        ],
         id: 'anthropic',
       },
     ]);
   });
 
-  it('resolves input completion fallback to openai gpt-4o-mini', () => {
+  it('resolves input completion fallback to the first non-denied model', () => {
     const policy = getServiceModelPolicy('inputCompletion');
 
     expect(resolveServiceModelFallback(policy, providerGroups)).toEqual({
@@ -96,10 +111,8 @@ describe('serviceModelPolicy', () => {
     });
   });
 
-  it('marks optional runtime policies as empty on invalid selection', () => {
-    expect(getServiceModelPolicy('followUpAction')?.invalidSelection).toBe('empty');
+  it('marks input completion as empty on invalid selection', () => {
     expect(getServiceModelPolicy('inputCompletion')?.invalidSelection).toBe('empty');
-    expect(getServiceModelPolicy('promptRewrite')?.invalidSelection).toBe('empty');
   });
 
   it('keeps arbitrary custom models allowed when policy is undefined', () => {

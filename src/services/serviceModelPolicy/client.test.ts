@@ -7,7 +7,7 @@ import { resolveClientServiceModelConfig } from './client';
 
 const chatList = [
   {
-    children: [{ id: 'gpt-4o-mini' }, { id: 'gpt-5-thinking' }],
+    children: [{ id: 'gpt-4o-mini' }, { id: 'gpt-5.4-pro' }],
     id: 'openai',
     name: 'OpenAI',
     source: 'builtin',
@@ -38,7 +38,7 @@ describe('resolveClientServiceModelConfig', () => {
 
   it('falls back when the saved input completion model is invalid', () => {
     const config = {
-      model: 'gpt-5-thinking',
+      model: 'gpt-5.4-pro',
       provider: 'openai',
     } satisfies SystemAgentItem;
 
@@ -50,12 +50,12 @@ describe('resolveClientServiceModelConfig', () => {
 
   it('returns undefined for input completion when no allowed model exists', () => {
     const config = {
-      model: 'gpt-5-thinking',
+      model: 'gpt-5.4-pro',
       provider: 'openai',
     } satisfies SystemAgentItem;
     const disallowedChatList = [
       {
-        children: [{ id: 'gpt-5-thinking' }],
+        children: [{ id: 'gpt-5.4-pro' }],
         id: 'openai',
         name: 'OpenAI',
         source: 'builtin',

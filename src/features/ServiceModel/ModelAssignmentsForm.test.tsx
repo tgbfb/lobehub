@@ -135,10 +135,16 @@ describe('<ModelAssignmentsForm />', () => {
     expect(inputCompletionSelect?.modelFilter).toBeTypeOf('function');
     expect(
       inputCompletionSelect?.modelFilter?.({
-        model: { abilities: {}, id: 'gpt-5-thinking' },
+        model: { abilities: {}, id: 'gpt-5.4-pro' },
         provider: { children: [], id: 'openai', name: 'OpenAI', source: 'builtin' },
       }),
     ).toBe(false);
+    expect(
+      inputCompletionSelect?.modelFilter?.({
+        model: { abilities: {}, id: 'gpt-5.4' },
+        provider: { children: [], id: 'openai', name: 'OpenAI', source: 'builtin' },
+      }),
+    ).toBe(true);
 
     const userMemoryEmbeddingSelect = mocks.modelSelectProps.find(
       (props) => props.value === systemAgentSettings.userMemoryEmbedding,
