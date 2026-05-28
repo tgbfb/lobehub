@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
+import StreamAnimationToggle from '@/components/StreamAnimationToggle';
 import { useFetchAgentDocuments } from '@/hooks/useFetchAgentDocuments';
 import { useFetchTopicMemories } from '@/hooks/useFetchMemoryForTopic';
 import { useFetchNotebookDocuments } from '@/hooks/useFetchNotebookDocuments';
@@ -171,6 +172,7 @@ const ChatList = memo<ChatListProps>(
           headerSlot={headerSlot}
           itemContent={itemContent ?? defaultItemContent}
         />
+        <StreamAnimationToggle />
       </MessageActionProvider>
     );
   },

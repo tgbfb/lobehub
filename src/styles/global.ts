@@ -74,4 +74,10 @@ export default ({ token }: { prefixCls: string; token: Theme }) => css`
   ) {
     opacity: 1;
   }
+
+  html.lobe-no-stream-anim *,
+  html.lobe-no-stream-anim *::before,
+  html.lobe-no-stream-anim *::after {
+    animation-play-state: paused !important;
+  }
 `;
