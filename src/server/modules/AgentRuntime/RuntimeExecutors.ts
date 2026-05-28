@@ -2354,6 +2354,9 @@ export const createRuntimeExecutors = (
     // Track all tool message IDs created during execution
     const toolMessageIds: string[] = [];
     const toolResults: any[] = [];
+    // Deferred (async) tools whose result is delivered out-of-band later;
+    // collected here so the batch parks for them after server tools finish.
+    const deferredTools: ChatToolPayload[] = [];
 
     // Execute server tools concurrently (skip client tools in mixed batch)
     const toolsToExecute = serverTools.length > 0 ? serverTools : toolsCalling;
@@ -2506,6 +2509,7 @@ export const createRuntimeExecutors = (
                     activeDeviceId: state.metadata?.activeDeviceId,
                     agentId: state.metadata?.agentId,
                     documentId: state.metadata?.documentId,
+                    execSubAgentTask: ctx.execSubAgentTask,
                     executionTimeoutMs: timeoutMs,
                     groupId: state.metadata?.groupId,
                     memoryToolPermission: batchAgentConfig?.chatConfig?.memory?.toolPermission,
@@ -2529,6 +2533,18 @@ export const createRuntimeExecutors = (
                   toolName,
                 },
               );
+            }
+
+            // Deferred (async) tool: executor created a pending placeholder and
+            // the real result arrives out-of-band. Skip the tool_result write;
+            // the batch parks for it after all server tools settle.
+            if (execution.result.deferred) {
+              log(`[${operationLogId}] Tool ${toolName} deferred; will park after batch`);
+              deferredTools.push(chatToolPayload);
+              batchExecuteToolSpan.setAttributes(
+                buildExecuteToolResultAttributes({ attempts: execution.attempts, success: true }),
+              );
+              return;
             }
 
             const executionResult = await archiveRuntimeToolResult(execution.result, {
@@ -2785,24 +2801,31 @@ export const createRuntimeExecutors = (
     // Get the last tool message ID as parentMessageId for next LLM call
     const lastToolMessageId = toolMessageIds.at(-1);
 
-    // If there are remaining client tools in a mixed batch, interrupt after server tools
-    if (clientTools.length > 0) {
+    // Park if any tools still owe an out-of-band result: client tools (run on
+    // the client) and/or deferred async tools (e.g. sub-agents). The operation
+    // resumes once every pending tool's result is delivered.
+    const pendingTools = [...deferredTools, ...clientTools];
+    if (pendingTools.length > 0) {
+      // Prefer the async-tool reason when any deferred tool is present; the
+      // individual pending payloads still carry their own identity for the
+      // resume gate.
+      const pauseReason = deferredTools.length > 0 ? 'async_tool' : 'client_tool_execution';
       log(
-        `[${operationLogId}][call_tools_batch] Mixed batch: ${serverTools.length} server tools done, pausing for ${clientTools.length} client tools`,
+        `[${operationLogId}][call_tools_batch] Pausing after ${serverTools.length} server tools: ${deferredTools.length} deferred + ${clientTools.length} client`,
       );
 
       await streamManager.publishStreamChunk(operationId, stepIndex, {
         chunkType: 'tools_calling',
-        toolsCalling: clientTools as any,
+        toolsCalling: pendingTools as any,
       });
 
       newState.status = 'waiting_for_async_tool';
       newState.interruption = {
         canResume: true,
         interruptedAt: new Date().toISOString(),
-        reason: 'client_tool_execution',
+        reason: pauseReason,
       };
-      newState.pendingToolsCalling = clientTools;
+      newState.pendingToolsCalling = pendingTools;
 
       return {
         events: [
@@ -2810,7 +2833,7 @@ export const createRuntimeExecutors = (
           {
             canResume: true,
             interruptedAt: new Date().toISOString(),
-            reason: 'client_tool_execution',
+            reason: pauseReason,
             type: 'interrupted',
           },
         ],
