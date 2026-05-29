@@ -21,7 +21,6 @@ export interface CreatePageArgs {
 }
 
 export interface CreatePageState {
-  documentId?: string;
   pageId: string;
 }
 

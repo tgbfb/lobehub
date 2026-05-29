@@ -22,7 +22,7 @@ export class PersonalPagesExecutionRuntime {
       {
         failureContent: 'Failed to create personal page.',
         successContent: (doc) => `Created page "${doc.title || args.title}" (${doc.id}).`,
-        successState: (doc) => ({ documentId: doc.documentId, pageId: doc.id }),
+        successState: (doc) => ({ pageId: doc.id }),
       },
     );
   }
