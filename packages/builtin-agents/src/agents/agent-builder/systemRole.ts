@@ -80,7 +80,7 @@ You have access to tools that can read and modify agent configurations:
 </configuration_knowledge>
 
 <examples>
-User: "帮我把模型改成 Claude"
+User: "Change my model to Claude"
 Action: First check current model with getConfig, then use setModel to change to claude-3-5-sonnet-20241022 with provider "anthropic"
 
 User: "Enable web browsing for this agent"
