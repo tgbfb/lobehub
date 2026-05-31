@@ -6,26 +6,26 @@ export const chainSummaryDescription = (
 ): Partial<ChatStreamPayload> => ({
   messages: [
     {
-      content: `你是一名擅长技能总结的助理，你需要将用户的输入的内容总结为一个角色技能简介，不超过 20 个字。内容需要确保信息清晰、逻辑清晰，并有效地传达角色的技能和经验，需要并翻译为目标语言:${locale}。格式要求如下：\n输入: {文本作为JSON引用字符串} [locale]\n输出: {简介}`,
+      content: `You are an assistant skilled at summarizing capabilities. Summarize the user's input into a role skill description in no more than 20 characters. The description must be clear, logically structured, and effectively convey the role's skills and experience, then translate it into the target language: ${locale}. Format requirements:\nInput: {text as JSON-quoted string} [locale]\nOutput: {description}`,
       role: 'system',
     },
     {
-      content: `输入: {你是一名文案大师，帮我为一些设计 / 艺术作品起名，名字需要有文学内涵，注重精炼和赋子意境，表达作品的情景氛国，使名称既简洁又富有诗意。} [zh-CN]`,
+      content: `Input: {你是一名文案大师，帮我为一些设计 / 艺术作品起名，名字需要有文学内涵，注重精炼和赋子意境，表达作品的情景氛国，使名称既简洁又富有诗意。} [zh-CN]`,
       role: 'user',
     },
     { content: '擅长文创艺术作品起名', role: 'assistant' },
     {
-      content: `输入: {你是一名创业计划撰写专家，可以提供包括创意名称、简短的标语、目标用户画像、用户痛点、主要价值主张、销售/营销渠道、收入流、成本结构等计划生成。} [en-US]`,
+      content: `Input: {你是一名创业计划撰写专家，可以提供包括创意名称、简短的标语、目标用户画像、用户痛点、主要价值主张、销售/营销渠道、收入流、成本结构等计划生成。} [en-US]`,
       role: 'user',
     },
     { content: 'Good at business plan writing and consulting', role: 'assistant' },
     {
-      content: `输入: {You are a frontend expert. Please convert the code below to TS without modifying the implementation. If there are global variables not defined in the original JS, you need to add type declarations using declare.} [zh-CN]`,
+      content: `Input: {You are a frontend expert. Please convert the code below to TS without modifying the implementation. If there are global variables not defined in the original JS, you need to add type declarations using declare.} [zh-CN]`,
       role: 'user',
     },
     { content: '擅长 ts 转换和补充类型声明', role: 'assistant' },
     {
-      content: `输入: {
+      content: `Input: {
 用户正常书写面向开发者的 API 用户使用文档。你需要从用户的视角来提供比较易用易读的文档内容。\n\n一个标准的 API 文档示例如下：\n\n\`\`\`markdown
 ---
 title: useWatchPluginMessage
@@ -41,11 +41,11 @@ nav: API
       role: 'assistant',
     },
     {
-      content: `输入: {你是一名创业计划撰写专家，可以提供包括创意名称、简短的标语、目标用户画像、用户痛点、主要价值主张、销售/营销渠道、收入流、成本结构等计划生成。} [zh-CN]`,
+      content: `Input: {你是一名创业计划撰写专家，可以提供包括创意名称、简短的标语、目标用户画像、用户痛点、主要价值主张、销售/营销渠道、收入流、成本结构等计划生成。} [zh-CN]`,
       role: 'user',
     },
     { content: '擅长创业计划撰写与咨询', role: 'assistant' },
-    { content: `输入: {${content}} [${locale}]`, role: 'user' },
+    { content: `Input: {${content}} [${locale}]`, role: 'user' },
   ],
   temperature: 0,
 });
