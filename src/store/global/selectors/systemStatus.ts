@@ -69,17 +69,22 @@ export const DEFAULT_SIDEBAR_ITEMS: string[] = [
 /** Items that must stay contiguous in the sidebar list (accordion block). */
 export const SIDEBAR_ACCORDION_KEYS = new Set(['recents', 'agent']);
 
-const DEFAULT_BOTTOM_KEYS = new Set(
-  DEFAULT_SIDEBAR_ITEMS.slice(DEFAULT_SIDEBAR_ITEMS.indexOf(SIDEBAR_SPACER_ID) + 1),
-);
+const accordionIndices = (items: string[]): number[] => {
+  const out: number[] = [];
+  for (let i = 0; i < items.length; i++) {
+    if (SIDEBAR_ACCORDION_KEYS.has(items[i])) out.push(i);
+  }
+  return out;
+};
 
-/** Insert the spacer sentinel into `order` if missing — anchored before the first
- * default "bottom" item (image/community/...), falling back to the end. */
-const ensureSpacer = (order: string[]): string[] => {
-  if (order.includes(SIDEBAR_SPACER_ID)) return order;
-  const insertAt = order.findIndex((k) => DEFAULT_BOTTOM_KEYS.has(k));
-  if (insertAt === -1) return [...order, SIDEBAR_SPACER_ID];
-  return [...order.slice(0, insertAt), SIDEBAR_SPACER_ID, ...order.slice(insertAt)];
+/** Anchor a single spacer immediately after the accordion block's last member, binding
+ * it to `recents`/`agent` as one compound block. Drops any duplicate spacers; falls back
+ * to the list end when no accordion member is present. */
+export const anchorSpacerToAccordion = (order: string[]): string[] => {
+  const withoutSpacer = order.filter((k) => k !== SIDEBAR_SPACER_ID);
+  const acc = accordionIndices(withoutSpacer);
+  const insertAt = acc.length > 0 ? acc.at(-1)! + 1 : withoutSpacer.length;
+  return [...withoutSpacer.slice(0, insertAt), SIDEBAR_SPACER_ID, ...withoutSpacer.slice(insertAt)];
 };
 
 /** Append any known keys missing from `order` so new items don't disappear on upgrade. */
@@ -87,15 +92,7 @@ const withAllKnownKeys = (order: string[]): string[] => {
   const present = new Set(order);
   const missing = DEFAULT_SIDEBAR_ITEMS.filter((k) => k !== SIDEBAR_SPACER_ID && !present.has(k));
   const withMissing = missing.length === 0 ? order : [...order, ...missing];
-  return ensureSpacer(withMissing);
-};
-
-const accordionIndices = (items: string[]): number[] => {
-  const out: number[] = [];
-  for (let i = 0; i < items.length; i++) {
-    if (SIDEBAR_ACCORDION_KEYS.has(items[i])) out.push(i);
-  }
-  return out;
+  return anchorSpacerToAccordion(withMissing);
 };
 
 /**
@@ -107,6 +104,24 @@ const accordionIndices = (items: string[]): number[] => {
 export const reorderSidebarItems = (items: string[], from: number, to: number): string[] => {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) {
     return items;
+  }
+
+  // The spacer is bound to the accordion block and never reorders on its own.
+  if (items[from] === SIDEBAR_SPACER_ID) return items;
+
+  // When a spacer is present, reorder in a spacer-free coordinate space and re-anchor
+  // the spacer to the accordion block afterwards. This keeps `[recents, agent, spacer]`
+  // moving as one compound block and stops other items from splitting it.
+  const spacerIdx = items.indexOf(SIDEBAR_SPACER_ID);
+  if (spacerIdx !== -1) {
+    const compact = items.filter((k) => k !== SIDEBAR_SPACER_ID);
+    const cFrom = from > spacerIdx ? from - 1 : from;
+    let cTo: number;
+    if (to > spacerIdx) cTo = to - 1;
+    else if (to < spacerIdx) cTo = to;
+    // Target is the spacer slot itself → move across it in the drag direction.
+    else cTo = from < to ? to : Math.max(0, to - 1);
+    return anchorSpacerToAccordion(reorderSidebarItems(compact, cFrom, cTo));
   }
 
   const key = items[from];

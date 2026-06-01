@@ -32,7 +32,11 @@ import { useTranslation } from 'react-i18next';
 import { getRouteById } from '@/config/routes';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
-import { SIDEBAR_ACCORDION_KEYS, SIDEBAR_SPACER_ID } from '@/store/global/selectors/systemStatus';
+import {
+  anchorSpacerToAccordion,
+  SIDEBAR_ACCORDION_KEYS,
+  SIDEBAR_SPACER_ID,
+} from '@/store/global/selectors/systemStatus';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -168,42 +172,16 @@ const SortableItem = memo<{
 });
 
 // ---------------------------------------------------------------------------
-// SpacerSortableItem — represents the flex spacer slot; draggable like any
-// other item but rendered as a divider with an "Anchor below to bottom" label.
+// SpacerRow — static divider rendered inside the accordion group, anchored right
+// after `agent`. The spacer is bound to the accordion block, so it is not draggable
+// on its own and carries no grip handle.
 // ---------------------------------------------------------------------------
 
-const SpacerSortableItem = memo(() => {
+const SpacerRow = memo(() => {
   const { t } = useTranslation('common');
-  const {
-    attributes,
-    isDragging,
-    listeners,
-    setActivatorNodeRef,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: SIDEBAR_SPACER_ID });
 
   return (
-    <Flexbox
-      horizontal
-      align={'center'}
-      className={isDragging ? cx(styles.item, styles.itemDragging) : styles.item}
-      gap={8}
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Translate.toString(transform),
-        transition,
-      }}
-      {...attributes}
-    >
-      <Flexbox
-        ref={setActivatorNodeRef}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab', flexShrink: 0, touchAction: 'none' }}
-        {...listeners}
-      >
-        <Icon icon={GripVertical} size={14} style={{ color: cssVar.colorTextQuaternary }} />
-      </Flexbox>
+    <Flexbox horizontal align={'center'} className={styles.item} gap={8}>
       <Icon icon={ArrowDownToLine} size={14} style={{ color: cssVar.colorTextQuaternary }} />
       <div className={styles.spacerLine} />
       <Text style={{ fontSize: 12 }} type={'secondary'}>
@@ -255,18 +233,6 @@ const OverlayItem = memo<{ id: string }>(({ id }) => {
     );
   }
 
-  if (isSpacer(id)) {
-    return (
-      <Flexbox horizontal align={'center'} className={styles.overlay} gap={8}>
-        <Icon icon={GripVertical} size={14} style={{ color: cssVar.colorTextQuaternary }} />
-        <Icon icon={ArrowDownToLine} size={14} style={{ color: cssVar.colorTextQuaternary }} />
-        <Text style={{ fontSize: 12 }} type={'secondary'}>
-          {t('navPanel.bottomDivider' as any)}
-        </Text>
-      </Flexbox>
-    );
-  }
-
   const item = ITEM_MAP.get(id);
   if (!item) return null;
   const route = item.routeId ? getRouteById(item.routeId) : undefined;
@@ -310,6 +276,7 @@ const CustomizeSidebarContent = memo(() => {
     const inner: string[] = [];
     let insertedGroup = false;
     for (const id of items) {
+      if (isSpacer(id)) continue; // spacer is rendered statically inside the accordion group
       if (isAccordionKey(id)) {
         inner.push(id);
         if (!insertedGroup) {
@@ -383,8 +350,10 @@ const CustomizeSidebarContent = memo(() => {
         next = flattenItems(arrayMove(outerItems, oldIdx, newIdx), innerItems);
       }
 
-      setItems(next);
-      updateSystemStatus({ sidebarItems: next });
+      // Re-anchor the spacer (absent from outer/inner) to the accordion block.
+      const normalized = anchorSpacerToAccordion(next);
+      setItems(normalized);
+      updateSystemStatus({ sidebarItems: normalized });
     },
     [innerItems, outerItems, updateSystemStatus],
   );
@@ -394,12 +363,9 @@ const CustomizeSidebarContent = memo(() => {
     setItems(storeItems);
   }, [storeItems]);
 
-  const renderItem = (id: string) =>
-    isSpacer(id) ? (
-      <SpacerSortableItem key={id} />
-    ) : (
-      <SortableItem hiddenSections={hiddenSections} id={id} key={id} onToggle={toggleSection} />
-    );
+  const renderItem = (id: string) => (
+    <SortableItem hiddenSections={hiddenSections} id={id} key={id} onToggle={toggleSection} />
+  );
 
   return (
     <DndContext
@@ -417,6 +383,7 @@ const CustomizeSidebarContent = memo(() => {
                 <SortableContext items={innerItems} strategy={verticalListSortingStrategy}>
                   {innerItems.map(renderItem)}
                 </SortableContext>
+                <SpacerRow />
               </AccordionGroup>
             ) : (
               renderItem(id)

@@ -10,6 +10,7 @@ import {
   initialState,
 } from '../initialState';
 import {
+  anchorSpacerToAccordion,
   DEFAULT_SIDEBAR_ITEMS,
   reorderSidebarItems,
   SIDEBAR_SPACER_ID,
@@ -133,7 +134,7 @@ describe('systemStatusSelectors', () => {
       expect(systemStatusSelectors.sidebarItems(initialState)).toEqual(DEFAULT_SIDEBAR_ITEMS);
     });
 
-    it('should preserve stored order and inject the spacer before the first bottom item', () => {
+    it('should preserve stored order and anchor the spacer right after the accordion block', () => {
       const stored = [
         'agent',
         'recents',
@@ -150,9 +151,9 @@ describe('systemStatusSelectors', () => {
       expect(systemStatusSelectors.sidebarItems(s)).toEqual([
         'agent',
         'recents',
+        SIDEBAR_SPACER_ID,
         'pages',
         'tasks',
-        SIDEBAR_SPACER_ID,
         'image',
         'community',
         'resource',
@@ -178,7 +179,7 @@ describe('systemStatusSelectors', () => {
       expect(systemStatusSelectors.sidebarItems(s)).toEqual(stored);
     });
 
-    it('should append missing known keys to the end and keep the spacer anchored', () => {
+    it('should append missing known keys and keep the spacer after the accordion block', () => {
       const s: GlobalState = merge(initialState, {
         status: { sidebarItems: ['agent', 'recents'] },
       });
@@ -190,11 +191,8 @@ describe('systemStatusSelectors', () => {
       expect(items).toContain('community');
       expect(items).toContain('resource');
       expect(items).toContain('memory');
-      // spacer sits directly before the first bottom-class item
-      const firstBottomIdx = items.findIndex((k) =>
-        ['image', 'community', 'resource', 'memory'].includes(k),
-      );
-      expect(items[firstBottomIdx - 1]).toBe(SIDEBAR_SPACER_ID);
+      // spacer sits directly after the accordion block's last member (`recents`)
+      expect(items[2]).toBe(SIDEBAR_SPACER_ID);
     });
 
     it('should migrate legacy `sidebarSectionOrder` accordion order into the default layout', () => {
@@ -339,6 +337,101 @@ describe('systemStatusSelectors', () => {
 
     it('should be a no-op when from === to', () => {
       expect(reorderSidebarItems(DEFAULT, 2, 2)).toBe(DEFAULT);
+    });
+  });
+
+  describe('reorderSidebarItems with the spacer bound to the accordion block', () => {
+    // ['tasks', 'pages', 'recents', 'agent', '__spacer__', 'image', 'community', 'resource', 'memory']
+    const FULL = DEFAULT_SIDEBAR_ITEMS;
+
+    it('moves the spacer together when `agent` is dragged down past the block', () => {
+      // agent (idx 3) moveDown → idx 4 (the spacer slot). The compound block
+      // [recents, agent, spacer] slides past `image`.
+      expect(reorderSidebarItems(FULL, 3, 4)).toEqual([
+        'tasks',
+        'pages',
+        'image',
+        'recents',
+        'agent',
+        SIDEBAR_SPACER_ID,
+        'community',
+        'resource',
+        'memory',
+      ]);
+    });
+
+    it('moves the spacer together when `recents` is dragged up past the block', () => {
+      // recents (idx 2) moveUp → idx 1. Compound block slides above `pages`.
+      expect(reorderSidebarItems(FULL, 2, 1)).toEqual([
+        'tasks',
+        'recents',
+        'agent',
+        SIDEBAR_SPACER_ID,
+        'pages',
+        'image',
+        'community',
+        'resource',
+        'memory',
+      ]);
+    });
+
+    it('keeps the spacer at the block tail when swapping recents/agent within the block', () => {
+      // agent (idx 3) moveUp → idx 2 (swap with recents). Spacer stays at the tail.
+      expect(reorderSidebarItems(FULL, 3, 2)).toEqual([
+        'tasks',
+        'pages',
+        'agent',
+        'recents',
+        SIDEBAR_SPACER_ID,
+        'image',
+        'community',
+        'resource',
+        'memory',
+      ]);
+    });
+
+    it('never lets another item split the block from its spacer', () => {
+      // community (idx 6) dragged up to idx 3 — it must snap above the block,
+      // not land between `agent` and the spacer.
+      const next = reorderSidebarItems(FULL, 6, 3);
+      const agentIdx = next.indexOf('agent');
+      expect(next[agentIdx + 1]).toBe(SIDEBAR_SPACER_ID);
+      expect(next.indexOf('community')).toBeLessThan(next.indexOf('recents'));
+    });
+
+    it('is a no-op when trying to reorder the spacer itself', () => {
+      const spacerIdx = FULL.indexOf(SIDEBAR_SPACER_ID);
+      expect(reorderSidebarItems(FULL, spacerIdx, 0)).toBe(FULL);
+    });
+  });
+
+  describe('anchorSpacerToAccordion', () => {
+    it('moves the spacer to right after the accordion block', () => {
+      expect(
+        anchorSpacerToAccordion(['tasks', SIDEBAR_SPACER_ID, 'recents', 'agent', 'image']),
+      ).toEqual(['tasks', 'recents', 'agent', SIDEBAR_SPACER_ID, 'image']);
+    });
+
+    it('inserts a spacer after the block when none is present', () => {
+      expect(anchorSpacerToAccordion(['tasks', 'recents', 'agent', 'image'])).toEqual([
+        'tasks',
+        'recents',
+        'agent',
+        SIDEBAR_SPACER_ID,
+        'image',
+      ]);
+    });
+
+    it('collapses duplicate spacers into a single one after the block', () => {
+      expect(
+        anchorSpacerToAccordion([
+          SIDEBAR_SPACER_ID,
+          'recents',
+          'agent',
+          SIDEBAR_SPACER_ID,
+          'image',
+        ]),
+      ).toEqual(['recents', 'agent', SIDEBAR_SPACER_ID, 'image']);
     });
   });
 });
