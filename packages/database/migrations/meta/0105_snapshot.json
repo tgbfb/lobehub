@@ -6,7 +6,7 @@
   },
   "dialect": "postgresql",
   "enums": {},
-  "id": "c1884a5e-2644-4c42-b82c-fdf3176a69d4",
+  "id": "3b8edc50-4449-419b-9380-b0e43c13f59e",
   "policies": {},
   "prevId": "85341c05-67d1-43f7-8550-790e8d025225",
   "roles": {},
@@ -3011,12 +3011,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "visibility": {
           "name": "visibility",
           "type": "text",
@@ -3024,32 +3018,11 @@
           "notNull": true,
           "default": "'private'"
         },
-        "guest_enabled": {
-          "name": "guest_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "tip_split_ratio": {
-          "name": "tip_split_ratio",
-          "type": "numeric(3, 2)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'0.10'"
-        },
-        "file_permission_config": {
-          "name": "file_permission_config",
+        "share_config": {
+          "name": "share_config",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "page_view_count": {
-          "name": "page_view_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         },
         "accessed_at": {
           "name": "accessed_at",
@@ -3089,11 +3062,11 @@
           "method": "btree",
           "with": {}
         },
-        "agent_shares_user_id_idx": {
-          "name": "agent_shares_user_id_idx",
+        "agent_shares_visibility_idx": {
+          "name": "agent_shares_visibility_idx",
           "columns": [
             {
-              "expression": "user_id",
+              "expression": "visibility",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3111,15 +3084,6 @@
           "tableFrom": "agent_shares",
           "tableTo": "agents",
           "columnsFrom": ["agent_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "agent_shares_user_id_users_id_fk": {
-          "name": "agent_shares_user_id_users_id_fk",
-          "tableFrom": "agent_shares",
-          "tableTo": "users",
-          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"

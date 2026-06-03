@@ -1,11 +1,11 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { agents, agentShares } from '../schemas';
-import type { AgentShareItem } from '../schemas/agentShare';
+import type { AgentShareConfig, AgentShareItem } from '../schemas/agentShare';
 import type { LobeChatDatabase } from '../type';
 
-export type { AgentShareItem };
+export type { AgentShareConfig, AgentShareItem };
 
 export type SharedAgentData = NonNullable<
   Awaited<ReturnType<(typeof AgentShareModel)['findByShareId']>>
@@ -20,12 +20,9 @@ export class AgentShareModel {
     this.db = db;
   }
 
-  /**
-   * Create or get the existing share record for an agent.
-   * Enforced unique constraint on agentId ensures at most one share per agent.
-   */
   create = async (agentId: string) => {
     const agent = await this.db.query.agents.findFirst({
+      columns: { id: true },
       where: and(eq(agents.id, agentId), eq(agents.userId, this.userId)),
     });
 
@@ -33,7 +30,7 @@ export class AgentShareModel {
 
     const [result] = await this.db
       .insert(agentShares)
-      .values({ agentId, userId: this.userId })
+      .values({ agentId })
       .onConflictDoNothing({ target: agentShares.agentId })
       .returning();
 
@@ -44,39 +41,45 @@ export class AgentShareModel {
 
   updateConfig = async (
     agentId: string,
-    config: Partial<
-      Pick<AgentShareItem, 'filePermissionConfig' | 'guestEnabled' | 'tipSplitRatio' | 'visibility'>
-    >,
+    config: Partial<Pick<AgentShareItem, 'shareConfig' | 'visibility'>>,
   ) => {
+    const agent = await this.db.query.agents.findFirst({
+      columns: { id: true },
+      where: and(eq(agents.id, agentId), eq(agents.userId, this.userId)),
+    });
+
+    if (!agent) return null;
+
     const [result] = await this.db
       .update(agentShares)
       .set({ ...config, updatedAt: new Date() })
-      .where(and(eq(agentShares.agentId, agentId), eq(agentShares.userId, this.userId)))
+      .where(eq(agentShares.agentId, agentId))
       .returning();
 
     return result || null;
   };
 
   delete = async (agentId: string) => {
-    return this.db
-      .delete(agentShares)
-      .where(and(eq(agentShares.agentId, agentId), eq(agentShares.userId, this.userId)));
+    const agent = await this.db.query.agents.findFirst({
+      columns: { id: true },
+      where: and(eq(agents.id, agentId), eq(agents.userId, this.userId)),
+    });
+
+    if (!agent) return;
+
+    return this.db.delete(agentShares).where(eq(agentShares.agentId, agentId));
   };
 
   getByAgentId = async (agentId: string) => {
     const [result] = await this.db
       .select()
       .from(agentShares)
-      .where(and(eq(agentShares.agentId, agentId), eq(agentShares.userId, this.userId)))
+      .where(eq(agentShares.agentId, agentId))
       .limit(1);
 
     return result || null;
   };
 
-  /**
-   * Public lookup by share ID.
-   * Returns sanitised agent metadata — does NOT expose systemRole, model, or provider.
-   */
   static findByShareId = async (db: LobeChatDatabase, shareId: string) => {
     const [result] = await db
       .select({
@@ -86,12 +89,9 @@ export class AgentShareModel {
         agentId: agentShares.agentId,
         agentTags: agents.tags,
         agentTitle: agents.title,
-        creatorId: agentShares.userId,
-        filePermissionConfig: agentShares.filePermissionConfig,
-        guestEnabled: agentShares.guestEnabled,
-        pageViewCount: agentShares.pageViewCount,
+        creatorId: agents.userId,
+        shareConfig: agentShares.shareConfig,
         shareId: agentShares.id,
-        tipSplitRatio: agentShares.tipSplitRatio,
         visibility: agentShares.visibility,
       })
       .from(agentShares)
@@ -118,12 +118,5 @@ export class AgentShareModel {
     }
 
     return share;
-  };
-
-  static incrementPageViewCount = async (db: LobeChatDatabase, shareId: string) => {
-    await db
-      .update(agentShares)
-      .set({ pageViewCount: sql`${agentShares.pageViewCount} + 1` })
-      .where(eq(agentShares.id, shareId));
   };
 }
