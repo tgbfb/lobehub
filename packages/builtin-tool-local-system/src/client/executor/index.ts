@@ -86,12 +86,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   listFiles = async (params: ListLocalFileParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.listFiles({
-        directoryPath: params.path,
-        limit: params.limit,
-        sortBy: params.sortBy,
-        sortOrder: params.sortOrder,
-      } as any);
+      const result = await this.runtime.listFiles(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -100,11 +95,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   readFile = async (params: LocalReadFileParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.readFile({
-        endLine: params.loc?.[1],
-        path: params.path,
-        startLine: params.loc?.[0],
-      });
+      const result = await this.runtime.readFile(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -135,12 +126,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   moveFiles = async (params: MoveLocalFilesParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.moveFiles({
-        operations: params.items.map((item) => ({
-          destination: item.newPath,
-          source: item.oldPath,
-        })),
-      });
+      const result = await this.runtime.moveFiles(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -158,12 +144,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   editFile = async (params: EditLocalFileParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.editFile({
-        all: params.replace_all,
-        path: params.file_path,
-        replace: params.new_string,
-        search: params.old_string,
-      });
+      const result = await this.runtime.editFile(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -174,14 +155,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   runCommand = async (params: RunCommandParams): Promise<BuiltinToolResult> => {
     try {
-      // The manifest exposes `run_in_background`, but ComputerRuntime's RunCommandState
-      // reads `args.background` for the `isBackground` field — without this normalize
-      // the UI/state would always say foreground even for background commands.
-      // The IPC handler reads `run_in_background` itself, so we keep that field too.
-      const result = await this.runtime.runCommand({
-        ...params,
-        background: params.run_in_background,
-      } as any);
+      const result = await this.runtime.runCommand(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -190,10 +164,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   getCommandOutput = async (params: GetCommandOutputParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.getCommandOutput({
-        commandId: params.shell_id,
-        filter: params.filter,
-      } as any);
+      const result = await this.runtime.getCommandOutput(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -202,9 +173,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   killCommand = async (params: KillCommandParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.killCommand({
-        commandId: params.shell_id,
-      });
+      const result = await this.runtime.killCommand(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);
@@ -230,10 +199,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   globFiles = async (params: GlobFilesParams): Promise<BuiltinToolResult> => {
     try {
-      const result = await this.runtime.globFiles({
-        directory: params.scope,
-        pattern: params.pattern,
-      });
+      const result = await this.runtime.globFiles(params as any);
       return this.toResult(result);
     } catch (error) {
       return this.errorResult(error);

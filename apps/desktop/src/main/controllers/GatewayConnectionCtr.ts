@@ -331,30 +331,19 @@ export default class GatewayConnectionCtr extends ControllerModule {
     const runtime = this.getLocalSystemRuntime();
     const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
 
-    // Each case narrows `args` to its IPC param type — the manifest guarantees
-    // the gateway sends params matching the apiName. The `as never` casts on
-    // runtime calls are legitimate widenings: the runtime's typed signatures
-    // (e.g. `ListFilesParams`) are narrower than what the IPC layer accepts
-    // (`limit`, `run_in_background`, etc.), and the same casts exist in the
-    // renderer-side `LocalSystemExecutor`.
+    // The runtime now consumes the canonical A shape (identical to the IPC param
+    // types and `@lobechat/local-file-shell`), so each case forwards `args`
+    // straight through — only scope resolution (search/grep) runs first. The
+    // `as never` casts absorb residual nominal differences between the IPC param
+    // types and the runtime's own copies; the renderer-side `LocalSystemExecutor`
+    // does the same.
     switch (normalized) {
       case 'listFiles': {
-        const p = args as ListLocalFileParams;
-        return runtime.listFiles({
-          directoryPath: p.path,
-          limit: p.limit,
-          sortBy: p.sortBy,
-          sortOrder: p.sortOrder,
-        } as never);
+        return runtime.listFiles(args as ListLocalFileParams as never);
       }
 
       case 'readFile': {
-        const p = args as LocalReadFileParams;
-        return runtime.readFile({
-          endLine: p.loc?.[1],
-          path: p.path,
-          startLine: p.loc?.[0],
-        });
+        return runtime.readFile(args as LocalReadFileParams as never);
       }
 
       case 'readFiles': {
@@ -366,17 +355,11 @@ export default class GatewayConnectionCtr extends ControllerModule {
         return runtime.searchFiles({
           ...resolved,
           directory: resolved.directory || '',
-        });
+        } as never);
       }
 
       case 'moveFiles': {
-        const p = args as MoveLocalFilesParams;
-        return runtime.moveFiles({
-          operations: p.items?.map((item) => ({
-            destination: item.newPath,
-            source: item.oldPath,
-          })),
-        });
+        return runtime.moveFiles(args as MoveLocalFilesParams as never);
       }
 
       case 'writeFile': {
@@ -384,39 +367,19 @@ export default class GatewayConnectionCtr extends ControllerModule {
       }
 
       case 'editFile': {
-        const p = args as EditLocalFileParams;
-        return runtime.editFile({
-          all: p.replace_all,
-          path: p.file_path,
-          replace: p.new_string,
-          search: p.old_string,
-        });
+        return runtime.editFile(args as EditLocalFileParams as never);
       }
 
       case 'runCommand': {
-        // ComputerRuntime's RunCommandState reads `args.background`; the manifest
-        // exposes `run_in_background`. Without this normalize the state would
-        // always show foreground even for background commands.
-        const p = args as RunCommandParams;
-        return runtime.runCommand({
-          ...p,
-          background: p.run_in_background,
-        } as never);
+        return runtime.runCommand(args as RunCommandParams as never);
       }
 
       case 'getCommandOutput': {
-        const p = args as GetCommandOutputParams;
-        return runtime.getCommandOutput({
-          commandId: p.shell_id,
-          filter: p.filter,
-        } as never);
+        return runtime.getCommandOutput(args as GetCommandOutputParams as never);
       }
 
       case 'killCommand': {
-        const p = args as KillCommandParams;
-        return runtime.killCommand({
-          commandId: p.shell_id,
-        });
+        return runtime.killCommand(args as KillCommandParams as never);
       }
 
       case 'grepContent': {
@@ -425,11 +388,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
       }
 
       case 'globFiles': {
-        const p = args as GlobFilesParams;
-        return runtime.globFiles({
-          directory: p.scope,
-          pattern: p.pattern,
-        });
+        return runtime.globFiles(args as GlobFilesParams as never);
       }
 
       case 'renameLocalFile': {
@@ -459,9 +418,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
       }
 
       case 'getAgentProfile': {
-        const result = await this.getAgentProfile(
-          args as { agentId?: string; platform: string },
-        );
+        const result = await this.getAgentProfile(args as { agentId?: string; platform: string });
         return { content: JSON.stringify(result), state: result, success: true };
       }
 

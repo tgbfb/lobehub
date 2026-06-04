@@ -76,7 +76,7 @@ export abstract class ComputerRuntime {
       const state: ListFilesState = { files, totalCount };
 
       const content = formatFileList({
-        directory: args.directoryPath,
+        directory: args.path,
         files: files.map((f: { isDirectory: boolean; name: string }) => ({
           isDirectory: f.isDirectory,
           name: f.name,
@@ -99,9 +99,9 @@ export abstract class ComputerRuntime {
       if (!result.success) {
         return this.errorOutput(result, {
           content: '',
-          endLine: args.endLine,
+          endLine: args.loc?.[1],
           path: args.path,
-          startLine: args.startLine,
+          startLine: args.loc?.[0],
         });
       }
 
@@ -111,24 +111,19 @@ export abstract class ComputerRuntime {
       const state: ReadFileState = {
         charCount: r.charCount ?? fileContent.length,
         content: fileContent,
-        endLine: args.endLine,
+        endLine: args.loc?.[1],
         fileType: r.fileType,
         filename: r.filename,
         loc: r.loc,
         path: args.path,
-        startLine: args.startLine,
+        startLine: args.loc?.[0],
         totalCharCount: r.totalCharCount,
         totalLines: r.totalLineCount ?? r.totalLines,
       };
 
-      const lineRange: [number, number] | undefined =
-        args.startLine !== undefined && args.endLine !== undefined
-          ? [args.startLine, args.endLine]
-          : undefined;
-
       const content = formatFileContent({
         content: fileContent,
-        lineRange,
+        lineRange: args.loc,
         path: args.path,
       });
 
@@ -165,19 +160,19 @@ export abstract class ComputerRuntime {
       const result = await this.callService('editLocalFile', args);
 
       if (!result.success) {
-        return this.errorOutput(result, { path: args.path, replacements: 0 });
+        return this.errorOutput(result, { path: args.file_path, replacements: 0 });
       }
 
       const state: EditFileState = {
         diffText: result.result?.diffText,
         linesAdded: result.result?.linesAdded,
         linesDeleted: result.result?.linesDeleted,
-        path: args.path,
+        path: args.file_path,
         replacements: result.result?.replacements || 0,
       };
 
       const content = formatEditResult({
-        filePath: args.path,
+        filePath: args.file_path,
         linesAdded: state.linesAdded,
         linesDeleted: state.linesDeleted,
         replacements: state.replacements,
@@ -222,7 +217,7 @@ export abstract class ComputerRuntime {
         return this.errorOutput(result, {
           results: [],
           successCount: 0,
-          totalCount: args.operations.length,
+          totalCount: args.items.length,
         });
       }
 
@@ -235,7 +230,7 @@ export abstract class ComputerRuntime {
       const state: MoveFilesState = {
         results,
         successCount,
-        totalCount: args.operations.length,
+        totalCount: args.items.length,
       };
 
       const content = formatMoveResults(results);
@@ -256,13 +251,13 @@ export abstract class ComputerRuntime {
           content: formatRenameResult({
             error: errorMsg,
             newName: args.newName,
-            oldPath: args.oldPath,
+            oldPath: args.path,
             success: false,
           }),
           state: {
             error: errorMsg,
             newPath: '',
-            oldPath: args.oldPath,
+            oldPath: args.path,
             success: false,
           } satisfies RenameFileState,
           success: true,
@@ -272,14 +267,14 @@ export abstract class ComputerRuntime {
       const state: RenameFileState = {
         error: result.result?.error,
         newPath: result.result?.newPath || '',
-        oldPath: args.oldPath,
+        oldPath: args.path,
         success: true,
       };
 
       const content = formatRenameResult({
         error: result.result?.error,
         newName: args.newName,
-        oldPath: args.oldPath,
+        oldPath: args.path,
         success: true,
       });
 
@@ -299,7 +294,7 @@ export abstract class ComputerRuntime {
         return this.errorOutput(result, {
           error: result.error?.message,
           exitCode: result.result?.exitCode ?? result.result?.exit_code,
-          isBackground: args.background || false,
+          isBackground: args.run_in_background || false,
           stderr: result.result?.stderr,
           stdout: result.result?.stdout,
           success: false,
@@ -312,7 +307,7 @@ export abstract class ComputerRuntime {
         commandId: r.commandId || r.shell_id,
         error: r.error,
         exitCode: r.exitCode ?? r.exit_code,
-        isBackground: args.background || false,
+        isBackground: args.run_in_background || false,
         output: r.output,
         stderr: r.stderr,
         stdout: r.stdout,
@@ -373,21 +368,21 @@ export abstract class ComputerRuntime {
 
       if (!result.success) {
         return this.errorOutput(result, {
-          commandId: args.commandId,
+          commandId: args.shell_id,
           error: result.error?.message,
           success: false,
         });
       }
 
       const state: KillCommandState = {
-        commandId: args.commandId,
+        commandId: args.shell_id,
         error: result.result?.error,
         success: result.success,
       };
 
       const content = formatKillResult({
         error: result.result?.error,
-        shellId: args.commandId,
+        shellId: args.shell_id,
         success: result.success,
       });
 

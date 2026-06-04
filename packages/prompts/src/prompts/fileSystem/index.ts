@@ -1,6 +1,7 @@
 export * from './formatCommandOutput';
 export * from './formatCommandResult';
 export * from './formatEditResult';
+export * from './formatExecuteCodeResult';
 export * from './formatFileContent';
 export * from './formatFileList';
 export * from './formatFileSearchResults';

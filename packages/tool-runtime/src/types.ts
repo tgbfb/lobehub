@@ -9,17 +9,26 @@ export interface ServiceResult {
 }
 
 // ==================== Params ====================
+//
+// Canonical param shape (**A**): snake_case + `loc` tuple, anchored on the
+// wire/manifest + `@lobechat/local-file-shell` contract. The high-frequency
+// local path forwards these straight through to the underlying functions with
+// zero camel↔snake conversion; the cloud sandbox runtime adapts A→B at its own
+// `callService` boundary (the remote SDK still speaks B). See LOBE-9954.
 
 export interface ListFilesParams {
-  directoryPath: string;
+  limit?: number;
+  path: string;
   sortBy?: string;
   sortOrder?: string;
 }
 
 export interface ReadFileParams {
-  endLine?: number;
+  /** Return the entire file, ignoring `loc`. */
+  fullContent?: boolean;
+  /** Line range to read as a tuple [startLine, endLine]. */
+  loc?: [number, number];
   path: string;
-  startLine?: number;
 }
 
 export interface WriteFileParams {
@@ -29,10 +38,10 @@ export interface WriteFileParams {
 }
 
 export interface EditFileParams {
-  all?: boolean;
-  path: string;
-  replace: string;
-  search: string;
+  file_path: string;
+  new_string: string;
+  old_string: string;
+  replace_all?: boolean;
 }
 
 export interface SearchFilesParams {
@@ -40,14 +49,13 @@ export interface SearchFilesParams {
   createdAfter?: string;
   createdBefore?: string;
   detailed?: boolean;
-  directory: string;
+  /** @deprecated Legacy alias for `scope`. */
+  directory?: string;
   exclude?: string[];
   /** @deprecated Prefer `fileTypes` (plural). Retained for cloud sandbox back-compat. */
   fileType?: string;
   fileTypes?: string[];
-  /** @deprecated Prefer `keywords` (plural). Retained for cloud sandbox back-compat. */
-  keyword?: string;
-  keywords?: string;
+  keywords: string;
   limit?: number;
   liveUpdate?: boolean;
   modifiedAfter?: string;
@@ -58,30 +66,36 @@ export interface SearchFilesParams {
 }
 
 export interface MoveFilesParams {
-  operations: Array<{
-    destination: string;
-    source: string;
+  items: Array<{
+    newPath: string;
+    oldPath: string;
   }>;
 }
 
 export interface RenameFileParams {
   newName: string;
-  oldPath: string;
+  path: string;
 }
 
 export interface GlobFilesParams {
-  directory?: string;
+  /** Legacy alias for `scope`. */
+  cwd?: string;
   pattern: string;
+  /** Working directory scope. Relative patterns are resolved against it. */
+  scope?: string;
 }
 
 export interface RunCommandParams {
-  background?: boolean;
   command: string;
+  description?: string;
+  env?: Record<string, string>;
+  run_in_background?: boolean;
   timeout?: number;
 }
 
 export interface GetCommandOutputParams {
-  commandId: string;
+  filter?: string;
+  shell_id: string;
   /**
    * Max time to wait for this observation before returning (does not kill the
    * process). Forwarded to the service so callers polling a running command can
@@ -91,14 +105,24 @@ export interface GetCommandOutputParams {
 }
 
 export interface KillCommandParams {
-  commandId: string;
+  shell_id: string;
 }
 
 export interface GrepContentParams {
-  directory: string;
-  filePattern?: string;
-  pattern: string;
-  recursive?: boolean;
+  '-A'?: number;
+  '-B'?: number;
+  '-C'?: number;
+  '-i'?: boolean;
+  '-n'?: boolean;
+  /** @deprecated Legacy alias for `glob`. */
+  'filePattern'?: string;
+  'glob'?: string;
+  'head_limit'?: number;
+  'multiline'?: boolean;
+  'output_mode'?: 'content' | 'count' | 'files_with_matches';
+  'pattern': string;
+  'scope'?: string;
+  'type'?: string;
 }
 
 // ==================== State ====================

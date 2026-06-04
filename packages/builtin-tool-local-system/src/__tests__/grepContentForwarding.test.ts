@@ -131,9 +131,11 @@ describe('localSystemExecutor.listFiles — limit forwarding', () => {
 
     await localSystemExecutor.listFiles({ limit: 50, path: '/tmp', sortBy: 'name' });
 
+    // The runtime now consumes the canonical A shape, so the executor forwards
+    // `path` straight through (no `directoryPath` rename).
     expect(spy.mock.calls[0][0]).toMatchObject({
-      directoryPath: '/tmp',
       limit: 50,
+      path: '/tmp',
       sortBy: 'name',
     });
 
@@ -154,9 +156,10 @@ describe('localSystemExecutor.getCommandOutput — filter forwarding', () => {
 
     await localSystemExecutor.getCommandOutput({ filter: 'ERROR', shell_id: 'sh-1' });
 
+    // Passthrough: `shell_id` reaches the runtime unchanged (no `commandId` rename).
     expect(spy.mock.calls[0][0]).toMatchObject({
-      commandId: 'sh-1',
       filter: 'ERROR',
+      shell_id: 'sh-1',
     });
 
     spy.mockRestore();
@@ -190,8 +193,8 @@ describe('localSystemExecutor.getCommandOutput — filter forwarding', () => {
   });
 });
 
-describe('localSystemExecutor.runCommand — background field normalization', () => {
-  it('mirrors `run_in_background` to `background` so RunCommandState.isBackground is correct', async () => {
+describe('localSystemExecutor.runCommand — background field passthrough', () => {
+  it('forwards `run_in_background` unchanged (the runtime reads it for RunCommandState.isBackground)', async () => {
     const runtime = (localSystemExecutor as any).runtime as {
       runCommand: (args: any) => Promise<unknown>;
     };
@@ -208,12 +211,13 @@ describe('localSystemExecutor.runCommand — background field normalization', ()
     });
 
     const forwarded = spy.mock.calls[0][0] as Record<string, unknown>;
-    // Both fields present: `background` for ComputerRuntime state, `run_in_background` for IPC.
+    // Passthrough: `run_in_background` reaches the runtime, which reads it
+    // directly — no mirrored `background` field is synthesized anymore.
     expect(forwarded).toMatchObject({
-      background: true,
       command: 'sleep 60',
       run_in_background: true,
     });
+    expect(forwarded).not.toHaveProperty('background');
 
     spy.mockRestore();
   });

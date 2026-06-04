@@ -49,8 +49,8 @@ const unsupported = (method: string) => (): Promise<never> =>
 /**
  * Adapter wiring the CLI's `@lobechat/local-file-shell` functions (file ops) and
  * shell wrappers (with the shared `ShellProcessManager`) into the shape the
- * runtime expects. The runtime denormalizes its camelCase params back to the
- * snake_case IPC shapes these functions consume — see `LocalSystemExecutionRuntime`.
+ * runtime expects. The runtime forwards its canonical A-shape params straight to
+ * these functions with zero conversion — see `LocalSystemExecutionRuntime`.
  */
 const localSystemService: ILocalSystemService = {
   editLocalFile,
@@ -112,24 +112,16 @@ export async function runLocalSystemTool(
 ): Promise<LocalSystemToolOutput | null> {
   const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
 
+  // The runtime now consumes the canonical A shape (same as the wire/manifest
+  // and `@lobechat/local-file-shell`), so every case forwards `args` straight
+  // through — only scope resolution (search/grep) is applied first.
   switch (normalized) {
     case 'listFiles': {
-      const p = args as ListFilesParams;
-      return runtime.listFiles({
-        directoryPath: p.path,
-        limit: p.limit,
-        sortBy: p.sortBy,
-        sortOrder: p.sortOrder,
-      } as never);
+      return runtime.listFiles(args as ListFilesParams);
     }
 
     case 'readFile': {
-      const p = args as ReadFileParams;
-      return runtime.readFile({
-        endLine: p.loc?.[1],
-        path: p.path,
-        startLine: p.loc?.[0],
-      });
+      return runtime.readFile(args as ReadFileParams);
     }
 
     case 'writeFile': {
@@ -137,13 +129,7 @@ export async function runLocalSystemTool(
     }
 
     case 'editFile': {
-      const p = args as EditFileParams;
-      return runtime.editFile({
-        all: p.replace_all,
-        path: p.file_path,
-        replace: p.new_string,
-        search: p.old_string,
-      });
+      return runtime.editFile(args as EditFileParams);
     }
 
     case 'searchFiles': {
@@ -160,34 +146,21 @@ export async function runLocalSystemTool(
     }
 
     case 'globFiles': {
-      const p = args as GlobFilesParams;
-      // Honor both `scope` (current manifest) and the `cwd` legacy alias.
-      return runtime.globFiles({ directory: p.scope ?? p.cwd, pattern: p.pattern });
+      return runtime.globFiles(args as GlobFilesParams);
     }
 
     case 'runCommand': {
-      // ComputerRuntime's RunCommandState reads `args.background`; the manifest
-      // exposes `run_in_background`. Without this normalize the state would
-      // always show foreground even for background commands.
-      const p = args as RunCommandParams;
-      return runtime.runCommand({ ...p, background: p.run_in_background } as never);
+      return runtime.runCommand(args as RunCommandParams);
     }
 
     case 'getCommandOutput': {
-      // Forward `timeout` (gateway per-call budget, injected into args by
-      // executeToolCall) so polling a running command honors it instead of the
-      // service's default wait. The runtime carries it through to getOutput.
-      const p = args as GetCommandOutputParams;
-      return runtime.getCommandOutput({
-        commandId: p.shell_id,
-        filter: p.filter,
-        timeout: p.timeout,
-      } as never);
+      // `timeout` (gateway per-call budget, injected into args by
+      // executeToolCall) flows through unchanged so polling honors it.
+      return runtime.getCommandOutput(args as GetCommandOutputParams);
     }
 
     case 'killCommand': {
-      const p = args as KillCommandParams;
-      return runtime.killCommand({ commandId: p.shell_id });
+      return runtime.killCommand(args as KillCommandParams);
     }
 
     default: {

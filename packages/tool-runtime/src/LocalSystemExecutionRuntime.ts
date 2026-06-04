@@ -46,8 +46,12 @@ const SERVICE_METHOD_MAP: Record<string, keyof ILocalSystemService> = {
  * Local System Execution Runtime
  *
  * Extends ComputerRuntime for standard computer operations via Electron IPC.
- * Normalizes snake_case IPC results (exit_code, shell_id, total_matches)
- * into the camelCase format expected by ComputerRuntime.
+ *
+ * Params are the canonical **A** shape (snake_case + `loc` tuple), identical to
+ * what `@lobechat/local-file-shell` consumes — so `callService` forwards them
+ * straight through with zero conversion (LOBE-9954). It only normalizes the
+ * snake_case *results* (exit_code, shell_id, total_matches) back into the
+ * camelCase fields ComputerRuntime's formatters/state expect.
  */
 export class LocalSystemExecutionRuntime extends ComputerRuntime {
   private service: ILocalSystemService;
@@ -66,81 +70,12 @@ export class LocalSystemExecutionRuntime extends ComputerRuntime {
       return { error: { message: `Unknown tool: ${toolName}` }, result: null, success: false };
     }
 
-    // Map ComputerRuntime params back to IPC-expected shapes
-    const ipcParams = this.denormalizeParams(toolName, params);
-
+    // Params are already in the A shape the underlying functions consume —
+    // forward them unchanged (no camel↔snake denormalization).
     const method = this.service[methodName] as (params: any) => Promise<any>;
-    const result = await method(ipcParams);
+    const result = await method(params);
 
     return this.normalizeResult(toolName, result);
-  }
-
-  /**
-   * Map ComputerRuntime normalized params back to IPC field names.
-   */
-  private denormalizeParams(toolName: string, params: Record<string, any>): any {
-    switch (toolName) {
-      case 'editLocalFile': {
-        return {
-          file_path: params.path,
-          new_string: params.replace,
-          old_string: params.search,
-          replace_all: params.all,
-        };
-      }
-
-      case 'listLocalFiles': {
-        return {
-          limit: params.limit,
-          path: params.directoryPath,
-          sortBy: params.sortBy,
-          sortOrder: params.sortOrder,
-        };
-      }
-
-      case 'moveLocalFiles': {
-        return {
-          items: params.operations?.map((op: any) => ({
-            newPath: op.destination,
-            oldPath: op.source,
-          })),
-        };
-      }
-
-      case 'renameLocalFile': {
-        return {
-          newName: params.newName,
-          path: params.oldPath,
-        };
-      }
-
-      case 'getCommandOutput': {
-        return { filter: params.filter, shell_id: params.commandId, timeout: params.timeout };
-      }
-
-      case 'killCommand': {
-        return { shell_id: params.commandId };
-      }
-
-      case 'readLocalFile': {
-        const loc: [number, number] | undefined =
-          params.startLine !== undefined || params.endLine !== undefined
-            ? [params.startLine ?? 0, params.endLine ?? 200]
-            : undefined;
-        return { fullContent: params.fullContent, loc, path: params.path };
-      }
-
-      case 'globLocalFiles': {
-        return {
-          pattern: params.pattern,
-          scope: params.directory,
-        };
-      }
-
-      default: {
-        return params;
-      }
-    }
   }
 
   /**

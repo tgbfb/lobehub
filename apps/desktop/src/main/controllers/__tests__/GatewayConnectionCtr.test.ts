@@ -527,10 +527,10 @@ describe('GatewayConnectionCtr', () => {
     ] as const)('should route %s to %s', async (apiName, methodName, controller) => {
       const client = await connectAndOpen();
 
-      // Each tool's args are domain-shaped (path, file_path, items, etc.).
-      // The runtime denormalizes them before calling the controller, so this
-      // test only asserts that the *right* controller method runs — see the
-      // envelope-shape test below for end-to-end content/state coverage.
+      // Each tool's args are domain-shaped (path, file_path, items, etc.) and
+      // now forwarded straight through to the controller (no camel↔snake
+      // denormalization), so this test only asserts that the *right* controller
+      // method runs — see the envelope-shape test below for content/state.
       client.simulateToolCallRequest(apiName, { test: 'arg' });
       await vi.advanceTimersByTimeAsync(0);
 
