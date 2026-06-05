@@ -1,12 +1,14 @@
 import type { AiProviderConfig, AiProviderSettings } from '@lobechat/types';
+import { isNotNull, isNull } from 'drizzle-orm';
 import {
   boolean,
   index,
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   text,
+  uniqueIndex,
+  uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
 import type { AiModelSettings } from 'model-bank';
@@ -18,6 +20,7 @@ import { workspaces } from './workspace';
 export const aiProviders = pgTable(
   'ai_providers',
   {
+    _id: uuid('_id').defaultRandom().primaryKey(),
     id: varchar('id', { length: 64 }).notNull(),
     name: text('name'),
 
@@ -48,7 +51,12 @@ export const aiProviders = pgTable(
     ...timestamps,
   },
   (table) => [
-    primaryKey({ columns: [table.id, table.userId] }),
+    uniqueIndex('ai_providers_id_user_id_unique')
+      .on(table.id, table.userId)
+      .where(isNull(table.workspaceId)),
+    uniqueIndex('ai_providers_id_user_id_workspace_id_unique')
+      .on(table.id, table.userId, table.workspaceId)
+      .where(isNotNull(table.workspaceId)),
     index('ai_providers_user_id_idx').on(table.userId),
     index('ai_providers_workspace_id_idx').on(table.workspaceId),
   ],
@@ -60,6 +68,7 @@ export type AiProviderSelectItem = typeof aiProviders.$inferSelect;
 export const aiModels = pgTable(
   'ai_models',
   {
+    _id: uuid('_id').defaultRandom().primaryKey(),
     id: varchar('id', { length: 150 }).notNull(),
     displayName: varchar('display_name', { length: 200 }),
     description: text('description'),
@@ -86,7 +95,12 @@ export const aiModels = pgTable(
     ...timestamps,
   },
   (table) => [
-    primaryKey({ columns: [table.id, table.providerId, table.userId] }),
+    uniqueIndex('ai_models_id_provider_id_user_id_unique')
+      .on(table.id, table.providerId, table.userId)
+      .where(isNull(table.workspaceId)),
+    uniqueIndex('ai_models_id_provider_id_user_id_workspace_id_unique')
+      .on(table.id, table.providerId, table.userId, table.workspaceId)
+      .where(isNotNull(table.workspaceId)),
     index('ai_models_user_id_idx').on(table.userId),
     index('ai_models_workspace_id_idx').on(table.workspaceId),
   ],
