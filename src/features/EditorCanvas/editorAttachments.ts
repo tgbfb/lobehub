@@ -1,9 +1,6 @@
 import type { IEditor } from '@lobehub/editor';
-import {
-  extractMediaFromEditorState,
-  INSERT_FILE_COMMAND,
-  INSERT_IMAGE_COMMAND,
-} from '@lobehub/editor';
+import { INSERT_FILE_COMMAND, INSERT_IMAGE_COMMAND } from '@lobehub/editor';
+import { extractMediaFromEditorState } from '@lobehub/editor/headless';
 import type { SerializedEditorState } from 'lexical';
 
 import { getFileIdForUrl } from './attachmentRegistry';
