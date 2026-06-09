@@ -6,7 +6,7 @@ import { WebhookUserService } from '@/server/services/webhookUser';
 
 import { validateRequest } from './validateRequest';
 
-export const POST = async (req: Request): Promise<NextResponse> => {
+export const POST = async (req: Request): Promise<Response> => {
   const payload = await validateRequest(req, authEnv.LOGTO_WEBHOOK_SIGNING_KEY!);
 
   if (!payload) {

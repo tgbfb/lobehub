@@ -40,6 +40,7 @@ vi.mock('better-auth/minimal', () => ({
 
 vi.mock('better-auth/plugins', () => ({
   admin: vi.fn(() => ({ id: 'admin' })),
+  createAuthEndpoint: vi.fn(() => vi.fn()),
   emailOTP: vi.fn(() => ({ id: 'email-otp' })),
   genericOAuth: vi.fn(() => ({ id: 'generic-oauth' })),
   magicLink: vi.fn(() => ({ id: 'magic-link' })),
