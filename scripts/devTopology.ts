@@ -36,7 +36,7 @@ const DEFAULT_HONO_PORT = 3011;
 const DEFAULT_VITE_HOST = 'localhost';
 const DEFAULT_VITE_PORT = 9876;
 
-export const API_PROXY_PATTERN = '^/(?:api|oidc|trpc|webapi|market|f)(?:/|$)';
+export const API_PROXY_PATTERN = '^/(?:api|oauth|oidc|trpc|webapi|market|f)(?:/|$)';
 
 const AUTH_NATIVE_NEXT_RUNTIME_ENV = [
   'LOBE_API_AUTH_RUNTIME',

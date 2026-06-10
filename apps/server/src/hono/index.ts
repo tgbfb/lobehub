@@ -92,6 +92,11 @@ app.get('/market/user/:username', async (c) =>
 app.put('/market/user/me', async (c) =>
   (await import('~server/api-runtime/market')).marketUserMeAPIHandler(c.req.raw),
 );
+app.get('/oauth/connector/callback', async (c) =>
+  (await import('~server/api-runtime/connectorOAuthCallback')).connectorOAuthCallbackAPIHandler(
+    c.req.raw,
+  ),
+);
 app.get('/oidc/handoff', async (c) =>
   (await import('~server/api-runtime/oidc')).oidcHandoffAPIHandler(c.req.raw),
 );
