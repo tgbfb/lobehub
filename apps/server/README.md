@@ -117,12 +117,8 @@ The following are intentionally out of scope for the T1 dev runtime:
 
 1. **Gray-release / production tier** — no `runtime.ts`/`next.ts` switcher, no production-deployable entry. T2/T3 will land separately.
 2. **`vite.config.ts` (SPA) dep-scan warning** — non-fatal `@lobehub/editor/litexml-commands` warning persists; durable cure is deduping the lockfile so `packages/editor-runtime/node_modules/@lobehub/editor@4.15.2` no longer shadows the root `4.16.1`.
-3. **Hono root is \~37 flat routes** — should be split into `webapi`/`market`/`oidc` sub-apps via `app.route(...)` before leaving POC; market segment-splitter is duplicated 6×.
-4. **Unmounted routes** that postdate the original #14800:
-   - `oauth/connector/callback` (LOBE-998 custom-MCP-connector OAuth — most user-facing of the gaps)
-   - `api/dev/test-push` (PR #15233, dev-only)
-   - `webapi/revalidate` (PR #15146 — uses Next-only `next/cache.revalidateTag`, will never port)
-   - agent-eval-run extras: execute-test-case, finalize-run, paginate, resume-\*, run-\* (eval/benchmark dev endpoints)
+3. **Hono root is \~40 flat routes** — should be split into `webapi`/`market`/`oidc` sub-apps via `app.route(...)` before leaving POC; market segment-splitter is duplicated 6×.
+4. **Deployment packaging** — the production artifact must ship `apps/server/dist` alongside the Next build (`LOBE_HONO_DIST_ENTRY` to relocate); Vercel/NFT output tracing for the dist's external node_modules is cloud-side work (`build-vercel.sh`).
 
 ## Troubleshooting
 
