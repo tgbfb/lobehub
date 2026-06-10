@@ -5,7 +5,7 @@ import debug from 'debug';
 import { AgentOperationModel } from '@/database/models/agentOperation';
 import { VerifyCheckResultModel } from '@/database/models/verifyCheckResult';
 import type { LobeChatDatabase } from '@/database/type';
-import { maybeAutoRepair, VerifyStatusService } from '@/server/services/verify';
+import { maybeAutoRepair, VerifyStatusService } from '~server/services/verify';
 
 import type { ServerRuntimeRegistration } from './types';
 

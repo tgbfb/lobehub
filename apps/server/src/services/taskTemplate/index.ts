@@ -8,7 +8,7 @@ import type { TaskTemplate, TaskTemplateConnectorReference } from '@lobehub/mark
 
 import { composioEnv } from '@/config/composio';
 import { appEnv } from '@/envs/app';
-import { MarketService } from '@/server/services/market';
+import { MarketService } from '~server/services/market';
 
 export const ENABLED_TASK_TEMPLATE_CONNECTORS: TaskTemplateConnectorReference[] = (() => {
   const connectors: TaskTemplateConnectorReference[] = [];

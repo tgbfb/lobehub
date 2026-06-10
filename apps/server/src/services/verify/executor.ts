@@ -15,7 +15,7 @@ import { DocumentModel } from '@/database/models/document';
 import { VerifyCheckResultModel } from '@/database/models/verifyCheckResult';
 import type { NewVerifyCheckResult } from '@/database/schemas/verify';
 import type { LobeChatDatabase } from '@/database/type';
-import { AiGenerationService } from '@/server/services/aiGeneration';
+import { AiGenerationService } from '~server/services/aiGeneration';
 
 import { buildJudgePrompt, VERIFY_JUDGE_PROMPT_VERSION } from './prompts';
 import {

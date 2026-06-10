@@ -7,11 +7,11 @@ import {
 } from '@/database/models/agentOperation';
 import { MessageModel } from '@/database/models/message';
 import { type LobeChatDatabase } from '@/database/type';
-import { buildFinalSnapshotKey } from '@/server/modules/AgentTracing';
-import { emitAgentSignalSourceEvent } from '@/server/services/agentSignal';
-import { toAgentSignalTraceEvents } from '@/server/services/agentSignal/observability/traceEvents';
-import { extractSelfIterationCompletionPayload } from '@/server/services/agentSignal/services/selfIteration/completion';
-import { runVerifyOnCompletion } from '@/server/services/verify';
+import { buildFinalSnapshotKey } from '~server/modules/AgentTracing';
+import { emitAgentSignalSourceEvent } from '~server/services/agentSignal';
+import { toAgentSignalTraceEvents } from '~server/services/agentSignal/observability/traceEvents';
+import { extractSelfIterationCompletionPayload } from '~server/services/agentSignal/services/selfIteration/completion';
+import { runVerifyOnCompletion } from '~server/services/verify';
 
 import { hookDispatcher } from './hooks';
 

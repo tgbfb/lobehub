@@ -13,11 +13,11 @@ import { TopicModel } from '@/database/models/topic';
 import { TopicDocumentModel } from '@/database/models/topicDocument';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
-import { AgentDocumentsService } from '@/server/services/agentDocuments';
-import { emitAgentDocumentToolOutcomeSafely } from '@/server/services/agentDocuments/toolOutcome';
-import { AgentDocumentVfsService } from '@/server/services/agentDocumentVfs';
-import { AgentDocumentVfsError } from '@/server/services/agentDocumentVfs/errors';
-import { getUnifiedSkillNamespaceRootPath } from '@/server/services/agentDocumentVfs/mounts/skills/path';
+import { AgentDocumentsService } from '~server/services/agentDocuments';
+import { emitAgentDocumentToolOutcomeSafely } from '~server/services/agentDocuments/toolOutcome';
+import { AgentDocumentVfsService } from '~server/services/agentDocumentVfs';
+import { AgentDocumentVfsError } from '~server/services/agentDocumentVfs/errors';
+import { getUnifiedSkillNamespaceRootPath } from '~server/services/agentDocumentVfs/mounts/skills/path';
 
 const MAX_METADATA_BYTES = 16 * 1024;
 const MAX_RULE_REGEXP_LENGTH = 512;

@@ -6,12 +6,12 @@ import { trackProviderContentPolicyViolation } from '@/business/server/trackProv
 import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { GenerationModel } from '@/database/models/generation';
 import type { LobeChatDatabase } from '@/database/type';
-import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
-import { VideoGenerationService } from '@/server/services/generation/video';
 import { AsyncTaskError, AsyncTaskErrorType, AsyncTaskStatus } from '@/types/asyncTask';
 import { FileSource } from '@/types/files';
 import type { VideoGenerationAsset } from '@/types/generation';
 import { sanitizeFileName } from '@/utils/sanitizeFileName';
+import { initModelRuntimeFromDB } from '~server/modules/ModelRuntime';
+import { VideoGenerationService } from '~server/services/generation/video';
 
 const log = debug('lobe-video:background-polling');
 

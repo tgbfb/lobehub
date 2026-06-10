@@ -1,6 +1,6 @@
 import { LocalSystemIdentifier, LocalSystemManifest } from '@lobechat/builtin-tool-local-system';
 
-import { deviceGateway } from '@/server/services/deviceGateway';
+import { deviceGateway } from '~server/services/deviceGateway';
 
 import { type ServerRuntimeRegistration } from './types';
 

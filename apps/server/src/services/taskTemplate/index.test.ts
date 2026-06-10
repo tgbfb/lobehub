@@ -22,7 +22,7 @@ const { mockGetTaskTemplateRecommendations, mockMarket } = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/server/services/market', () => ({
+vi.mock('~server/services/market', () => ({
   MarketService: vi.fn(() => ({ market: mockMarket })),
 }));
 

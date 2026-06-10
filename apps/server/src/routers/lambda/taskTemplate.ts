@@ -6,7 +6,7 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import {
   ENABLED_TASK_TEMPLATE_CONNECTORS,
   TaskTemplateService,
-} from '@/server/services/taskTemplate';
+} from '~server/services/taskTemplate';
 
 const listDailyRecommendSchema = z.object({
   count: z.number().int().min(1).max(TASK_TEMPLATE_RECOMMEND_MAX_COUNT).optional(),

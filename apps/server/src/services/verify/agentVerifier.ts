@@ -86,7 +86,7 @@ export const createVerifierAgentRunner = (params: {
 
     // Dynamic import breaks the static cycle: aiAgent → agentRuntime completion
     // → verify lifecycle → this runner → aiAgent.
-    const { AiAgentService } = await import('@/server/services/aiAgent');
+    const { AiAgentService } = await import('~server/services/aiAgent');
     const result = await new AiAgentService(db, userId, { workspaceId }).execAgent({
       appContext: { threadId: thread.id, topicId },
       autoStart: true,
