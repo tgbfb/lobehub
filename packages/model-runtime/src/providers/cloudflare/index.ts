@@ -162,25 +162,13 @@ export class LobeCloudflareAI implements LobeRuntimeAI {
     });
     const json = await response.json();
 
-    // Cloudflare wraps every response in a V4 envelope; on auth / account errors
-    // `result` is null and the failure detail lives in `errors`. Guard before
-    // mapping so a misconfigured key surfaces a proper provider error instead of
-    // a 500 `Cannot read properties of null (reading 'map')`.
+    // Cloudflare's V4 envelope returns `result: null` (not an array) on auth /
+    // account errors, so fall back to an empty list to avoid a 500
+    // `Cannot read properties of null (reading 'map')`. The model-list fetch is
+    // best-effort and the client swallows failures, so a misconfigured key just
+    // yields "no models" rather than a surfaced error.
     // https://developers.cloudflare.com/fundamentals/api/reference/responses/
-    const modelList: CloudflareModelCard[] | null | undefined = json?.result;
-
-    if (!Array.isArray(modelList)) {
-      throw AgentRuntimeError.chat({
-        endpoint: desensitizeCloudflareUrl(url),
-        error: json ?? { status: response.status },
-        errorType: AgentRuntimeErrorType.ProviderBizError,
-        message:
-          extractProviderErrorMessage(json?.errors?.[0]) ||
-          extractProviderErrorMessage(json) ||
-          `Cloudflare API returned ${response.status} ${response.statusText}`,
-        provider: ModelProvider.Cloudflare,
-      });
-    }
+    const modelList: CloudflareModelCard[] = json?.result ?? [];
 
     return modelList
       .map((model) => {
