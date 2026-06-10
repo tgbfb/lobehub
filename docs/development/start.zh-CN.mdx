@@ -72,18 +72,33 @@ lobehub/
 了解完整的环境搭建流程，
 包括软件安装、项目配置、Docker 服务启动和数据库迁移等步骤。
 
-### Hono-Lite 开发运行时（POC）
+### 后端运行时与开发拓扑
 
-除经典的 `bun run dev`（Next + Vite）之外，
-`apps/server` 包还提供了独立的 Hono 开发运行时 ——
-`bun run dev:hono-lite` 会在 `:3011` 启动 Hono、在 `:9876` 启动 Vite，
-**完全不启动 Next.js 进程**。
-该模式用于在不付出 Next 开发服务器成本的前提下，
-专注于后端的快速内循环开发，
-目前仅作为 T1 开发期 POC 提供
-（不包含灰度发布机制，亦不作为生产部署目标）。
+后端完整地以 Hono 应用的形态存在于 `apps/server` 包中。
+Next.js 只是一层薄壳：`src/app/(backend)/**/route.ts`
+全部是统一的转发器（`fetchBackendRuntime`）——
+开发环境代理到独立的 Hono 服务器，
+生产环境则在进程内加载 vite 构建的 `apps/server/dist`。
+后端依赖图完全不经过 `next build`，
+并由守护测试（`src/app/(backend)/route-shell.guard.test.ts`）
+保证路由文件零业务逻辑。
 
-典型启动流程：
+两种开发拓扑：
+
+| 模式            | 命令                      | 进程                                            |
+| ------------- | ----------------------- | --------------------------------------------- |
+| **Classic**   | `bun run dev`           | Hono（`:3011`）+ Next 壳（`:3010`）+ Vite（`:9876`） |
+| **Hono-Lite** | `bun run dev:hono-lite` | Hono（`:3011`）+ Vite（`:9876`），无 Next           |
+
+日常开发用 Hono-Lite 即可：SPA、完整 API、
+以及 `bun run dev:login`（仅开发环境注册的 Better Auth 端点，
+直接签发真实 session cookie）都不需要 Next。
+只有在改动仍由 Next 渲染的部分时才需要 Classic 模式 ——
+`src/app/[variants]/(auth)/` 下的 SSR 认证页
+（signin / OAuth consent 界面）、SPA HTML 模板服务、
+或 Next middleware 行为。
+
+典型 Hono-Lite 启动流程：
 
 ```bash
 bun run dev:docker      # Docker 服务（Postgres、Redis、RustFS、SearXNG）
@@ -91,6 +106,19 @@ bun run dev:hono-lite   # Hono + Vite，无 Next
 bun run dev:login       # 在浏览器中打开本地开发登录链接
 open http://localhost:9876
 ```
+
+server 包本身也可独立运转：
+
+```bash
+pnpm --filter @lobechat/server dev     # 独立 Hono 开发服务器（自动加载仓库根 .env）
+pnpm --filter @lobechat/server build   # vite SSR 构建 -> apps/server/dist
+pnpm --filter @lobechat/server start   # node dist/standalone.js（env 由 shell / 平台提供）
+```
+
+导入约定：`~server/*` 指向 `apps/server/src/*`；
+`@/server/*` 仅剩 `src/server/` 中的 Next SSR 辅助模块。
+根目录 `build` 脚本会先执行 `build:hono`，
+确保 dist 始终与 Next 构建配套。
 
 可服务的路由清单、端口覆盖、已知缺口与故障排查请参见
 [`apps/server/README.md`](https://github.com/lobehub/lobehub/blob/canary/apps/server/README.md)。

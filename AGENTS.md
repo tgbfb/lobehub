@@ -19,14 +19,14 @@ lobehub/
 ├── apps/
 │   ├── desktop/            # Electron desktop app
 │   ├── cli/                # LobeHub CLI
-│   └── server/             # Server service
+│   └── server/             # Backend (Hono app — single source for all API handlers)
 ├── packages/               # Shared packages (@lobechat/*)
 │   ├── database/           # Database schemas, models, repositories
 │   ├── agent-runtime/      # Agent runtime
 │   └── ...
 ├── src/
-│   ├── app/                # Next.js App Router (backend API + auth)
-│   │   ├── (backend)/     # API routes (trpc, webapi, etc.)
+│   ├── app/                # Next.js App Router (shell + auth)
+│   │   ├── (backend)/     # Thin route shells — forward to apps/server (guard-tested, no logic)
 │   │   ├── spa/            # SPA HTML template service
 │   │   └── [variants]/(auth)/  # Auth pages (SSR required)
 │   ├── routes/             # SPA page components (Vite)
@@ -44,7 +44,7 @@ lobehub/
 │   │   └── router/         # React Router configuration
 │   ├── store/              # Zustand stores
 │   ├── services/           # Client services
-│   ├── server/             # Server services and routers
+│   ├── server/             # Next-only SSR helpers + backend-proxy client (@/server/*)
 │   └── ...
 └── e2e/                    # E2E tests (Cucumber + Playwright)
 ```
@@ -75,12 +75,23 @@ See the **spa-routes** skill (`.agents/skills/spa-routes/SKILL.md`) for the full
 ### Starting the Dev Environment
 
 ```bash
-# SPA dev mode (frontend only, proxies API to localhost:3010)
+# SPA dev mode (frontend only, proxies API to the local backend)
 bun run dev:spa
 
-# Full-stack dev (Next.js + Vite SPA concurrently)
+# Full-stack dev: Hono backend (:3011) + Next shell (:3010) + Vite SPA (:9876)
 bun run dev
+
+# Backend + SPA without Next — enough for everything except the SSR auth
+# pages / SPA template service / Next middleware
+bun run dev:hono-lite
+bun run dev:login # dev-only Better Auth endpoint, issues a real session cookie
 ```
+
+### Backend Architecture
+
+- All API handlers live in `apps/server` (a Hono app). Import them via the `~server/*` alias (`apps/server/src/*`); `@/server/*` refers only to the Next SSR helpers left in `src/server/`.
+- `src/app/(backend)/**/route.ts` files are thin forwarders (`fetchBackendRuntime`) — never put logic in them; `route-shell.guard.test.ts` enforces this. Their file paths, HTTP method export names, and segment config (`maxDuration`, `dynamic`) are contractual for the cloud repo's re-exports.
+- New API endpoints: implement the handler in `apps/server/src/api-runtime/` (or the matching Hono sub-app), mount it on the Hono root app (`apps/server/src/hono/index.ts` / `api-hono`), and add the forwarder stub route file.
 
 After `dev:spa` starts, the terminal prints a **Debug Proxy** URL:
 
