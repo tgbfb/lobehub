@@ -1,5 +1,6 @@
+import { AgentRuntimeErrorType } from '@lobechat/types';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { type AiProviderModelListItem } from 'model-bank';
+import type { AiProviderModelListItem } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as SwrModule from '@/libs/swr';
@@ -284,6 +285,28 @@ describe('AiModelAction', () => {
         await result.current.fetchRemoteModelList('test-provider');
       });
 
+      expect(batchUpdateSpy).not.toHaveBeenCalled();
+    });
+
+    it('should propagate remote model fetch errors', async () => {
+      const fetchError = {
+        body: { error: { message: 'Provider failed' }, provider: 'test-provider' },
+        message: 'Provider failed',
+        type: AgentRuntimeErrorType.ProviderBizError,
+      };
+
+      const { result } = renderHook(() => useStore());
+      const batchUpdateSpy = vi
+        .spyOn(result.current, 'batchUpdateAiModels')
+        .mockResolvedValue(undefined);
+
+      vi.doMock('@/services/models', () => ({
+        modelsService: {
+          getModels: vi.fn().mockRejectedValue(fetchError),
+        },
+      }));
+
+      await expect(result.current.fetchRemoteModelList('test-provider')).rejects.toBe(fetchError);
       expect(batchUpdateSpy).not.toHaveBeenCalled();
     });
   });

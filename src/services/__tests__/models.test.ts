@@ -1,4 +1,5 @@
-import { type Mock } from 'vitest';
+import { AgentRuntimeErrorType } from '@lobechat/types';
+import type { Mock } from 'vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { aiProviderSelectors } from '@/store/aiInfra';
@@ -106,6 +107,48 @@ describe('ModelsService', () => {
       });
       expect(mockModels).toHaveBeenCalled();
       expect(result).toEqual({ models: ['model1', 'model2'] });
+
+      spyIsClient.mockRestore();
+    });
+
+    it('should throw parsed error when server model fetching fails', async () => {
+      (fetch as Mock).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            body: {
+              error: { message: 'Provider failed' },
+              provider: 'openai',
+            },
+            errorType: AgentRuntimeErrorType.ProviderBizError,
+          }),
+          { status: 471 },
+        ),
+      );
+
+      await expect(modelsService.getModels('openai')).rejects.toMatchObject({
+        body: {
+          error: { message: 'Provider failed' },
+          provider: 'openai',
+        },
+        type: AgentRuntimeErrorType.ProviderBizError,
+      });
+    });
+
+    it('should normalize client runtime model fetching errors', async () => {
+      const spyIsClient = vi
+        .spyOn(aiProviderSelectors, 'isProviderFetchOnClient')
+        .mockReturnValue(() => true);
+      const mockModels = vi.fn().mockRejectedValue(new Error('Connection error.'));
+      mockedInitializeWithClientStore.mockResolvedValue({ models: mockModels } as any);
+
+      await expect(modelsService.getModels('ollama')).rejects.toMatchObject({
+        body: {
+          error: { message: 'Connection error.', name: 'Error' },
+          provider: 'ollama',
+        },
+        message: 'Connection error.',
+        type: AgentRuntimeErrorType.ProviderBizError,
+      });
 
       spyIsClient.mockRestore();
     });

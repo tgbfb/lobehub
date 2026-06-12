@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { type LobeRuntimeAI } from '@lobechat/model-runtime';
-import { ModelRuntime } from '@lobechat/model-runtime';
+import type { LobeRuntimeAI } from '@lobechat/model-runtime';
+import { AgentRuntimeErrorType, ModelRuntime } from '@lobechat/model-runtime';
 import { ChatErrorType } from '@lobechat/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -121,7 +121,7 @@ describe('GET handler', () => {
       expect(responseBody.body.error.details).toBe('API limit exceeded');
     });
 
-    it('should return correct status code for errors', async () => {
+    it('should return provider biz error for unstructured errors', async () => {
       const mockParams = Promise.resolve({ provider: 'google' });
 
       const mockRuntime: LobeRuntimeAI = {
@@ -132,8 +132,29 @@ describe('GET handler', () => {
       vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
 
       const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(471);
+      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.ProviderBizError);
+      expect(responseBody.body.error.message).toBe('Failed');
+    });
+
+    it('should return provider biz error for empty rejections', async () => {
+      const mockParams = Promise.resolve({ provider: 'google' });
+
+      const mockRuntime: LobeRuntimeAI = {
+        baseURL: 'abc',
+        chat: vi.fn(),
+        models: vi.fn().mockRejectedValue(undefined),
+      };
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(471);
+      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.ProviderBizError);
+      expect(responseBody.body.error.message).toBe('Unknown error');
     });
 
     it('should include provider in error response', async () => {
@@ -150,6 +171,30 @@ describe('GET handler', () => {
       const responseBody = await response.json();
 
       expect(responseBody.body.provider).toBe('openai');
+    });
+
+    it('should sanitize sensitive error fields', async () => {
+      const mockParams = Promise.resolve({ provider: 'xai' });
+
+      const error = new Error('not authorized') as Error & {
+        headers?: Record<string, string>;
+        status?: number;
+      };
+      error.status = 403;
+      error.headers = { authorization: 'Bearer secret' };
+
+      const mockRuntime: LobeRuntimeAI = {
+        baseURL: 'abc',
+        chat: vi.fn(),
+        models: vi.fn().mockRejectedValue(error),
+      };
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(responseBody.body.error.status).toBe(403);
+      expect(responseBody.body.error.headers).toBeUndefined();
     });
   });
 
@@ -174,6 +219,23 @@ describe('GET handler', () => {
 
       expect(response.status).toBe(200);
       expect(responseBody).toEqual(mockModelList);
+    });
+
+    it('should return json-safe model list data', async () => {
+      const mockParams = Promise.resolve({ provider: 'bedrock' });
+
+      const mockRuntime: LobeRuntimeAI = {
+        baseURL: 'abc',
+        chat: vi.fn(),
+        models: vi.fn().mockResolvedValue([{ id: 'model-with-bigint', size: 1n }]),
+      };
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseBody).toEqual([{ id: 'model-with-bigint', size: '1' }]);
     });
   });
 });

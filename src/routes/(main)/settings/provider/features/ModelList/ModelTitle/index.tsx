@@ -1,3 +1,4 @@
+import type { ChatMessageError } from '@lobechat/types';
 import { ActionIcon, Button, DropdownMenu, Flexbox, Skeleton, Text, Tooltip } from '@lobehub/ui';
 import { confirmModal } from '@lobehub/ui/base-ui';
 import { App, Space } from 'antd';
@@ -8,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePermission } from '@/hooks/usePermission';
+import { normalizeModelFetchError } from '@/services/models';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { aiModelSelectors } from '@/store/aiInfra/selectors';
 
@@ -16,13 +18,23 @@ import { ProviderSettingsContext } from '../ProviderSettingsContext';
 import Search from './Search';
 
 interface ModelFetcherProps {
+  onFetchError?: (error: ChatMessageError) => void;
+  onFetchStart?: () => void;
+  onFetchSuccess?: () => void;
   provider: string;
   showAddNewModel?: boolean;
   showModelFetcher?: boolean;
 }
 
 const ModelTitle = memo<ModelFetcherProps>(
-  ({ provider, showAddNewModel = true, showModelFetcher = true }) => {
+  ({
+    provider,
+    showAddNewModel = true,
+    showModelFetcher = true,
+    onFetchError,
+    onFetchStart,
+    onFetchSuccess,
+  }) => {
     const { t } = useTranslation('modelProvider');
     const { message } = App.useApp();
     const { allowed: canManageProvider, reason } = usePermission('manage_provider_key');
@@ -125,12 +137,16 @@ const ModelTitle = memo<ModelFetcherProps>(
                       onClick={async () => {
                         if (!canManageProvider) return;
                         setFetchRemoteModelsLoading(true);
+                        onFetchStart?.();
                         try {
                           await fetchRemoteModelList(provider);
+                          onFetchSuccess?.();
                         } catch (e) {
                           console.error(e);
+                          onFetchError?.(normalizeModelFetchError(e, provider));
+                        } finally {
+                          setFetchRemoteModelsLoading(false);
                         }
-                        setFetchRemoteModelsLoading(false);
                       }}
                     >
                       {fetchRemoteModelsLoading

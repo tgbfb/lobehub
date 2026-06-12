@@ -1,6 +1,7 @@
 'use client';
 
-import { Flexbox, Icon, Tabs } from '@lobehub/ui';
+import type { ChatMessageError } from '@lobechat/types';
+import { Alert, Flexbox, Highlighter, Icon, Tabs } from '@lobehub/ui';
 import { cssVar } from 'antd-style';
 import isEqual from 'fast-deep-equal';
 import {
@@ -12,26 +13,31 @@ import {
   MicIcon,
   VideoIcon,
 } from 'lucide-react';
-import { memo, Suspense, useMemo, useState } from 'react';
+import { memo, Suspense, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useProviderName } from '@/hooks/useProviderName';
 import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { getRuntimeErrorMessage } from '@/utils/locale/runtimeErrorMessage';
 
 import DisabledModels from './DisabledModels';
 import EmptyModels from './EmptyModels';
 import EnabledModelList from './EnabledModelList';
 import ModelTitle from './ModelTitle';
-import { type ProviderSettingsContextValue } from './ProviderSettingsContext';
+import type { ProviderSettingsContextValue } from './ProviderSettingsContext';
 import { ProviderSettingsContext } from './ProviderSettingsContext';
 import SearchResult from './SearchResult';
 import SkeletonList from './SkeletonList';
 
 interface ContentProps {
   id: string;
+  onFetchError?: (error: ChatMessageError) => void;
+  onFetchStart?: () => void;
+  onFetchSuccess?: () => void;
 }
 
-const Content = memo<ContentProps>(({ id }) => {
+const Content = memo<ContentProps>(({ id, onFetchError, onFetchStart, onFetchSuccess }) => {
   // preload common namespace to avoid Suspense remount when child components start using it (e.g. infinite scroll loading text)
   const { t } = useTranslation(['modelProvider', 'common']);
   const [activeTab, setActiveTab] = useState('all');
@@ -131,7 +137,12 @@ const Content = memo<ContentProps>(({ id }) => {
   if (isSearching) return <SearchResult />;
 
   return isEmpty ? (
-    <EmptyModels provider={id} />
+    <EmptyModels
+      provider={id}
+      onFetchError={onFetchError}
+      onFetchStart={onFetchStart}
+      onFetchSuccess={onFetchSuccess}
+    />
   ) : (
     <Flexbox>
       <Tabs
@@ -147,6 +158,33 @@ const Content = memo<ContentProps>(({ id }) => {
   );
 });
 
+interface ModelFetchErrorAlertProps {
+  error?: ChatMessageError;
+  provider: string;
+}
+
+const ModelFetchErrorAlert = memo<ModelFetchErrorAlertProps>(({ error, provider }) => {
+  const { t } = useTranslation(['error', 'modelRuntime']);
+  const providerName = useProviderName(error?.body?.provider || provider);
+
+  if (!error) return null;
+
+  return (
+    <Alert
+      showIcon
+      title={getRuntimeErrorMessage(t, error.type, { provider: providerName })}
+      type={'error'}
+      extra={
+        <Flexbox paddingBlock={8} paddingInline={16}>
+          <Highlighter wrap actionIconSize={'small'} language={'json'} variant={'borderless'}>
+            {JSON.stringify(error.body?.error ?? error.body ?? error, null, 2)}
+          </Highlighter>
+        </Flexbox>
+      }
+    />
+  );
+});
+
 interface ModelListProps extends ProviderSettingsContextValue {
   id: string;
 }
@@ -154,6 +192,11 @@ interface ModelListProps extends ProviderSettingsContextValue {
 const ModelList = memo<ModelListProps>(
   ({ id, showModelFetcher, sdkType, showAddNewModel, showDeployName, modelEditable = true }) => {
     const mobile = useIsMobile();
+    const [fetchModelsError, setFetchModelsError] = useState<ChatMessageError>();
+
+    useEffect(() => {
+      setFetchModelsError(undefined);
+    }, [id]);
 
     return (
       <ProviderSettingsContext
@@ -172,9 +215,18 @@ const ModelList = memo<ModelListProps>(
             provider={id}
             showAddNewModel={showAddNewModel}
             showModelFetcher={showModelFetcher}
+            onFetchError={setFetchModelsError}
+            onFetchStart={() => setFetchModelsError(undefined)}
+            onFetchSuccess={() => setFetchModelsError(undefined)}
           />
+          <ModelFetchErrorAlert error={fetchModelsError} provider={id} />
           <Suspense fallback={<SkeletonList />}>
-            <Content id={id} />
+            <Content
+              id={id}
+              onFetchError={setFetchModelsError}
+              onFetchStart={() => setFetchModelsError(undefined)}
+              onFetchSuccess={() => setFetchModelsError(undefined)}
+            />
           </Suspense>
         </Flexbox>
       </ProviderSettingsContext>

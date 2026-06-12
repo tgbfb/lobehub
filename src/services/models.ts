@@ -1,8 +1,11 @@
 import { getMessageError } from '@lobechat/fetch-sse';
+import type { ChatMessageError } from '@lobechat/types';
+import { AgentRuntimeErrorType } from '@lobechat/types';
+import { isRecord } from '@lobechat/utils';
 
 import { createHeaderWithAuth } from '@/services/_auth';
 import { aiProviderSelectors, getAiInfraStoreState } from '@/store/aiInfra';
-import { type ChatModelCard } from '@/types/llm';
+import type { ChatModelCard } from '@/types/llm';
 
 import { API_ENDPOINTS } from './_url';
 import { resolveRuntimeProvider } from './chat/helper';
@@ -10,6 +13,41 @@ import { initializeWithClientStore } from './chat/mecha';
 
 const isEnableFetchOnClient = (provider: string) =>
   aiProviderSelectors.isProviderFetchOnClient(provider)(getAiInfraStoreState());
+
+const isChatMessageError = (error: unknown): error is ChatMessageError => {
+  if (!isRecord(error)) return false;
+
+  return 'type' in error && 'message' in error;
+};
+
+export const normalizeModelFetchError = (error: unknown, provider: string): ChatMessageError => {
+  if (isChatMessageError(error)) return error;
+
+  if (isRecord(error) && 'errorType' in error) {
+    const errorType = error.errorType as ChatMessageError['type'];
+    const errorContent = 'error' in error ? error.error : error;
+
+    return {
+      body: { error: errorContent, provider },
+      message: typeof error.message === 'string' ? error.message : String(errorType),
+      type: errorType,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      body: { error: { message: error.message, name: error.name }, provider },
+      message: error.message,
+      type: AgentRuntimeErrorType.ProviderBizError,
+    };
+  }
+
+  return {
+    body: { error, provider },
+    message: String(error),
+    type: AgentRuntimeErrorType.ProviderBizError,
+  };
+};
 
 // Progress information interface
 export interface ModelProgressInfo {
@@ -44,15 +82,15 @@ export class ModelsService {
           provider,
           runtimeProvider,
         });
-        return agentRuntime.models();
+        return await agentRuntime.models();
       }
 
       const res = await fetch(API_ENDPOINTS.models(provider), { headers });
-      if (!res.ok) return;
+      if (!res.ok) throw await getMessageError(res);
 
-      return res.json();
-    } catch {
-      return;
+      return await res.json();
+    } catch (error) {
+      throw normalizeModelFetchError(error, provider);
     }
   };
 
