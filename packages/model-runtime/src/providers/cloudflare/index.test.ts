@@ -559,7 +559,7 @@ describe('LobeCloudflareAI', () => {
       expect(result).toHaveLength(2);
     });
 
-    it('should throw ProviderBizError when API returns null result', async () => {
+    it('should throw Error with cause when API returns null result', async () => {
       // Arrange
       const instance = new LobeCloudflareAI({
         apiKey: 'test_api_key',
@@ -578,18 +578,20 @@ describe('LobeCloudflareAI', () => {
       );
 
       // Act & Assert
-      await expect(instance.models()).rejects.toEqual({
-        endpoint: expect.not.stringContaining(accountID),
-        error: {
+      try {
+        await instance.models();
+        throw new Error('Expected models() to reject');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toBe('Cloudflare models API returned an invalid response');
+        expect((error as Error).cause).toEqual({
+          endpoint: expect.not.stringContaining(accountID),
           errors: [{ code: 10000, message: 'Authentication error' }],
           result: null,
           status: 401,
           success: false,
-        },
-        errorType: bizErrorType,
-        message: 'Authentication error',
-        provider,
-      });
+        });
+      }
     });
   });
 });

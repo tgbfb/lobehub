@@ -148,6 +148,34 @@ describe('GET handler', () => {
       expect(responseBody.body.message).toBe('Cloudflare authentication error');
     });
 
+    it('should extract provider messages from Error causes', async () => {
+      const mockParams = Promise.resolve({ provider: 'cloudflare' });
+      const providerError = new Error('Cloudflare models API returned an invalid response', {
+        cause: {
+          errors: [{ message: 'Cloudflare authentication error' }],
+          result: null,
+          status: 401,
+        },
+      });
+
+      const mockRuntime: LobeRuntimeAI = {
+        baseURL: 'abc',
+        chat: vi.fn(),
+        models: vi.fn().mockRejectedValue(providerError),
+      };
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
+
+      const response = await GET(request, { params: mockParams });
+      const responseBody = await response.json();
+
+      expect(response.status).toBe(471);
+      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.ProviderBizError);
+      expect(responseBody.body.message).toBe('Cloudflare authentication error');
+      expect(responseBody.body.error.cause.errors).toEqual([
+        { message: 'Cloudflare authentication error' },
+      ]);
+    });
+
     it('should return provider biz error for unstructured errors', async () => {
       const mockParams = Promise.resolve({ provider: 'google' });
 

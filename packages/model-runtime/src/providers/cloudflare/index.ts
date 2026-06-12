@@ -25,28 +25,6 @@ export interface CloudflareModelCard {
   };
 }
 
-/**
- * Walks common upstream error shapes (Error, { message }, { error: { message } },
- * { error: { error: { message } } }, strings, { status }) and returns the most
- * informative human-readable string available. Returns undefined when nothing
- * useful can be recovered, letting the caller decide on a fallback.
- */
-function extractProviderErrorMessage(err: unknown): string | undefined {
-  if (err === null || err === undefined) return undefined;
-  if (typeof err === 'string') return err || undefined;
-  if (err instanceof Error) return err.message;
-  if (typeof err !== 'object') return String(err);
-
-  const obj = err as Record<string, unknown>;
-  if (typeof obj.message === 'string' && obj.message) return obj.message;
-  if (obj.error !== undefined) {
-    const inner = extractProviderErrorMessage(obj.error);
-    if (inner) return inner;
-  }
-  if (typeof obj.status === 'number') return `HTTP ${obj.status}`;
-  return undefined;
-}
-
 export interface LobeCloudflareParams {
   apiKey?: string;
   baseURLOrAccountID?: string;
@@ -165,29 +143,27 @@ export class LobeCloudflareAI implements LobeRuntimeAI {
     try {
       json = await response.json();
     } catch (error) {
-      throw AgentRuntimeError.chat({
-        endpoint: desensitizedEndpoint,
-        error: error instanceof Error ? { message: error.message, name: error.name } : { error },
-        errorType: AgentRuntimeErrorType.ProviderBizError,
-        message: 'Cloudflare models API returned invalid JSON',
-        provider: ModelProvider.Cloudflare,
-      });
+      throw Object.assign(
+        new Error('Cloudflare models API returned invalid JSON', { cause: error }),
+        {
+          endpoint: desensitizedEndpoint,
+          status: response.status,
+        },
+      );
     }
 
     const modelList =
       typeof json === 'object' && json !== null ? (json as { result?: unknown }).result : undefined;
 
     if (!response.ok || !Array.isArray(modelList)) {
-      throw AgentRuntimeError.chat({
-        endpoint: desensitizedEndpoint,
-        error:
-          json && typeof json === 'object'
-            ? { ...(json as Record<string, unknown>), status: response.status }
-            : { body: json, status: response.status },
-        errorType: AgentRuntimeErrorType.ProviderBizError,
-        message:
-          extractProviderErrorMessage(json) || 'Cloudflare models API returned an invalid response',
-        provider: ModelProvider.Cloudflare,
+      throw new Error('Cloudflare models API returned an invalid response', {
+        cause: {
+          ...(json && typeof json === 'object'
+            ? (json as Record<string, unknown>)
+            : { body: json }),
+          endpoint: desensitizedEndpoint,
+          status: response.status,
+        },
       });
     }
 
