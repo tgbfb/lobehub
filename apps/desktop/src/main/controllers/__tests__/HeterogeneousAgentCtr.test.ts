@@ -442,6 +442,28 @@ describe('HeterogeneousAgentCtr', () => {
       expect(spawnCalls).toHaveLength(0);
     });
 
+    it('spawns the detector-resolved absolute path (e.g. Codex.app bundle) instead of the bare command', async () => {
+      // A user with only the Codex desktop app has no `codex` on PATH; the
+      // detector resolves the bundled binary. Preflight passing isn't enough —
+      // spawn must target that absolute path or it ENOENTs on the bare command.
+      const bundlePath = '/Applications/Codex.app/Contents/Resources/codex';
+      const detect = vi.fn().mockResolvedValue({ available: true, path: bundlePath });
+      const { proc } = createFakeProc({ stdoutLines: [] });
+      nextFakeProc = proc;
+
+      const ctr = new HeterogeneousAgentCtr({
+        appStoragePath,
+        storeManager: { get: vi.fn() },
+        toolDetectorManager: { detect },
+      } as any);
+      const { sessionId } = await ctr.startSession({ agentType: 'codex', command: 'codex' });
+      await ctr.sendPrompt({ operationId: 'op-test', prompt: 'hello', sessionId });
+
+      expect(detect).toHaveBeenCalledWith('codex', true);
+      expect(spawnCalls).toHaveLength(1);
+      expect(spawnCalls[0].command).toBe(bundlePath);
+    });
+
     it('fails fast when a customized Claude command is unavailable instead of checking the default detector', async () => {
       execFileMock.mockImplementation(
         (

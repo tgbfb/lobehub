@@ -199,6 +199,16 @@ interface AgentSession {
 
 type SessionErrorPayload = HeterogeneousAgentSessionError | string;
 
+interface SpawnPreflightResult {
+  /** Set when the CLI is missing/unavailable — spawning must be aborted. */
+  error?: HeterogeneousAgentSessionError;
+  /**
+   * Absolute path the detector resolved the CLI to, to spawn instead of the
+   * bare `session.command`. Undefined when the bare command should be used.
+   */
+  resolvedCommand?: string;
+}
+
 interface CliTraceSession {
   dir: string;
   writeQueue: Promise<void>;
@@ -451,16 +461,14 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     return relevantStderr || `Agent exited with code ${code}`;
   }
 
-  private async getSpawnPreflightError(
-    session: AgentSession,
-  ): Promise<HeterogeneousAgentSessionError | undefined> {
+  private async runSpawnPreflight(session: AgentSession): Promise<SpawnPreflightResult> {
     const defaultCommand =
       session.agentType === 'claude-code'
         ? 'claude'
         : session.agentType === 'codex'
           ? 'codex'
           : undefined;
-    if (!defaultCommand) return;
+    if (!defaultCommand) return {};
 
     const command = this.resolveSessionCommand(session);
     const status =
@@ -472,9 +480,22 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
           );
     const cliMissingError = this.buildCliMissingError(session);
 
-    if (!status || status.available || !cliMissingError) return;
+    if (!status || status.available || !cliMissingError) {
+      // The detector resolved the binary to an absolute path (e.g. the Codex.app
+      // bundle, or a login-shell-PATH-only install). spawn() runs against a leaner
+      // env than detection did, so a bare `codex` could still ENOENT even though
+      // preflight passed — feed the resolved absolute path through to spawn.
+      //
+      // Skip on Windows: there `resolveCliSpawnPlan` performs its own `.cmd`/`.exe`
+      // shim resolution from the bare command, which we must not pre-empt.
+      const resolvedCommand =
+        process.platform !== 'win32' && status?.available && status.path?.trim()
+          ? status.path
+          : undefined;
+      return { resolvedCommand };
+    }
 
-    return cliMissingError;
+    return { error: cliMissingError };
   }
 
   private get shouldTraceCliOutput(): boolean {
@@ -888,13 +909,13 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     const session = this.sessions.get(params.sessionId);
     if (!session) throw new Error(`Session not found: ${params.sessionId}`);
 
-    const preflightError = await this.getSpawnPreflightError(session);
-    if (preflightError) {
+    const preflight = await this.runSpawnPreflight(session);
+    if (preflight.error) {
       this.broadcast('heteroAgentSessionError', {
-        error: preflightError,
+        error: preflight.error,
         sessionId: session.sessionId,
       });
-      throw new Error(preflightError.message);
+      throw new Error(preflight.error.message);
     }
 
     // Stand up the AskUserQuestion MCP bridge for claude-code prompts BEFORE
@@ -966,7 +987,10 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     }
     const useStdin = spawnPlan.stdinPayload !== undefined;
     const cliArgs = spawnPlan.args;
-    const resolvedCliSpawnPlan = await resolveCliSpawnPlan(session.command, cliArgs);
+    const resolvedCliSpawnPlan = await resolveCliSpawnPlan(
+      preflight.resolvedCommand || session.command,
+      cliArgs,
+    );
 
     logger.info(
       'Spawning agent:',
