@@ -2,13 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiAgentService } from '../index';
 
-const { mockMessageCreate, mockResolveAttachmentMetadata, mockSpawnHeteroSandbox } = vi.hoisted(
-  () => ({
-    mockMessageCreate: vi.fn(),
-    mockResolveAttachmentMetadata: vi.fn(),
-    mockSpawnHeteroSandbox: vi.fn().mockResolvedValue(undefined),
-  }),
-);
+const {
+  mockMessageCreate,
+  mockResolveAttachmentMetadata,
+  mockSandboxCallTool,
+  mockSpawnHeteroSandbox,
+} = vi.hoisted(() => ({
+  mockMessageCreate: vi.fn(),
+  mockResolveAttachmentMetadata: vi.fn(),
+  mockSandboxCallTool: vi.fn(),
+  mockSpawnHeteroSandbox: vi.fn().mockResolvedValue({}),
+}));
 
 vi.mock('@/libs/trusted-client', () => ({
   generateTrustedClientToken: vi.fn().mockReturnValue(undefined),
@@ -99,6 +103,12 @@ vi.mock('@/server/services/heterogeneousAgent/sandboxRunner', () => ({
   spawnHeteroSandbox: mockSpawnHeteroSandbox,
 }));
 
+vi.mock('@/server/services/sandbox', () => ({
+  createSandboxService: vi.fn(() => ({
+    callTool: mockSandboxCallTool,
+  })),
+}));
+
 vi.mock('@/server/services/file/resolveAttachments', () => ({
   resolveAttachmentMetadata: mockResolveAttachmentMetadata,
   resolveAttachmentsByFileIds: vi.fn().mockResolvedValue({
@@ -148,7 +158,8 @@ describe('AiAgentService.execAgent - hetero early-exit file attachments', () => 
     topicMock.updateMetadata.mockResolvedValue(undefined);
     mockMessageCreate.mockResolvedValue({ id: 'msg-1' });
     mockResolveAttachmentMetadata.mockResolvedValue([]);
-    mockSpawnHeteroSandbox.mockResolvedValue(undefined);
+    mockSandboxCallTool.mockResolvedValue({ success: true });
+    mockSpawnHeteroSandbox.mockResolvedValue({});
 
     service = new AiAgentService(mockDb, userId);
   });
@@ -288,6 +299,50 @@ describe('AiAgentService.execAgent - hetero early-exit file attachments', () => 
       });
 
       expect(mockResolveAttachmentMetadata).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sandbox stop race', () => {
+    it('should kill the sandbox command when stop was requested before commandId is persisted', async () => {
+      mockSpawnHeteroSandbox.mockResolvedValue({ commandId: 'cmd-delayed' });
+      topicMock.findById.mockImplementation(async () => {
+        const seededRunningOperation = topicMock.updateMetadata.mock.calls.find(
+          ([, metadata]) => metadata.runningOperation?.operationId,
+        )?.[1].runningOperation;
+
+        return {
+          id: 'topic-1',
+          metadata: {
+            runningOperation: seededRunningOperation
+              ? {
+                  ...seededRunningOperation,
+                  cancelRequestedAt: '2026-01-01T00:00:00.000Z',
+                }
+              : undefined,
+          },
+        };
+      });
+
+      await service.execAgent({
+        agentId: 'agent-1',
+        prompt: 'Run in sandbox',
+      });
+
+      await vi.waitFor(() => {
+        expect(mockSandboxCallTool).toHaveBeenCalledWith('killCommand', {
+          commandId: 'cmd-delayed',
+        });
+      });
+
+      expect(topicMock.updateMetadata).toHaveBeenCalledWith(
+        'topic-1',
+        expect.objectContaining({
+          runningOperation: expect.objectContaining({
+            cancelRequestedAt: '2026-01-01T00:00:00.000Z',
+            sandboxCommandId: 'cmd-delayed',
+          }),
+        }),
+      );
     });
   });
 });

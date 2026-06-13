@@ -29,6 +29,7 @@ import { buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';
 import type {
   ChatFileItem,
   ChatTopicBotContext,
+  ChatTopicMetadata,
   ChatVideoItem,
   ExecAgentParams,
   ExecAgentResult,
@@ -106,6 +107,7 @@ import { HeterogeneousAgentService } from '@/server/services/heterogeneousAgent'
 import type { ConversationHistoryEntry } from '@/server/services/heterogeneousAgent/cloudHeteroContext';
 import { KlavisService } from '@/server/services/klavis';
 import { MarketService } from '@/server/services/market';
+import { createSandboxService } from '@/server/services/sandbox';
 import { markdownToTxt } from '@/utils/markdownToTxt';
 
 import { resolveDeviceAccessPolicy } from './deviceAccessPolicy';
@@ -1040,22 +1042,49 @@ export class AiAgentService {
 
       const remoteDeviceId =
         requestedDeviceId || agentConfig.agencyConfig?.boundDeviceId || undefined;
+      type RunningOperationMetadata = NonNullable<ChatTopicMetadata['runningOperation']>;
+      const buildRunningOperationMetadata = (
+        extra: Partial<RunningOperationMetadata> = {},
+      ): RunningOperationMetadata => ({
+        assistantMessageId: assistantMsg.id,
+        completionWebhook: hooks?.find((h) => h.type === 'onComplete')?.webhook,
+        heteroType,
+        operationId,
+        scope: appContext?.scope ?? undefined,
+        threadId: appContext?.threadId ?? undefined,
+        ...extra,
+      });
+      const updateRunningOperationMetadata = async (
+        extra: Partial<RunningOperationMetadata>,
+      ): Promise<RunningOperationMetadata | undefined> => {
+        const latestTopic = await this.topicModel.findById(topicId);
+        const current = latestTopic?.metadata?.runningOperation;
+        if (current && current.operationId !== operationId) {
+          log(
+            'execAgent: skip runningOperation update for stale op=%s current=%s',
+            operationId,
+            current.operationId,
+          );
+          return;
+        }
+        const runningOperation = {
+          ...buildRunningOperationMetadata(),
+          ...current,
+          ...extra,
+        };
+        await this.topicModel.updateMetadata(topicId, {
+          runningOperation,
+        });
+        return runningOperation;
+      };
 
       // Seed topic.metadata.runningOperation so heteroIngest can validate the operation.
       // completionWebhook is stored so heteroFinish can call back to the IM bot-callback
       // endpoint even though the hetero path bypasses the normal hook registration flow.
       await this.topicModel.updateMetadata(topicId, {
-        runningOperation: {
-          assistantMessageId: assistantMsg.id,
-          completionWebhook: hooks?.find((h) => h.type === 'onComplete')?.webhook,
-          // Store deviceId + heteroType so interruptTask can cancel remote processes
-          ...(isRemoteHetero && remoteDeviceId
-            ? { deviceId: remoteDeviceId, heteroType }
-            : undefined),
-          operationId,
-          scope: appContext?.scope ?? undefined,
-          threadId: appContext?.threadId ?? undefined,
-        },
+        runningOperation: buildRunningOperationMetadata(
+          isRemoteHetero && remoteDeviceId ? { deviceId: remoteDeviceId } : {},
+        ),
       });
 
       // Remote hetero agents (openclaw / hermes) dispatch to the device identified
@@ -1241,6 +1270,8 @@ export class AiAgentService {
               userMessageId: userMsg?.id ?? parentMessageId ?? '',
             };
           }
+          await updateRunningOperationMetadata({ deviceId: dispatchDeviceId });
+
           // Resolve the working directory for the run: a topic-level override
           // wins, else the device's user-configured defaultCwd. The device row
           // lives in the DB (the gateway only knows live connections), so read
@@ -1318,9 +1349,24 @@ export class AiAgentService {
             ...heteroParams,
             agentType: heteroType as 'claude-code' | 'codex',
             marketService: this.marketService,
-          }).catch((err) => {
-            log('execAgent: hetero sandbox spawn failed: %O', err);
-          });
+          })
+            .then(async ({ commandId }) => {
+              if (!commandId) return;
+              const runningOperation = await updateRunningOperationMetadata({
+                sandboxCommandId: commandId,
+              });
+              if (!runningOperation?.cancelRequestedAt) return;
+              await createSandboxService({
+                marketService: this.marketService,
+                topicId,
+                userId: this.userId,
+              })
+                .callTool('killCommand', { commandId })
+                .catch((err) => log('execAgent: delayed sandbox killCommand failed: %O', err));
+            })
+            .catch((err) => {
+              log('execAgent: hetero sandbox spawn failed: %O', err);
+            });
         }
       }
 
@@ -3410,31 +3456,50 @@ export class AiAgentService {
       throw new Error('Operation ID not found');
     }
 
-    // 2. Cancel remote hetero process (openclaw / hermes) if applicable.
-    // Check topic.metadata.runningOperation for device + heteroType info seeded by execAgent.
+    // 2. Cancel hetero processes when the run lives outside the server process.
+    // Device-dispatched local CLI agents (claude-code / codex) and remote
+    // platform agents (openclaw / hermes) are killed through the connected
+    // device. Sandbox-dispatched local CLI agents are killed through sandbox
+    // command cancellation when the background command id is available.
     // This runs regardless of whether interruptOperation succeeds — the remote process
     // is independent of the local operation registry.
     if (topicId) {
       const topic = await this.topicModel.findById(topicId);
-      const runningOp = (topic?.metadata as any)?.runningOperation as
-        | { deviceId?: string; heteroType?: string; operationId?: string }
-        | undefined;
+      const runningOp = topic?.metadata?.runningOperation;
 
-      if (
-        runningOp?.deviceId &&
-        runningOp.heteroType &&
-        isRemoteHeterogeneousType(runningOp.heteroType)
-      ) {
-        const taskId = runningOp.operationId ?? resolvedOperationId;
+      const runningOperation =
+        runningOp?.operationId === resolvedOperationId
+          ? {
+              ...runningOp,
+              operationId: resolvedOperationId,
+            }
+          : undefined;
+
+      if (runningOp && runningOp.operationId !== resolvedOperationId) {
         log(
-          'interruptTask: cancelling remote hetero process heteroType=%s deviceId=%s taskId=%s',
-          runningOp.heteroType,
-          runningOp.deviceId,
+          'interruptTask: skip hetero process cancel for stale op=%s current=%s topicId=%s',
+          resolvedOperationId,
+          runningOp.operationId,
+          topicId,
+        );
+      } else if (runningOperation) {
+        const cancelRequestedAt = runningOperation.cancelRequestedAt ?? new Date().toISOString();
+        await this.topicModel.updateMetadata(topicId, {
+          runningOperation: { ...runningOperation, cancelRequestedAt },
+        });
+      }
+
+      if (runningOperation?.deviceId && runningOperation.heteroType) {
+        const taskId = runningOperation.operationId;
+        log(
+          'interruptTask: cancelling hetero device process heteroType=%s deviceId=%s taskId=%s',
+          runningOperation.heteroType,
+          runningOperation.deviceId,
           taskId,
         );
         await deviceGateway
           .executeToolCall(
-            { deviceId: runningOp.deviceId, userId: this.userId },
+            { deviceId: runningOperation.deviceId, userId: this.userId },
             {
               apiName: 'cancelHeteroTask',
               arguments: JSON.stringify({ signal: 'SIGINT', taskId }),
@@ -3443,6 +3508,21 @@ export class AiAgentService {
             5_000,
           )
           .catch((err) => log('interruptTask: cancelHeteroTask dispatch failed: %O', err));
+      }
+
+      if (runningOperation?.sandboxCommandId) {
+        log(
+          'interruptTask: cancelling hetero sandbox command commandId=%s topicId=%s',
+          runningOperation.sandboxCommandId,
+          topicId,
+        );
+        await createSandboxService({
+          marketService: this.marketService,
+          topicId,
+          userId: this.userId,
+        })
+          .callTool('killCommand', { commandId: runningOperation.sandboxCommandId })
+          .catch((err) => log('interruptTask: sandbox killCommand failed: %O', err));
       }
     }
 

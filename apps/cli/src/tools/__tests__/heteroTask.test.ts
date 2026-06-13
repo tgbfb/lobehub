@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { removeTask, saveTask } from '../../daemon/taskRegistry';
-import { runHeteroTask } from '../heteroTask';
+import { cancelHeteroTask, runHeteroTask } from '../heteroTask';
 
 // ─── Mocks ───
 
@@ -247,5 +247,33 @@ describe('runHeteroTask (openclaw)', () => {
 
     expect(removeTask).toHaveBeenCalledWith('task-1');
     killSpy.mockRestore();
+  });
+});
+
+describe('cancelHeteroTask', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    for (const key of Object.keys(taskStore)) delete taskStore[key];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('signals the process group for a registered codex task', async () => {
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    taskStore['op-codex'] = {
+      agentType: 'codex',
+      operationId: 'op-codex',
+      pid: 4321,
+      startedAt: '2026-01-01T00:00:00.000Z',
+      taskId: 'op-codex',
+      topicId: 'topic-1',
+    };
+
+    const result = await cancelHeteroTask({ taskId: 'op-codex' });
+
+    expect(result).toBe(JSON.stringify({ pid: 4321, signal: 'SIGINT', taskId: 'op-codex' }));
+    expect(killSpy).toHaveBeenCalledWith(process.platform === 'win32' ? 4321 : -4321, 'SIGINT');
   });
 });

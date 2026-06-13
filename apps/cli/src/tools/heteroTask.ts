@@ -64,6 +64,19 @@ export interface CancelHeteroTaskParams {
   taskId: string;
 }
 
+function signalTaskProcess(pid: number, signal: NodeJS.Signals): void {
+  if (process.platform === 'win32') {
+    process.kill(pid, signal);
+    return;
+  }
+
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    process.kill(pid, signal);
+  }
+}
+
 async function sendAutoNotify(
   topicId: string,
   taskId: string,
@@ -320,9 +333,11 @@ export async function cancelHeteroTask(params: CancelHeteroTaskParams): Promise<
     return JSON.stringify({ message: `No task found with taskId: ${taskId}`, success: false });
   }
 
-  // Both openclaw and hermes: kill by PID and let the child's close handler send the notify.
+  // Signal the whole process group when available. Local CLI agent runs
+  // (claude-code / codex) can spawn their own tool subprocesses, so a
+  // parent-only signal is not enough.
   try {
-    process.kill(entry.pid, signal);
+    signalTaskProcess(entry.pid, signal);
   } catch (err) {
     // Process already exited — exit handler won't fire; clean up manually.
     log.warn(

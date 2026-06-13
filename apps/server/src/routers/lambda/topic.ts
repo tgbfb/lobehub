@@ -685,6 +685,7 @@ export const topicRouter = router({
           runningOperation: z
             .object({
               assistantMessageId: z.string(),
+              cancelRequestedAt: z.string().optional(),
               completionWebhook: z
                 .object({
                   body: z.record(z.unknown()).optional(),
@@ -692,7 +693,10 @@ export const topicRouter = router({
                   url: z.string(),
                 })
                 .optional(),
+              deviceId: z.string().optional(),
+              heteroType: z.string().optional(),
               operationId: z.string(),
+              sandboxCommandId: z.string().optional(),
               scope: z.string().optional(),
               threadId: z.string().nullable().optional(),
             })

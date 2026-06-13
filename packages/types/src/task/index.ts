@@ -280,7 +280,11 @@ export interface TaskDetailActivity {
    */
   runningOperation?: {
     assistantMessageId: string;
+    cancelRequestedAt?: string;
+    deviceId?: string;
+    heteroType?: string;
     operationId: string;
+    sandboxCommandId?: string;
     scope?: string;
     threadId?: string | null;
   } | null;

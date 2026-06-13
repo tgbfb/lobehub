@@ -156,6 +156,11 @@ export interface ChatTopicMetadata {
   runningOperation?: {
     assistantMessageId: string;
     /**
+     * Set when a stop request arrives before all out-of-process handles
+     * (for example sandbox command id) are available.
+     */
+    cancelRequestedAt?: string;
+    /**
      * Webhook to fire when the operation completes.
      * Populated by the IM bot path so heterogeneous agents (Claude Code / Codex)
      * can call back to the bot-callback endpoint even though they bypass the
@@ -166,7 +171,19 @@ export interface ChatTopicMetadata {
       delivery?: 'fetch' | 'qstash';
       url: string;
     };
+    /**
+     * Device id for hetero runs dispatched through the device gateway.
+     */
+    deviceId?: string;
+    /**
+     * Heterogeneous runtime type, used to route cancellation.
+     */
+    heteroType?: string;
     operationId: string;
+    /**
+     * Background command id for sandbox-dispatched hetero runs.
+     */
+    sandboxCommandId?: string;
     scope?: string;
     threadId?: string | null;
   } | null;

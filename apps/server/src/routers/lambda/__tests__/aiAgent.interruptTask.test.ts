@@ -9,6 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { aiAgentRouter } from '../aiAgent';
 import { cleanupTestUser, createTestUser } from './integration/setup';
 
+const { mockExecuteToolCall, mockSandboxCallTool } = vi.hoisted(() => ({
+  mockExecuteToolCall: vi.fn(),
+  mockSandboxCallTool: vi.fn(),
+}));
+
 // Mock getServerDB to return our test database instance
 let testDB: LobeChatDatabase;
 vi.mock('@/database/core/db-adaptor', () => ({
@@ -29,6 +34,18 @@ vi.mock('@/server/services/aiChat', () => ({
   AiChatService: vi.fn().mockImplementation(() => ({})),
 }));
 
+vi.mock('@/server/services/deviceGateway', () => ({
+  deviceGateway: {
+    executeToolCall: mockExecuteToolCall,
+  },
+}));
+
+vi.mock('@/server/services/sandbox', () => ({
+  createSandboxService: vi.fn(() => ({
+    callTool: mockSandboxCallTool,
+  })),
+}));
+
 describe('aiAgentRouter.interruptTask', () => {
   let serverDB: LobeChatDatabase;
   let userId: string;
@@ -43,6 +60,10 @@ describe('aiAgentRouter.interruptTask', () => {
     userId = await createTestUser(serverDB);
     mockInterruptOperation.mockReset();
     mockInterruptOperation.mockResolvedValue(true);
+    mockExecuteToolCall.mockReset();
+    mockExecuteToolCall.mockResolvedValue({ success: true });
+    mockSandboxCallTool.mockReset();
+    mockSandboxCallTool.mockResolvedValue({ success: true });
 
     // Create test agent
     const [agent] = await serverDB
@@ -202,6 +223,104 @@ describe('aiAgentRouter.interruptTask', () => {
         .where(eq(threads.id, testThreadId));
 
       expect(updatedThread.status).toBe(ThreadStatus.Cancel);
+    });
+
+    it('should dispatch cancelHeteroTask for a device-dispatched codex operation', async () => {
+      await serverDB
+        .update(topics)
+        .set({
+          metadata: {
+            runningOperation: {
+              assistantMessageId: 'assistant-msg-1',
+              deviceId: 'device-1',
+              heteroType: 'codex',
+              operationId: 'op-codex',
+            },
+          },
+        })
+        .where(eq(topics.id, testTopicId));
+
+      const caller = aiAgentRouter.createCaller(createTestContext());
+
+      const result = await caller.interruptTask({
+        operationId: 'op-codex',
+        topicId: testTopicId,
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockExecuteToolCall).toHaveBeenCalledWith(
+        { deviceId: 'device-1', userId },
+        {
+          apiName: 'cancelHeteroTask',
+          arguments: JSON.stringify({ signal: 'SIGINT', taskId: 'op-codex' }),
+          identifier: 'cancelHeteroTask',
+        },
+        5000,
+      );
+
+      const [updatedTopic] = await serverDB.select().from(topics).where(eq(topics.id, testTopicId));
+      expect(updatedTopic.metadata?.runningOperation?.cancelRequestedAt).toBeDefined();
+    });
+
+    it('should kill the sandbox background command for a sandbox codex operation', async () => {
+      await serverDB
+        .update(topics)
+        .set({
+          metadata: {
+            runningOperation: {
+              assistantMessageId: 'assistant-msg-1',
+              heteroType: 'codex',
+              operationId: 'op-sandbox',
+              sandboxCommandId: 'cmd-1',
+            },
+          },
+        })
+        .where(eq(topics.id, testTopicId));
+
+      const caller = aiAgentRouter.createCaller(createTestContext());
+
+      const result = await caller.interruptTask({
+        operationId: 'op-sandbox',
+        topicId: testTopicId,
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockSandboxCallTool).toHaveBeenCalledWith('killCommand', { commandId: 'cmd-1' });
+
+      const [updatedTopic] = await serverDB.select().from(topics).where(eq(topics.id, testTopicId));
+      expect(updatedTopic.metadata?.runningOperation?.cancelRequestedAt).toBeDefined();
+    });
+
+    it('should not cancel a topic runningOperation that belongs to another operation', async () => {
+      await serverDB
+        .update(topics)
+        .set({
+          metadata: {
+            runningOperation: {
+              assistantMessageId: 'assistant-msg-current',
+              deviceId: 'device-current',
+              heteroType: 'codex',
+              operationId: 'op-current',
+              sandboxCommandId: 'cmd-current',
+            },
+          },
+        })
+        .where(eq(topics.id, testTopicId));
+
+      const caller = aiAgentRouter.createCaller(createTestContext());
+
+      const result = await caller.interruptTask({
+        operationId: 'op-stale',
+        topicId: testTopicId,
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockExecuteToolCall).not.toHaveBeenCalled();
+      expect(mockSandboxCallTool).not.toHaveBeenCalled();
+
+      const [updatedTopic] = await serverDB.select().from(topics).where(eq(topics.id, testTopicId));
+      expect(updatedTopic.metadata?.runningOperation?.cancelRequestedAt).toBeUndefined();
+      expect(updatedTopic.metadata?.runningOperation?.operationId).toBe('op-current');
     });
   });
 

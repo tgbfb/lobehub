@@ -47,6 +47,10 @@ export interface SandboxRunParams {
   userId: string;
 }
 
+export interface SandboxRunResult {
+  commandId?: string;
+}
+
 /**
  * Derive the local directory name from a repo identifier.
  * Accepts "owner/repo", "https://github.com/owner/repo", or "https://github.com/owner/repo.git".
@@ -121,7 +125,7 @@ function buildRepoSetupScript(repos: string[], githubToken?: string): string | n
  * Fire-and-forget: the caller does NOT await this — the sandbox pushes events
  * back to the server via `heteroIngest` tRPC batches independently.
  */
-export async function spawnHeteroSandbox(params: SandboxRunParams): Promise<void> {
+export async function spawnHeteroSandbox(params: SandboxRunParams): Promise<SandboxRunResult> {
   const {
     agentType,
     assistantMessageId,
@@ -215,4 +219,16 @@ export async function spawnHeteroSandbox(params: SandboxRunParams): Promise<void
   if (!result.success) {
     throw new Error(result.error?.message || 'Failed to spawn heterogeneous sandbox');
   }
+
+  const resultData = result.result;
+  const commandId =
+    resultData && typeof resultData === 'object'
+      ? String(
+          (resultData as Record<string, unknown>).commandId ||
+            (resultData as Record<string, unknown>).shell_id ||
+            '',
+        ) || undefined
+      : undefined;
+
+  return { commandId };
 }

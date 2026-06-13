@@ -5,6 +5,8 @@ import {
   type HeteroExecImageRef,
 } from '@lobechat/heterogeneous-agents/protocol';
 
+import { removeTask, saveTask } from '../daemon/taskRegistry';
+
 export interface SpawnHeteroAgentRunParams {
   agentType: string;
   cwd?: string;
@@ -101,6 +103,7 @@ export function spawnHeteroAgentRun(
 
     const child = spawn(process.execPath, [...process.execArgv, ...cliArgs], {
       cwd: workDir,
+      detached: process.platform !== 'win32',
       env: {
         ...process.env,
         LOBEHUB_JWT: jwt,
@@ -109,7 +112,27 @@ export function spawnHeteroAgentRun(
       stdio: ['pipe', 'inherit', 'inherit'],
     });
 
+    let taskSaved = false;
+    const saveRunningTask = () => {
+      if (taskSaved || child.pid === undefined) return;
+      taskSaved = true;
+      saveTask({
+        agentType,
+        operationId,
+        pid: child.pid,
+        startedAt: new Date().toISOString(),
+        taskId: operationId,
+        topicId,
+      });
+    };
+
+    saveRunningTask();
+
     child.once('spawn', () => {
+      if (child.pid !== undefined) {
+        saveRunningTask();
+      }
+
       // Only safe to write stdin once the process actually started.
       try {
         child.stdin?.write(stdinPayload);
@@ -123,11 +146,13 @@ export function spawnHeteroAgentRun(
     });
 
     child.once('error', (err) => {
+      removeTask(operationId);
       logger?.error?.(`hetero exec spawn failed (op=${operationId}): ${err.message}`);
       settle({ reason: err.message, status: 'rejected' });
     });
 
     child.on('exit', (code, signal) => {
+      removeTask(operationId);
       logger?.info?.(`hetero exec exited (op=${operationId}) code=${code} signal=${signal}`);
     });
   });

@@ -4,14 +4,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { spawnHeteroAgentRun } from './agentRun';
 
-const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
+const { removeTaskMock, saveTaskMock, spawnMock } = vi.hoisted(() => ({
+  removeTaskMock: vi.fn(),
+  saveTaskMock: vi.fn(),
+  spawnMock: vi.fn(),
+}));
 
 vi.mock('node:child_process', () => ({ spawn: spawnMock }));
+vi.mock('../daemon/taskRegistry', () => ({
+  removeTask: removeTaskMock,
+  saveTask: saveTaskMock,
+}));
 
-const makeFakeChild = () => {
+const makeFakeChild = (pid = 1234) => {
   const child = new EventEmitter() as EventEmitter & {
+    pid: number;
     stdin: { end: ReturnType<typeof vi.fn>; write: ReturnType<typeof vi.fn> };
   };
+  child.pid = pid;
   child.stdin = { end: vi.fn(), write: vi.fn() };
   return child;
 };
@@ -27,6 +37,8 @@ const baseParams = {
 
 describe('spawnHeteroAgentRun', () => {
   afterEach(() => {
+    removeTaskMock.mockReset();
+    saveTaskMock.mockReset();
     spawnMock.mockReset();
   });
 
@@ -66,6 +78,7 @@ describe('spawnHeteroAgentRun', () => {
     ]);
     expect(opts).toMatchObject({
       cwd: '/work/dir',
+      detached: process.platform !== 'win32',
       env: expect.objectContaining({
         LOBEHUB_JWT: 'jwt-token',
         LOBEHUB_SERVER: 'https://app.lobehub.com',
@@ -79,6 +92,15 @@ describe('spawnHeteroAgentRun', () => {
     await expect(ackPromise).resolves.toEqual({ status: 'accepted' });
     expect(child.stdin.write).toHaveBeenCalledWith(JSON.stringify('hi'));
     expect(child.stdin.end).toHaveBeenCalledTimes(1);
+    expect(saveTaskMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentType: 'claudeCode',
+        operationId: 'op-1',
+        pid: 1234,
+        taskId: 'op-1',
+        topicId: 'tpc-1',
+      }),
+    );
   });
 
   it('rejects (no stuck run) when the child errors before spawning, e.g. bad cwd', async () => {
@@ -90,6 +112,24 @@ describe('spawnHeteroAgentRun', () => {
 
     await expect(ackPromise).resolves.toEqual({ reason: 'spawn ENOENT', status: 'rejected' });
     expect(child.stdin.write).not.toHaveBeenCalled();
+    expect(removeTaskMock).toHaveBeenCalledWith('op');
+  });
+
+  it('removes the registered task when the child exits', async () => {
+    const child = makeFakeChild(4321);
+    spawnMock.mockReturnValue(child);
+
+    const ackPromise = spawnHeteroAgentRun({
+      ...baseParams,
+      operationId: 'op-exit',
+      topicId: 'tpc-exit',
+    });
+    child.emit('spawn');
+    await ackPromise;
+
+    child.emit('exit', 0, null);
+
+    expect(removeTaskMock).toHaveBeenCalledWith('op-exit');
   });
 
   it('appends --resume when resuming a session', () => {

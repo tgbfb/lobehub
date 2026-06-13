@@ -329,9 +329,9 @@ const InterruptTaskSchema = z
     /** Thread ID */
     threadId: z.string().optional(),
     /**
-     * Topic ID — required to cancel remote hetero tasks (openclaw / hermes).
-     * When provided and the topic's runningOperation has a deviceId, the server
-     * will dispatch a cancelHeteroTask tool call to kill the remote process.
+     * Topic ID — required to cancel hetero work that lives outside the server
+     * process. When provided, the topic's runningOperation can route cancellation
+     * to a connected device process or a sandbox background command.
      */
     topicId: z.string().optional(),
   })
