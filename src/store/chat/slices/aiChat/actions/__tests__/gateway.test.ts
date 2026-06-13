@@ -199,7 +199,7 @@ describe('GatewayActionImpl', () => {
 
       action.connectToGateway({
         gatewayUrl: 'https://gateway.test.com',
-        onSessionComplete: onComplete,
+        onOperationComplete: onComplete,
         operationId: 'op-1',
         token: 'test-token',
         topicId: TEST_TOPIC_ID,
@@ -241,39 +241,39 @@ describe('GatewayActionImpl', () => {
     // Regression: when the server rejects auth (e.g. the op was GC'd or the
     // refreshed JWT no longer matches), the local op stayed `running` forever
     // because `auth_failed` only cleaned the connection map and never fired
-    // `onSessionComplete`. The `disconnected` listener that follows can't fix
+    // `onOperationComplete`. The `disconnected` listener that follows can't fix
     // this either — `receivedTerminalEvent` is false (no agent_event arrived),
     // so it short-circuits. Net result: input shows the stop button forever
     // and `topic.metadata.runningOperation` stays set, so every revisit
     // re-fires the same broken reconnect.
-    it('should fire onSessionComplete on auth_failed so the local op gets completed', () => {
+    it('should fire onOperationComplete on auth_failed so the local op gets completed', () => {
       const { action, mockClient } = createTestAction();
-      const onSessionComplete = vi.fn();
+      const onOperationComplete = vi.fn();
 
       action.connectToGateway({
         gatewayUrl: 'https://gateway.test.com',
-        onSessionComplete,
+        onOperationComplete,
         operationId: 'op-1',
         token: 'test-token',
         topicId: TEST_TOPIC_ID,
       });
 
       mockClient.emitEvent('auth_failed', 'invalid token');
-      expect(onSessionComplete).toHaveBeenCalledOnce();
+      expect(onOperationComplete).toHaveBeenCalledOnce();
     });
 
     // Same regression, but for the WS-close that follows `auth_failed`.
     // The previous behavior fired `disconnected` after `auth_failed`, but
     // since `receivedTerminalEvent` is false, the disconnected listener also
-    // skipped onSessionComplete. The fix should still only call it once
+    // skipped onOperationComplete. The fix should still only call it once
     // (through the auth_failed path) — not twice.
-    it('should not fire onSessionComplete twice when auth_failed is followed by disconnected', () => {
+    it('should not fire onOperationComplete twice when auth_failed is followed by disconnected', () => {
       const { action, mockClient } = createTestAction();
-      const onSessionComplete = vi.fn();
+      const onOperationComplete = vi.fn();
 
       action.connectToGateway({
         gatewayUrl: 'https://gateway.test.com',
-        onSessionComplete,
+        onOperationComplete,
         operationId: 'op-1',
         token: 'test-token',
         topicId: TEST_TOPIC_ID,
@@ -281,20 +281,20 @@ describe('GatewayActionImpl', () => {
 
       mockClient.emitEvent('auth_failed', 'invalid token');
       mockClient.emitEvent('disconnected');
-      expect(onSessionComplete).toHaveBeenCalledOnce();
+      expect(onOperationComplete).toHaveBeenCalledOnce();
     });
 
     describe('auth_expired (recoverable)', () => {
-      it('should refresh token, reconnect, and NOT fire onSessionComplete', async () => {
+      it('should refresh token, reconnect, and NOT fire onOperationComplete', async () => {
         const { action, mockClient } = createTestAction();
-        const onSessionComplete = vi.fn();
+        const onOperationComplete = vi.fn();
         vi.mocked(aiAgentService.refreshGatewayToken).mockResolvedValueOnce({
           token: 'fresh-token',
         });
 
         action.connectToGateway({
           gatewayUrl: 'https://gateway.test.com',
-          onSessionComplete,
+          onOperationComplete,
           operationId: 'op-1',
           token: 'old-token',
           topicId: TEST_TOPIC_ID,
@@ -309,19 +309,19 @@ describe('GatewayActionImpl', () => {
         expect(mockClient.updateToken).toHaveBeenCalledWith('fresh-token');
         expect(mockClient.reconnect).toHaveBeenCalledOnce();
         // Critical: this is recoverable, so the local op MUST keep running.
-        expect(onSessionComplete).not.toHaveBeenCalled();
+        expect(onOperationComplete).not.toHaveBeenCalled();
       });
 
-      it('should fire onSessionComplete when token refresh itself throws', async () => {
+      it('should fire onOperationComplete when token refresh itself throws', async () => {
         const { action, mockClient } = createTestAction();
-        const onSessionComplete = vi.fn();
+        const onOperationComplete = vi.fn();
         vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
           new Error('refresh API down'),
         );
 
         action.connectToGateway({
           gatewayUrl: 'https://gateway.test.com',
-          onSessionComplete,
+          onOperationComplete,
           operationId: 'op-1',
           token: 'old-token',
           topicId: TEST_TOPIC_ID,
@@ -335,7 +335,7 @@ describe('GatewayActionImpl', () => {
         // No reconnect attempted — refresh failed, give up cleanly.
         expect(mockClient.reconnect).not.toHaveBeenCalled();
         expect(mockClient.disconnect).toHaveBeenCalled();
-        expect(onSessionComplete).toHaveBeenCalledOnce();
+        expect(onOperationComplete).toHaveBeenCalledOnce();
       });
     });
 

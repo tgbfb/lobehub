@@ -6,7 +6,7 @@ import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/act
 
 import {
   completeAgentRunLifecycle,
-  completeAgentRunSessionLifecycle,
+  completeAgentRunOperationLifecycle,
   runAgentRunEventLifecycle,
   startAgentRunLifecycle,
 } from '../agentRunLifecycle';
@@ -274,11 +274,11 @@ describe('completeAgentRunLifecycle', () => {
     );
   });
 
-  it('runs gateway session cleanup from the session lifecycle', async () => {
+  it('runs gateway operation cleanup from the operation lifecycle', async () => {
     const onComplete = vi.fn();
     const store = createStore();
 
-    await completeAgentRunSessionLifecycle({
+    await completeAgentRunOperationLifecycle({
       context: { agentId: 'agent-1', groupId: 'group-1', topicId: 'topic-1' } as any,
       get: () => store,
       onComplete,

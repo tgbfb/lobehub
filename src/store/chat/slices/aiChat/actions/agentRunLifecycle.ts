@@ -63,7 +63,7 @@ export interface CompleteAgentRunLifecycleResult {
   queuedMessageCount: number;
 }
 
-export interface CompleteAgentRunSessionLifecycleParams {
+export interface CompleteAgentRunOperationLifecycleParams {
   context: ConversationContext;
   get: () => ChatStore;
   onComplete?: AgentRunLifecycleCallback;
@@ -379,13 +379,13 @@ export const completeAgentRunLifecycle = async ({
   return { contextKey, queuedMessageCount };
 };
 
-export const completeAgentRunSessionLifecycle = async ({
+export const completeAgentRunOperationLifecycle = async ({
   context,
   get,
   onComplete,
   operationId,
   runtimeType,
-}: CompleteAgentRunSessionLifecycleParams): Promise<void> => {
+}: CompleteAgentRunOperationLifecycleParams): Promise<void> => {
   if (runtimeType !== 'gateway') {
     await onComplete?.();
     return;

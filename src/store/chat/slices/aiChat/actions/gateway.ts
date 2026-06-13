@@ -24,7 +24,7 @@ import type { StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 
 import {
-  completeAgentRunSessionLifecycle,
+  completeAgentRunOperationLifecycle,
   runAfterUserMessagePersistedLifecycle,
 } from './agentRunLifecycle';
 import { createGatewayEventHandler } from './gatewayEventHandler';
@@ -88,9 +88,10 @@ export interface ConnectGatewayParams {
    */
   onEvent?: (event: AgentStreamEvent) => void;
   /**
-   * Called when the session completes (agent_runtime_end or session_complete)
+   * Called when the gateway operation reaches a terminal boundary
+   * (agent_runtime_end, error, session_complete, or unrecoverable auth failure).
    */
-  onSessionComplete?: () => void;
+  onOperationComplete?: () => void;
   /**
    * The operation ID returned by execAgent
    */
@@ -132,8 +133,15 @@ export class GatewayActionImpl {
    * Creates an AgentStreamClient, manages its lifecycle, and wires up event callbacks.
    */
   connectToGateway = (params: ConnectGatewayParams): void => {
-    const { operationId, gatewayUrl, token, topicId, onEvent, onSessionComplete, resumeOnConnect } =
-      params;
+    const {
+      operationId,
+      gatewayUrl,
+      token,
+      topicId,
+      onEvent,
+      onOperationComplete,
+      resumeOnConnect,
+    } = params;
 
     // Disconnect existing connection for this operation if any
     this.disconnectFromGateway(operationId);
@@ -168,14 +176,14 @@ export class GatewayActionImpl {
     });
 
     // Track whether a terminal agent event was received (agent_runtime_end or error),
-    // so we can fire onSessionComplete from the subsequent disconnect.
+    // so we can fire onOperationComplete from the subsequent disconnect.
     // session_complete is handled separately as an explicit server signal.
     let receivedTerminalEvent = false;
-    let sessionCompleted = false;
-    const fireSessionComplete = () => {
-      if (sessionCompleted) return;
-      sessionCompleted = true;
-      onSessionComplete?.();
+    let operationCompleted = false;
+    const fireOperationComplete = () => {
+      if (operationCompleted) return;
+      operationCompleted = true;
+      onOperationComplete?.();
     };
 
     // Forward agent events to caller, and track terminal events
@@ -189,17 +197,17 @@ export class GatewayActionImpl {
     // Handle session completion
     client.on('session_complete', () => {
       this.internal_cleanupGatewayConnection(operationId);
-      fireSessionComplete();
+      fireOperationComplete();
     });
 
-    // Handle disconnection — only fire session complete if a terminal agent event
+    // Handle disconnection — only fire operation complete if a terminal agent event
     // was received (agent_runtime_end / error). Explicit disconnect() and other
-    // non-terminal disconnects should NOT trigger onSessionComplete.
+    // non-terminal disconnects should NOT trigger onOperationComplete.
     // (auth_failed is handled separately below — it's also session-terminal.)
     client.on('disconnected', () => {
       this.internal_cleanupGatewayConnection(operationId);
       if (receivedTerminalEvent) {
-        fireSessionComplete();
+        fireOperationComplete();
       }
     });
 
@@ -212,7 +220,7 @@ export class GatewayActionImpl {
     client.on('auth_failed', (reason) => {
       console.error(`[Gateway] Auth failed for operation ${operationId}: ${reason}`);
       this.internal_cleanupGatewayConnection(operationId);
-      fireSessionComplete();
+      fireOperationComplete();
     });
 
     // Handle expired-but-recoverable auth: the JWT is past `exp` but the op
@@ -232,7 +240,7 @@ export class GatewayActionImpl {
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
         client.disconnect();
         this.internal_cleanupGatewayConnection(operationId);
-        fireSessionComplete();
+        fireOperationComplete();
       }
     });
 
@@ -300,7 +308,7 @@ export class GatewayActionImpl {
     message: string;
     /** Request metadata carried from the originating user message. */
     metadata?: Pick<MessageMetadata, 'trigger'>;
-    /** Called when the gateway session completes (agent finished running) */
+    /** Called when the gateway operation completes (agent finished running) */
     onComplete?: () => void;
     /** Parent message ID for regeneration/continue (skip user message creation, branch from this message) */
     parentMessageId?: string;
@@ -544,8 +552,8 @@ export class GatewayActionImpl {
     this.#get().connectToGateway({
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: () => {
-        void completeAgentRunSessionLifecycle({
+      onOperationComplete: () => {
+        void completeAgentRunOperationLifecycle({
           context: execContext,
           get: this.#get,
           onComplete,
@@ -656,8 +664,8 @@ export class GatewayActionImpl {
     this.#get().connectToGateway({
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: () => {
-        void completeAgentRunSessionLifecycle({
+      onOperationComplete: () => {
+        void completeAgentRunOperationLifecycle({
           context,
           get: this.#get,
           operationId: gatewayOpId,
