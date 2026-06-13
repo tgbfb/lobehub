@@ -52,7 +52,7 @@ import {
   selectActivatedToolIdsFromMessages,
   selectTodosFromMessages,
 } from '../../message/selectors/dbMessage';
-import { completeAgentRunLifecycle, startAgentRunLifecycle } from './agentRunLifecycle';
+import { runAgentRunLifecycle } from './agentRunLifecycle';
 
 const log = debug('lobe-store:streaming-executor');
 
@@ -536,11 +536,12 @@ export class StreamingExecutorActionImpl {
       originalMessages.length,
       disableTools,
     );
-    startAgentRunLifecycle({
+    void runAgentRunLifecycle({
       context,
       operationId,
       parentMessageId,
       parentMessageType,
+      phase: 'runStart',
       runtimeType: 'client',
     });
 
@@ -830,12 +831,13 @@ export class StreamingExecutorActionImpl {
     }
 
     const runtimeCompletePayload = getRuntimeCompletePayload();
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       anchorMessageId: runtimeCompletePayload.assistantMessageId,
       assistantMessageId: runtimeCompletePayload.assistantMessageId,
       context,
       get: this.#get,
       operationId,
+      phase: 'runComplete',
       runtimeType: 'client',
       status: runtimeCompletePayload.status ?? 'failed',
       triggerMessageId: runtimeCompletePayload.triggerMessageId,

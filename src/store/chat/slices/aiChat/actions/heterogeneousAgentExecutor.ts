@@ -40,7 +40,7 @@ import { resolveNotificationNavigatePath } from '@/store/chat/utils/desktopNotif
 import { markdownToTxt } from '@/utils/markdownToTxt';
 import { addUsageToOperationMetrics } from '@/utils/operationUsageMetrics';
 
-import { completeAgentRunLifecycle } from './agentRunLifecycle';
+import { runAgentRunLifecycle } from './agentRunLifecycle';
 import { createGatewayEventHandler } from './gatewayEventHandler';
 
 /** Mirrors `idGenerator('threads', 16)` on the server so sync-allocated ids have the same shape. */
@@ -472,13 +472,14 @@ export const executeHeterogeneousAgent = async (
       { operationId },
     );
 
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       anchorMessageId: mainState.currentAssistantId,
       assistantMessageId: mainState.currentAssistantId,
       context,
       drainQueuedMessages: false,
       get,
       operationId,
+      phase: 'runComplete',
       runtimeType: 'heterogeneous',
       status: 'failed',
     });

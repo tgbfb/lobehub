@@ -21,7 +21,7 @@ import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNo
 import { addUsageToOperationMetrics, type OperationUsageLike } from '@/utils/operationUsageMetrics';
 
 import type { AgentRunLifecycleCallback, AgentRunRuntimeType } from './agentRunLifecycle';
-import { completeAgentRunLifecycle, runAgentRunEventLifecycle } from './agentRunLifecycle';
+import { runAgentRunLifecycle } from './agentRunLifecycle';
 
 // Lazy-loaded to break the import cycle:
 //   gateway.ts → gatewayEventHandler.ts → executors/index.ts (which pulls in
@@ -337,12 +337,13 @@ export const createGatewayEventHandler = (
             }
           }
 
-          runAgentRunEventLifecycle({
+          void runAgentRunLifecycle({
             anchorMessageId: currentAssistantMessageId,
             assistantMessageId: currentAssistantMessageId,
             context,
             eventType: 'stream_start',
             operationId,
+            phase: 'runEvent',
             runtimeType,
             stepIndex: event.stepIndex,
           });
@@ -517,10 +518,11 @@ export const createGatewayEventHandler = (
         // Refresh on execution_complete to ensure final step state is consistent
         if (data?.phase === 'execution_complete') {
           enqueue(async () => {
-            runAgentRunEventLifecycle({
+            void runAgentRunLifecycle({
               context,
               eventType: 'step_complete',
               operationId,
+              phase: 'runEvent',
               runtimeType,
               stepIndex: event.stepIndex,
             });
@@ -538,12 +540,13 @@ export const createGatewayEventHandler = (
               ? 'cancelled'
               : 'completed';
 
-          runAgentRunEventLifecycle({
+          void runAgentRunLifecycle({
             anchorMessageId: currentAssistantMessageId,
             assistantMessageId: currentAssistantMessageId,
             context,
             eventType: 'runtime_end',
             operationId,
+            phase: 'runEvent',
             runtimeType,
           });
           get().internal_toggleToolCallingStreaming(currentAssistantMessageId, undefined);
@@ -584,7 +587,7 @@ export const createGatewayEventHandler = (
             await fetchAndReplaceMessages(get, context).catch(console.error);
           }
 
-          await completeAgentRunLifecycle({
+          await runAgentRunLifecycle({
             afterRunComplete: params.afterRunComplete,
             anchorMessageId: currentAssistantMessageId,
             assistantMessageId: currentAssistantMessageId,
@@ -593,6 +596,7 @@ export const createGatewayEventHandler = (
             drainQueuedMessages: params.drainQueuedMessages,
             get,
             operationId,
+            phase: 'runComplete',
             runtimeType,
             status: terminalStatus,
           });
@@ -614,11 +618,12 @@ export const createGatewayEventHandler = (
           const messageError = toChatMessageError(event.data);
           const errorMessage = messageError.message;
 
-          runAgentRunEventLifecycle({
+          void runAgentRunLifecycle({
             context,
             errorMessage,
             eventType: 'error',
             operationId,
+            phase: 'runEvent',
             runtimeType,
           });
 
@@ -655,7 +660,7 @@ export const createGatewayEventHandler = (
             dispatchContext,
           );
 
-          await completeAgentRunLifecycle({
+          await runAgentRunLifecycle({
             afterRunComplete: params.afterRunComplete,
             anchorMessageId: currentAssistantMessageId,
             assistantMessageId: currentAssistantMessageId,
@@ -664,6 +669,7 @@ export const createGatewayEventHandler = (
             drainQueuedMessages: false,
             get,
             operationId,
+            phase: 'runComplete',
             runtimeType,
             status: 'failed',
           });

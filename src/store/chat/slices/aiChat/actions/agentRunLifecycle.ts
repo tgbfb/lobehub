@@ -71,13 +71,58 @@ export interface CompleteAgentRunOperationLifecycleParams {
   runtimeType: AgentRunRuntimeType;
 }
 
-interface AfterUserMessagePersistedParams {
+export interface AfterUserMessagePersistedLifecycleParams {
   agentId: string;
   assistantMessageId: string;
   get: () => ChatStore;
   isCreateNewTopic?: boolean;
   messages: UIChatMessage[];
   topicId?: string | null;
+}
+
+export type AgentRunLifecycleEvent =
+  | ({ phase: 'afterUserMessagePersisted' } & AfterUserMessagePersistedLifecycleParams)
+  | ({ phase: 'operationComplete' } & CompleteAgentRunOperationLifecycleParams)
+  | ({ phase: 'runComplete' } & CompleteAgentRunLifecycleParams)
+  | ({ phase: 'runEvent' } & AgentRunEventLifecycleParams)
+  | ({ phase: 'runStart' } & StartAgentRunLifecycleParams);
+
+type AgentRunLifecycleNonCompleteEvent = Exclude<AgentRunLifecycleEvent, { phase: 'runComplete' }>;
+
+export function runAgentRunLifecycle(
+  event: { phase: 'runComplete' } & CompleteAgentRunLifecycleParams,
+): Promise<CompleteAgentRunLifecycleResult>;
+export function runAgentRunLifecycle(event: AgentRunLifecycleNonCompleteEvent): Promise<void>;
+export async function runAgentRunLifecycle(
+  event: AgentRunLifecycleEvent,
+): Promise<CompleteAgentRunLifecycleResult | void> {
+  switch (event.phase) {
+    case 'afterUserMessagePersisted': {
+      const { phase: _, ...params } = event;
+      return runAfterUserMessagePersistedLifecycle(params);
+    }
+
+    case 'operationComplete': {
+      const { phase: _, ...params } = event;
+      return completeAgentRunOperationLifecycle(params);
+    }
+
+    case 'runComplete': {
+      const { phase: _, ...params } = event;
+      return completeAgentRunLifecycle(params);
+    }
+
+    case 'runEvent': {
+      const { phase: _, ...params } = event;
+      runAgentRunEventLifecycle(params);
+      return;
+    }
+
+    case 'runStart': {
+      const { phase: _, ...params } = event;
+      startAgentRunLifecycle(params);
+    }
+  }
 }
 
 const runCallbacks = async (
@@ -149,7 +194,7 @@ const drainQueuedMessagesAfterComplete = ({
   return remainingQueued.length;
 };
 
-export const startAgentRunLifecycle = ({
+const startAgentRunLifecycle = ({
   context,
   operationId,
   parentMessageId,
@@ -173,7 +218,7 @@ export const startAgentRunLifecycle = ({
   });
 };
 
-export const runAgentRunEventLifecycle = ({
+const runAgentRunEventLifecycle = ({
   anchorMessageId,
   assistantMessageId,
   context,
@@ -307,7 +352,7 @@ const runClientCompleteLifecycle = async ({
   }
 };
 
-export const completeAgentRunLifecycle = async ({
+const completeAgentRunLifecycle = async ({
   afterRunComplete,
   anchorMessageId,
   assistantMessageId,
@@ -379,7 +424,7 @@ export const completeAgentRunLifecycle = async ({
   return { contextKey, queuedMessageCount };
 };
 
-export const completeAgentRunOperationLifecycle = async ({
+const completeAgentRunOperationLifecycle = async ({
   context,
   get,
   onComplete,
@@ -426,14 +471,14 @@ const applyTopicTitle = async (
   console.info('[dev] sliced topic title (NEXT_PUBLIC_DEV_DISABLE_AUTO_TOPIC=1):', title);
 };
 
-export const runAfterUserMessagePersistedLifecycle = async ({
+const runAfterUserMessagePersistedLifecycle = async ({
   agentId,
   assistantMessageId,
   get,
   isCreateNewTopic,
   messages,
   topicId,
-}: AfterUserMessagePersistedParams): Promise<void> => {
+}: AfterUserMessagePersistedLifecycleParams): Promise<void> => {
   if (!topicId) return;
 
   if (isCreateNewTopic) {

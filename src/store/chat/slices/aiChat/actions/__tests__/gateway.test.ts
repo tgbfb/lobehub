@@ -6,17 +6,22 @@ import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
 import { messageService } from '@/services/message';
 import type * as AgentRunLifecycleModule from '@/store/chat/slices/aiChat/actions/agentRunLifecycle';
-import { runAfterUserMessagePersistedLifecycle } from '@/store/chat/slices/aiChat/actions/agentRunLifecycle';
 
 import type { GatewayConnection } from '../gateway';
 import { GatewayActionImpl } from '../gateway';
+
+const postPersistLifecycleMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('@/store/chat/slices/aiChat/actions/agentRunLifecycle', async (importOriginal) => {
   const actual = await importOriginal<typeof AgentRunLifecycleModule>();
 
   return {
     ...actual,
-    runAfterUserMessagePersistedLifecycle: vi.fn().mockResolvedValue(undefined),
+    runAgentRunLifecycle: vi.fn((event: AgentRunLifecycleModule.AgentRunLifecycleEvent) => {
+      if (event.phase === 'afterUserMessagePersisted') return postPersistLifecycleMock(event);
+
+      return actual.runAgentRunLifecycle(event as any);
+    }),
   };
 });
 
@@ -131,7 +136,7 @@ describe('GatewayActionImpl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(messageService.getMessages).mockResolvedValue([]);
-    vi.mocked(runAfterUserMessagePersistedLifecycle).mockResolvedValue(undefined);
+    postPersistLifecycleMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -532,12 +537,13 @@ describe('GatewayActionImpl', () => {
       });
 
       await vi.waitFor(() => {
-        expect(runAfterUserMessagePersistedLifecycle).toHaveBeenCalledWith(
+        expect(postPersistLifecycleMock).toHaveBeenCalledWith(
           expect.objectContaining({
             agentId: 'agent-1',
             assistantMessageId: 'ast-1',
             isCreateNewTopic: false,
             messages: [],
+            phase: 'afterUserMessagePersisted',
             topicId: 'topic-1',
           }),
         );
@@ -555,7 +561,7 @@ describe('GatewayActionImpl', () => {
       refreshTopic.mockImplementation(async () => {
         events.push('refreshTopic');
       });
-      vi.mocked(runAfterUserMessagePersistedLifecycle).mockImplementation(async () => {
+      postPersistLifecycleMock.mockImplementation(async () => {
         events.push('postPersistLifecycle');
       });
       vi.mocked(messageService.getMessages).mockResolvedValueOnce(persistedMessages);
@@ -582,12 +588,13 @@ describe('GatewayActionImpl', () => {
       await vi.waitFor(() => {
         expect(events).toEqual(['refreshTopic', 'postPersistLifecycle']);
       });
-      expect(runAfterUserMessagePersistedLifecycle).toHaveBeenCalledWith(
+      expect(postPersistLifecycleMock).toHaveBeenCalledWith(
         expect.objectContaining({
           agentId: 'agent-1',
           assistantMessageId: 'ast-1',
           isCreateNewTopic: true,
           messages: persistedMessages,
+          phase: 'afterUserMessagePersisted',
           topicId: 'topic-new',
         }),
       );

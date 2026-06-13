@@ -40,7 +40,7 @@ import {
 } from '@/store/agent/selectors';
 import { agentGroupByIdSelectors, getChatGroupStoreState } from '@/store/agentGroup';
 import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
-import { runAfterUserMessagePersistedLifecycle } from '@/store/chat/slices/aiChat/actions/agentRunLifecycle';
+import { runAgentRunLifecycle } from '@/store/chat/slices/aiChat/actions/agentRunLifecycle';
 import { resolveHeteroResume } from '@/store/chat/slices/aiChat/actions/heteroResume';
 import { dispatchNonHeteroSubAgent } from '@/store/chat/slices/aiChat/actions/nonHeteroSubAgentDispatcher';
 import { PortalViewType } from '@/store/chat/slices/portal/initialState';
@@ -645,12 +645,13 @@ export class ConversationLifecycleActionImpl {
         { operationId },
       );
 
-      runAfterUserMessagePersistedLifecycle({
+      runAgentRunLifecycle({
         agentId,
         assistantMessageId: heteroData.assistantMessageId,
         get: this.#get,
         isCreateNewTopic: heteroData.isCreateNewTopic,
         messages: heteroMessages,
+        phase: 'afterUserMessagePersisted',
         topicId: heteroData.topicId ?? heteroContext.topicId,
       }).catch(console.error);
 
@@ -992,12 +993,13 @@ export class ConversationLifecycleActionImpl {
 
     if (data.topicId) this.#get().internal_updateTopicLoading(data.topicId, true);
 
-    runAfterUserMessagePersistedLifecycle({
+    runAgentRunLifecycle({
       agentId,
       assistantMessageId: data.assistantMessageId,
       get: this.#get,
       isCreateNewTopic: data.isCreateNewTopic,
       messages: data.messages,
+      phase: 'afterUserMessagePersisted',
       topicId: data.topicId,
     }).catch(console.error);
 

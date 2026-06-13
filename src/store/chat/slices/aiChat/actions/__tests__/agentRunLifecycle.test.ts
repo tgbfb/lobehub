@@ -4,12 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { topicService } from '@/services/topic';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 
-import {
-  completeAgentRunLifecycle,
-  completeAgentRunOperationLifecycle,
-  runAgentRunEventLifecycle,
-  startAgentRunLifecycle,
-} from '../agentRunLifecycle';
+import { runAgentRunLifecycle } from '../agentRunLifecycle';
 
 const desktopEnv = vi.hoisted(() => ({ isDesktop: false }));
 const desktopNotificationMock = vi.hoisted(() => ({
@@ -102,7 +97,7 @@ const createStore = (overrides: Record<string, unknown> = {}) => {
   } as any;
 };
 
-describe('completeAgentRunLifecycle', () => {
+describe('runAgentRunLifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     desktopEnv.isDesktop = false;
@@ -114,7 +109,7 @@ describe('completeAgentRunLifecycle', () => {
     const store = createStore();
     const get = vi.fn(() => store);
 
-    const result = await completeAgentRunLifecycle({
+    const result = await runAgentRunLifecycle({
       afterRunComplete: [
         () => {
           store.events.push('afterRunComplete');
@@ -130,6 +125,7 @@ describe('completeAgentRunLifecycle', () => {
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       get,
       operationId: 'op-1',
+      phase: 'runComplete',
       queueDrainDelayMs: 0,
       runtimeType: 'client',
       status: 'completed',
@@ -173,7 +169,7 @@ describe('completeAgentRunLifecycle', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const store = createStore();
 
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       beforeRunComplete: [
         async () => {
           throw new Error('metadata write failed');
@@ -182,6 +178,7 @@ describe('completeAgentRunLifecycle', () => {
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       get: () => store,
       operationId: 'op-1',
+      phase: 'runComplete',
       queueDrainDelayMs: 0,
       runtimeType: 'heterogeneous',
       status: 'completed',
@@ -201,18 +198,20 @@ describe('completeAgentRunLifecycle', () => {
   it('does not drain queued messages for failed or cancelled terminal states', async () => {
     const store = createStore();
 
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       get: () => store,
       operationId: 'op-1',
+      phase: 'runComplete',
       runtimeType: 'gateway',
       status: 'failed',
     });
 
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       get: () => store,
       operationId: 'op-1',
+      phase: 'runComplete',
       runtimeType: 'gateway',
       status: 'cancelled',
     });
@@ -221,17 +220,19 @@ describe('completeAgentRunLifecycle', () => {
     expect(store.drainQueuedMessages).not.toHaveBeenCalled();
   });
 
-  it('emits client runtime start from the start lifecycle only for client runs', () => {
-    startAgentRunLifecycle({
+  it('emits client runtime start from the start lifecycle only for client runs', async () => {
+    await runAgentRunLifecycle({
       context: { agentId: 'agent-1', threadId: 'thread-1', topicId: 'topic-1' } as any,
       operationId: 'op-1',
       parentMessageId: 'user-1',
       parentMessageType: 'user',
+      phase: 'runStart',
       runtimeType: 'client',
     });
-    startAgentRunLifecycle({
+    await runAgentRunLifecycle({
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       operationId: 'op-2',
+      phase: 'runStart',
       runtimeType: 'gateway',
     });
 
@@ -249,13 +250,14 @@ describe('completeAgentRunLifecycle', () => {
     );
   });
 
-  it('emits gateway event signals from the event lifecycle', () => {
-    runAgentRunEventLifecycle({
+  it('emits gateway event signals from the event lifecycle', async () => {
+    await runAgentRunLifecycle({
       anchorMessageId: 'asst-1',
       assistantMessageId: 'asst-1',
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       eventType: 'stream_start',
       operationId: 'op-1',
+      phase: 'runEvent',
       runtimeType: 'gateway',
       stepIndex: 2,
     });
@@ -278,11 +280,12 @@ describe('completeAgentRunLifecycle', () => {
     const onComplete = vi.fn();
     const store = createStore();
 
-    await completeAgentRunOperationLifecycle({
+    await runAgentRunLifecycle({
       context: { agentId: 'agent-1', groupId: 'group-1', topicId: 'topic-1' } as any,
       get: () => store,
       onComplete,
       operationId: 'op-1',
+      phase: 'operationComplete',
       runtimeType: 'gateway',
     });
 
@@ -313,12 +316,13 @@ describe('completeAgentRunLifecycle', () => {
       },
     });
 
-    await completeAgentRunLifecycle({
+    await runAgentRunLifecycle({
       assistantMessageId: 'asst-1',
       context: { agentId: 'agent-1', topicId: 'topic-1' } as any,
       drainQueuedMessages: false,
       get: () => store,
       operationId: 'op-1',
+      phase: 'runComplete',
       runtimeType: 'client',
       status: 'completed',
     });

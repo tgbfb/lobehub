@@ -23,10 +23,7 @@ import type { ChatStore } from '@/store/chat/store';
 import type { StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 
-import {
-  completeAgentRunOperationLifecycle,
-  runAfterUserMessagePersistedLifecycle,
-} from './agentRunLifecycle';
+import { runAgentRunLifecycle } from './agentRunLifecycle';
 import { createGatewayEventHandler } from './gatewayEventHandler';
 
 /**
@@ -456,12 +453,13 @@ export class GatewayActionImpl {
 
     void refreshCreatedTopic
       .then(() =>
-        runAfterUserMessagePersistedLifecycle({
+        runAgentRunLifecycle({
           agentId: context.agentId,
           assistantMessageId: result.assistantMessageId,
           get: this.#get,
           isCreateNewTopic,
           messages: persistedMessagesForLifecycle,
+          phase: 'afterUserMessagePersisted',
           topicId: result.topicId,
         }),
       )
@@ -553,11 +551,12 @@ export class GatewayActionImpl {
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
       onOperationComplete: () => {
-        void completeAgentRunOperationLifecycle({
+        void runAgentRunLifecycle({
           context: execContext,
           get: this.#get,
           onComplete,
           operationId: gatewayOpId,
+          phase: 'operationComplete',
           runtimeType: 'gateway',
         });
       },
@@ -665,10 +664,11 @@ export class GatewayActionImpl {
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
       onOperationComplete: () => {
-        void completeAgentRunOperationLifecycle({
+        void runAgentRunLifecycle({
           context,
           get: this.#get,
           operationId: gatewayOpId,
+          phase: 'operationComplete',
           runtimeType: 'gateway',
         });
       },
