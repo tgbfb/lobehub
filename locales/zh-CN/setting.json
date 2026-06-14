@@ -2049,6 +2049,8 @@
   "workspaceSetting.devices.empty": "暂无工作区设备。",
   "workspaceSetting.devices.enrollDesc": "在你想共享的机器上执行（仅工作区所有者）：",
   "workspaceSetting.devices.enrollTitle": "添加设备",
+  "workspaceSetting.devices.heroDesc": "把一台共享机器（构建服务器或团队 Mac）注册进来，工作区成员都能在它上面运行 Agent：读写文件、执行命令、调用系统工具。",
+  "workspaceSetting.devices.heroTitle": "连接你的第一台工作区设备",
   "workspaceSetting.devices.offline": "离线",
   "workspaceSetting.devices.online": "在线",
   "workspaceSetting.group.admin": "管理",

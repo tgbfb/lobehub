@@ -167,4 +167,25 @@ export class DeviceModel {
       .delete(devices)
       .where(and(eq(devices.userId, this.userId), eq(devices.deviceId, deviceId)));
   };
+
+  /**
+   * Update a WORKSPACE device's user-editable fields, scoped by `workspace_id`
+   * (not the enrolling admin's userId), so any workspace owner can manage it.
+   * Caller must be a workspace owner — enforced at the router (`wsOwnerProcedure`).
+   */
+  updateWorkspaceDevice = async (deviceId: string, value: UpdateDeviceParams) => {
+    if (!this.workspaceId) return;
+    return this.db
+      .update(devices)
+      .set({ ...value, updatedAt: new Date() })
+      .where(and(eq(devices.workspaceId, this.workspaceId), eq(devices.deviceId, deviceId)));
+  };
+
+  /** Remove a WORKSPACE device, scoped by `workspace_id`. Owner-gated at the router. */
+  deleteWorkspaceDevice = async (deviceId: string) => {
+    if (!this.workspaceId) return;
+    return this.db
+      .delete(devices)
+      .where(and(eq(devices.workspaceId, this.workspaceId), eq(devices.deviceId, deviceId)));
+  };
 }

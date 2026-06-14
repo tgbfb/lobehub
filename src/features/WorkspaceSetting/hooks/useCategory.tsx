@@ -8,8 +8,8 @@ import {
   Database,
   KeyIcon,
   KeyRound,
-  Laptop,
   Map,
+  MonitorSmartphoneIcon,
   Sparkles,
   Users,
 } from 'lucide-react';
@@ -64,7 +64,7 @@ export const useWorkspaceSettingCategory = (): WorkspaceSettingCategoryGroup[] =
             label: tAuth('tab.stats'),
           },
           {
-            icon: Laptop,
+            icon: MonitorSmartphoneIcon,
             key: WorkspaceSettingsTabs.Devices,
             label: t('tab.devices'),
           },

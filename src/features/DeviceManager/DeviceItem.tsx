@@ -69,9 +69,16 @@ const DeviceItem = memo<DeviceItemProps>(({ device, isCurrent, onSelect, selecte
   const { t } = useTranslation('setting');
   const utils = lambdaQuery.useUtils();
 
-  const removeDevice = lambdaQuery.device.removeDevice.useMutation({
-    onSuccess: () => utils.device.listDevices.invalidate(),
+  // Workspace devices are owner-gated + workspace-scoped on the server; personal
+  // devices stay userId-scoped. Route by the device's own scope.
+  const onRemoveSuccess = () => utils.device.listDevices.invalidate();
+  const removePersonal = lambdaQuery.device.removeDevice.useMutation({
+    onSuccess: onRemoveSuccess,
   });
+  const removeWorkspace = lambdaQuery.device.removeWorkspaceDevice.useMutation({
+    onSuccess: onRemoveSuccess,
+  });
+  const removeDevice = device.scope === 'workspace' ? removeWorkspace : removePersonal;
 
   const displayName = device.friendlyName || device.hostname || device.deviceId;
   const isFallback = device.identitySource === 'fallback';

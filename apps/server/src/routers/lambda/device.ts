@@ -526,6 +526,47 @@ export const deviceRouter = router({
     }),
 
   /**
+   * Rename / set working dirs of a WORKSPACE device — scoped by `workspace_id`,
+   * owner-gated, so any workspace owner can manage it (not just the enroller).
+   * Mirrors {@link deviceRouter.updateDevice} but for the workspace pool.
+   */
+  updateWorkspaceDevice: wsOwnerProcedure
+    .use(serverDatabase)
+    .input(
+      z.object({
+        defaultCwd: z.string().nullable().optional(),
+        deviceId: z.string(),
+        friendlyName: z.string().max(100).nullable().optional(),
+        workingDirs: z
+          .array(z.object({ path: z.string(), repoType: z.enum(['git', 'github']).optional() }))
+          .max(20)
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const model = new DeviceModel(ctx.serverDB, ctx.userId, ctx.workspaceId);
+      const { deviceId, workingDirs, ...value } = input;
+      const nextWorkingDirs = workingDirs
+        ? preserveWorkspaceCache(
+            workingDirs,
+            (await model.findWorkspaceDeviceById(deviceId))?.workingDirs ?? [],
+          )
+        : undefined;
+      await model.updateWorkspaceDevice(deviceId, { ...value, workingDirs: nextWorkingDirs });
+      return { success: true };
+    }),
+
+  /** Remove a WORKSPACE device — scoped by `workspace_id`, owner-gated. */
+  removeWorkspaceDevice: wsOwnerProcedure
+    .use(serverDatabase)
+    .input(z.object({ deviceId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const model = new DeviceModel(ctx.serverDB, ctx.userId, ctx.workspaceId);
+      await model.deleteWorkspaceDevice(input.deviceId);
+      return { success: true };
+    }),
+
+  /**
    * Auto-register the calling device (desktop after OIDC login / CLI on first
    * `lh connect`). Upserts on (userId, deviceId); user-owned fields are
    * preserved on conflict.
