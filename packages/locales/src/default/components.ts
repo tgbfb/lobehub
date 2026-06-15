@@ -8,6 +8,9 @@ export default {
   'DragUpload.dragFileTitle': 'Upload Files',
   'DragUpload.dragFolderDesc': 'Drop the folder to reference it as @mention in the chat input.',
   'DragUpload.dragFolderTitle': 'Reference Folder',
+  'DragUpload.dragLocalPathDesc':
+    'Drop files or folders to reference their local paths in the chat input.',
+  'DragUpload.dragLocalPathTitle': 'Reference Local Paths',
   'DragUpload.dragMixedDesc': 'Folders are inserted as @mentions; files are uploaded.',
   'DragUpload.dragMixedTitle': 'Reference Folder & Upload Files',
   'DragUpload.dragTitle': 'Upload Images',

@@ -2,9 +2,10 @@ import { isDesktop } from '@lobechat/const';
 import { Flexbox, TooltipGroup } from '@lobehub/ui';
 import React, { memo, Suspense, useCallback } from 'react';
 
-import DragUploadZone, { type DroppedFolder, useUploadFiles } from '@/components/DragUploadZone';
+import DragUploadZone, { type DroppedLocalPath, useUploadFiles } from '@/components/DragUploadZone';
 import Loading from '@/components/Loading/BrandTextLoading';
-import { insertLocalFolderMentions } from '@/features/ChatInput/InputEditor/insertLocalFolderMentions';
+import { useExplicitWorkingDirectory } from '@/features/ChatInput/hooks/useExplicitWorkingDirectory';
+import { insertLocalPathMentions } from '@/features/ChatInput/InputEditor/insertLocalFolderMentions';
 import { useAgentStore } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
@@ -27,20 +28,22 @@ const ChatConversation = memo(() => {
 
   const { handleUploadFiles } = useUploadFiles({ agentId, model, provider });
 
-  const enableLocalFolderMention = isDesktop && (isHeterogeneous || isLocalSystemEnabled);
+  const explicitWorkingDirectory = useExplicitWorkingDirectory(agentId);
+  const enableLocalPathMention =
+    isDesktop && !!explicitWorkingDirectory && (isHeterogeneous || isLocalSystemEnabled);
 
-  const handleLocalFolders = useCallback((folders: DroppedFolder[]) => {
+  const handleLocalPaths = useCallback((paths: DroppedLocalPath[]) => {
     const editor = useChatStore.getState().mainInputEditor?.instance;
     if (!editor) return;
-    insertLocalFolderMentions(editor, folders);
+    insertLocalPathMentions(editor, paths);
   }, []);
 
   return (
     <Suspense fallback={<Loading debugId="Agent > ChatConversation" />}>
       <DragUploadZone
-        enableLocalFolderMention={enableLocalFolderMention}
+        enableLocalPathMention={enableLocalPathMention}
         style={wrapperStyle}
-        onLocalFolders={enableLocalFolderMention ? handleLocalFolders : undefined}
+        onLocalPaths={enableLocalPathMention ? handleLocalPaths : undefined}
         onUploadFiles={handleUploadFiles}
       >
         <Flexbox flex={1} height={'100%'} style={{ minWidth: 0 }}>

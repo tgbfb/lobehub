@@ -2,23 +2,23 @@ import type { IEditor } from '@lobehub/editor';
 import { INSERT_MENTION_COMMAND } from '@lobehub/editor';
 import { $getSelection, $isRangeSelection } from 'lexical';
 
-import type { DroppedFolder } from '@/components/DragUploadZone';
+import type { DroppedFolder, DroppedLocalPath } from '@/components/DragUploadZone';
 
 /**
- * Insert one localFile mention node per dropped folder at the editor's current
+ * Insert one localFile mention node per local path at the editor's current
  * selection, separating consecutive mentions with a space so they read as
  * distinct tokens.
  *
  * Mirrors the metadata shape used by the `@`-menu local-file mention path so
- * the markdownWriter in InputEditor renders `<localFile name="..." path="..." isDirectory />`.
+ * the markdownWriter in InputEditor renders `<localFile name="..." path="..." />`.
  */
-export const insertLocalFolderMentions = (editor: IEditor, folders: DroppedFolder[]) => {
-  if (folders.length === 0) return;
+export const insertLocalPathMentions = (editor: IEditor, paths: DroppedLocalPath[]) => {
+  if (paths.length === 0) return;
 
   const lexicalEditor = editor.getLexicalEditor();
   lexicalEditor?.focus();
 
-  folders.forEach((folder, index) => {
+  paths.forEach((item, index) => {
     if (index > 0) {
       lexicalEditor?.update(() => {
         const selection = $getSelection();
@@ -28,11 +28,11 @@ export const insertLocalFolderMentions = (editor: IEditor, folders: DroppedFolde
       });
     }
     editor.dispatchCommand(INSERT_MENTION_COMMAND, {
-      label: folder.name,
+      label: item.name,
       metadata: {
-        isDirectory: true,
-        name: folder.name,
-        path: folder.path,
+        isDirectory: item.isDirectory,
+        name: item.name,
+        path: item.path,
         type: 'localFile',
       },
     });
@@ -46,3 +46,9 @@ export const insertLocalFolderMentions = (editor: IEditor, folders: DroppedFolde
     }
   });
 };
+
+export const insertLocalFolderMentions = (editor: IEditor, folders: DroppedFolder[]) =>
+  insertLocalPathMentions(
+    editor,
+    folders.map((folder) => ({ ...folder, isDirectory: true })),
+  );

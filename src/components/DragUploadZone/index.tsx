@@ -8,7 +8,11 @@ import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useDragUploadContext } from './DragUploadProvider';
-import { type DroppedFolder, useLocalDragUpload } from './useLocalDragUpload';
+import {
+  type DroppedFolder,
+  type DroppedLocalPath,
+  useLocalDragUpload,
+} from './useLocalDragUpload';
 
 const BLOCK_SIZE = 48;
 const ICON_SIZE = { size: 28, strokeWidth: 1.5 };
@@ -89,9 +93,18 @@ export interface DragUploadZoneProps {
    */
   enableLocalFolderMention?: boolean;
   /**
+   * Whether dropping files/folders should route Electron-resolved absolute paths
+   * to onLocalPaths instead of uploading. Unresolved items still upload.
+   */
+  enableLocalPathMention?: boolean;
+  /**
    * Callback when top-level folders are dropped and enableLocalFolderMention is on.
    */
   onLocalFolders?: (folders: DroppedFolder[]) => void | Promise<void>;
+  /**
+   * Callback when top-level files/folders are dropped and enableLocalPathMention is on.
+   */
+  onLocalPaths?: (paths: DroppedLocalPath[]) => void | Promise<void>;
   /**
    * Callback when files are dropped
    */
@@ -113,7 +126,9 @@ const DragUploadZone = memo<DragUploadZoneProps>(
     disabled = false,
     enabledFiles = true,
     enableLocalFolderMention = false,
+    enableLocalPathMention = false,
     onLocalFolders,
+    onLocalPaths,
     overlayMinHeight = 160,
     onUploadFiles,
     style,
@@ -127,16 +142,25 @@ const DragUploadZone = memo<DragUploadZoneProps>(
     const { getContainerProps } = useLocalDragUpload({
       disabled,
       enableLocalFolderMention,
+      enableLocalPathMention,
       onLocalFolders,
+      onLocalPaths,
       onUploadFiles,
     });
 
     // Show overlay when files are being dragged anywhere on the page
     const showOverlay = isDraggingGlobally && !disabled;
 
-    // When local folder mention is on AND dragged content includes a folder,
-    // surface a folder-aware hint instead of the default upload hint.
+    // In local path mode, surface a reference hint instead of the default upload hint.
+    // The legacy folder-only mode keeps its folder-aware copy below.
     const overlayCopy = useMemo(() => {
+      if (enableLocalPathMention && dragContentKind !== 'none') {
+        return {
+          desc: t('DragUpload.dragLocalPathDesc'),
+          showFolderIcon: dragContentKind !== 'files',
+          title: t('DragUpload.dragLocalPathTitle'),
+        };
+      }
       if (enableLocalFolderMention && dragContentKind === 'folders') {
         return {
           desc: t('DragUpload.dragFolderDesc'),
@@ -156,7 +180,7 @@ const DragUploadZone = memo<DragUploadZoneProps>(
         showFolderIcon: false,
         title: t(enabledFiles ? 'DragUpload.dragFileTitle' : 'DragUpload.dragTitle'),
       };
-    }, [dragContentKind, enableLocalFolderMention, enabledFiles, t]);
+    }, [dragContentKind, enableLocalFolderMention, enableLocalPathMention, enabledFiles, t]);
 
     return (
       <div className={cx(styles.container, className)} style={style} {...getContainerProps()}>
@@ -224,7 +248,7 @@ const DragUploadZone = memo<DragUploadZoneProps>(
 
 DragUploadZone.displayName = 'DragUploadZone';
 
-export type { DroppedFolder } from './useLocalDragUpload';
+export type { DroppedFolder, DroppedLocalPath } from './useLocalDragUpload';
 export { usePasteFile } from './usePasteFile';
 export { useUploadFiles } from './useUploadFiles';
 export default DragUploadZone;

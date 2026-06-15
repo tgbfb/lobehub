@@ -10,9 +10,20 @@ export interface DroppedFolder {
   path: string;
 }
 
+export interface DroppedLocalPath {
+  isDirectory: boolean;
+  name: string;
+  path: string;
+}
+
 export interface PartitionedDroppedItems {
   files: File[];
   folders: DroppedFolder[];
+}
+
+export interface PartitionedDroppedLocalPaths {
+  files: File[];
+  localPaths: DroppedLocalPath[];
 }
 
 /**
@@ -38,6 +49,24 @@ const resolveElectronFilePath = (file: File): string | null => {
     return null;
   }
 };
+
+const getPathName = (path: string) => path.split(/[\\/]/).pop() || path;
+
+const createDroppedLocalPath = ({
+  entry,
+  file,
+  isDirectory,
+  path,
+}: {
+  entry?: FileSystemEntry | null;
+  file?: File | null;
+  isDirectory: boolean;
+  path: string;
+}): DroppedLocalPath => ({
+  isDirectory,
+  name: file?.name || entry?.name || getPathName(path),
+  path,
+});
 
 const safeGetEntry = (item: DataTransferItem): FileSystemEntry | null => {
   try {
@@ -177,6 +206,57 @@ export const partitionDroppedItems = async (
   return { files, folders };
 };
 
+/**
+ * Partition dropped/clipboard items for a local-filesystem chat context.
+ *
+ * Top-level files and folders with Electron-resolvable absolute paths become
+ * local path references. Anything without a resolvable path falls back to the
+ * existing upload flow so browser and failure cases still preserve the user's
+ * dropped content.
+ */
+export const partitionDroppedItemsAsLocalPaths = async (
+  items: DataTransferItem[],
+): Promise<PartitionedDroppedLocalPaths> => {
+  const localPaths: DroppedLocalPath[] = [];
+  const files: File[] = [];
+
+  for (const item of items) {
+    if (item.kind !== 'file') continue;
+
+    const entry = safeGetEntry(item);
+
+    if (entry?.isDirectory) {
+      const directoryFile = item.getAsFile();
+      const path = directoryFile ? resolveElectronFilePath(directoryFile) : null;
+      if (path) {
+        localPaths.push(
+          createDroppedLocalPath({ entry, file: directoryFile, isDirectory: true, path }),
+        );
+        continue;
+      }
+
+      const flattened = await processEntry(entry);
+      files.push(...flattened);
+      continue;
+    }
+
+    const file = item.getAsFile();
+    if (file) {
+      const path = resolveElectronFilePath(file);
+      if (path) {
+        localPaths.push(createDroppedLocalPath({ entry, file, isDirectory: false, path }));
+      } else {
+        files.push(file);
+      }
+    } else if (entry) {
+      const flattened = await processEntry(entry);
+      files.push(...flattened);
+    }
+  }
+
+  return { files, localPaths };
+};
+
 export interface UseLocalDragUploadOptions {
   /**
    * Whether the drag upload is disabled
@@ -189,9 +269,19 @@ export interface UseLocalDragUploadOptions {
    */
   enableLocalFolderMention?: boolean;
   /**
+   * When true, top-level files and folders are routed to onLocalPaths instead
+   * of being uploaded, as long as Electron can resolve an absolute path.
+   * Unresolved items still fall back to upload.
+   */
+  enableLocalPathMention?: boolean;
+  /**
    * Callback for top-level dropped folders when enableLocalFolderMention is on.
    */
   onLocalFolders?: (folders: DroppedFolder[]) => void | Promise<void>;
+  /**
+   * Callback for top-level dropped files/folders when enableLocalPathMention is on.
+   */
+  onLocalPaths?: (paths: DroppedLocalPath[]) => void | Promise<void>;
   /**
    * Callback when files are dropped
    */
@@ -220,7 +310,14 @@ export interface UseLocalDragUploadResult {
 export const useLocalDragUpload = (
   options: UseLocalDragUploadOptions,
 ): UseLocalDragUploadResult => {
-  const { onUploadFiles, disabled = false, enableLocalFolderMention, onLocalFolders } = options;
+  const {
+    onUploadFiles,
+    disabled = false,
+    enableLocalFolderMention,
+    enableLocalPathMention,
+    onLocalFolders,
+    onLocalPaths,
+  } = options;
 
   // Only preventDefault to allow drop, do NOT stopPropagation
   const handleDragOver = useCallback(
@@ -247,6 +344,22 @@ export const useLocalDragUpload = (
 
       const items = Array.from(e.dataTransfer.items);
 
+      if (enableLocalPathMention && onLocalPaths) {
+        const { files, localPaths } = await partitionDroppedItemsAsLocalPaths(items);
+        log(
+          'drop partitioned: %d local path(s), %d upload file(s)',
+          localPaths.length,
+          files.length,
+        );
+        if (localPaths.length > 0) {
+          await onLocalPaths(localPaths);
+        }
+        if (files.length > 0) {
+          await onUploadFiles(files);
+        }
+        return;
+      }
+
       if (enableLocalFolderMention && onLocalFolders) {
         const { folders, files } = await partitionDroppedItems(items);
         log('drop partitioned: %d folder(s), %d file(s)', folders.length, files.length);
@@ -264,7 +377,14 @@ export const useLocalDragUpload = (
       if (files.length === 0) return;
       await onUploadFiles(files);
     },
-    [disabled, enableLocalFolderMention, onLocalFolders, onUploadFiles],
+    [
+      disabled,
+      enableLocalFolderMention,
+      enableLocalPathMention,
+      onLocalFolders,
+      onLocalPaths,
+      onUploadFiles,
+    ],
   );
 
   const getContainerProps = useCallback(
