@@ -85,4 +85,10 @@ describe('executeDeviceRpc', () => {
     const result = await executeDeviceRpc('listGitBranches', { path: root }, makeDeps());
     expect(Array.isArray(result)).toBe(true);
   });
+
+  it('routes listGitWorktrees through the shared git dispatcher', async () => {
+    // Not a git repo → the shared local-file-shell impl returns an empty list.
+    const result = await executeDeviceRpc('listGitWorktrees', { path: root }, makeDeps());
+    expect(Array.isArray(result)).toBe(true);
+  });
 });
