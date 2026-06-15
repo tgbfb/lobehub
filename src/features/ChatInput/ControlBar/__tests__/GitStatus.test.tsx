@@ -17,19 +17,26 @@ const gitHookMocks = vi.hoisted(() => ({
   mutateAheadBehind: vi.fn(),
   mutateGitInfo: vi.fn(),
   mutateWorkingTreeStatus: vi.fn(),
+  mutateWorktrees: vi.fn(),
   useFetchGitAheadBehind: vi.fn(),
   useFetchGitInfo: vi.fn(),
   useFetchGitWorkingTreeStatus: vi.fn(),
+  useFetchGitWorktrees: vi.fn(),
 }));
 
 vi.mock('../BranchSwitcher', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('../WorktreeSwitcher', () => ({
+  default: () => <span data-testid="worktree-switcher" />,
+}));
+
 vi.mock('@/store/device', () => ({
   useFetchGitAheadBehind: gitHookMocks.useFetchGitAheadBehind,
   useFetchGitInfo: gitHookMocks.useFetchGitInfo,
   useFetchGitWorkingTreeStatus: gitHookMocks.useFetchGitWorkingTreeStatus,
+  useFetchGitWorktrees: gitHookMocks.useFetchGitWorktrees,
 }));
 
 vi.mock('@/store/global', () => ({
@@ -98,11 +105,15 @@ beforeEach(() => {
     data: undefined,
     mutate: gitHookMocks.mutateAheadBehind,
   });
+  gitHookMocks.useFetchGitWorktrees.mockReturnValue({
+    data: [],
+    mutate: gitHookMocks.mutateWorktrees,
+  });
 });
 
 describe('GitStatus', () => {
   it('opens the review panel when clicking remote device diff stats', () => {
-    render(<GitStatus deviceId="device-1" isGithub={false} path="/repo" />);
+    render(<GitStatus agentId="agent-1" deviceId="device-1" isGithub={false} path="/repo" />);
 
     fireEvent.click(screen.getByRole('button'));
 

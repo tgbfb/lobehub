@@ -429,6 +429,11 @@ export const deviceKeys = {
     deviceId,
     path,
   ]),
+  gitWorktrees: def('device:gitWorktrees', (deviceId: string, path: string) => [
+    'device:gitWorktrees',
+    deviceId,
+    path,
+  ]),
   listDevices: def('device:listDevices', () => ['device:listDevices']),
   repoType: def('device:repoType', (path: string) => ['device:repoType', path]),
 };
