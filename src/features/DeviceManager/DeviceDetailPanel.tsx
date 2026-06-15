@@ -14,6 +14,7 @@ import { lambdaQuery } from '@/libs/trpc/client';
 import { electronSystemService } from '@/services/electron/system';
 import { nextWorkingDirs } from '@/store/device';
 
+import { refreshDeviceList } from './const';
 import { getDeviceIcon } from './getDeviceIcon';
 
 const styles = createStaticStyles(({ css }) => ({
@@ -60,14 +61,13 @@ interface DeviceDetailPanelProps {
 
 const DeviceDetailPanel = memo<DeviceDetailPanelProps>(({ device, isCurrent, onClose }) => {
   const { t } = useTranslation('setting');
-  const utils = lambdaQuery.useUtils();
 
   const [name, setName] = useState(device.friendlyName ?? '');
   const [cwd, setCwd] = useState(device.defaultCwd ?? '');
 
   // Workspace devices commit via the owner-gated, workspace-scoped mutation;
   // personal devices stay userId-scoped. Route by the device's own scope.
-  const onUpdateSuccess = () => utils.device.listDevices.invalidate();
+  const onUpdateSuccess = () => refreshDeviceList();
   const updatePersonal = lambdaQuery.device.updateDevice.useMutation({
     onSuccess: onUpdateSuccess,
   });

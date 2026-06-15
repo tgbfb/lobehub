@@ -17,9 +17,11 @@ import {
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { lambdaQuery } from '@/libs/trpc/client';
+import { useClientDataSWR } from '@/libs/swr';
+import { deviceService } from '@/services/device';
 import { useElectronStore } from '@/store/electron';
 
+import { DEVICE_LIST_SWR_KEY } from './const';
 import DeviceDetailPanel from './DeviceDetailPanel';
 import DeviceItem from './DeviceItem';
 
@@ -222,9 +224,14 @@ const DeviceManager = memo<DeviceManagerProps>(({ onConnect, scope }) => {
   const { t } = useTranslation('setting');
   const isWorkspace = scope === 'workspace';
 
-  const { data, isLoading } = lambdaQuery.device.listDevices.useQuery(undefined, {
-    staleTime: 30_000,
-  });
+  // Fetch via SWR so the cache key carries the active workspace id (see
+  // `DEVICE_LIST_SWR_KEY`). The raw TRPC React Query key had no workspace
+  // dimension, so a fetch primed while the workspace was still resolving (empty
+  // `X-Workspace-Id` header → personal pool) stuck for the whole session and the
+  // workspace list rendered empty until a hard refresh.
+  const { data, isLoading } = useClientDataSWR([DEVICE_LIST_SWR_KEY], () =>
+    deviceService.listDevices(),
+  );
   // `listDevices` is workspace-aware and returns both pools — keep each surface
   // to its own scope.
   const devices = (data ?? []).filter((d) => d.scope === scope);

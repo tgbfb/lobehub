@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 
 import { lambdaQuery } from '@/libs/trpc/client';
 
+import { refreshDeviceList } from './const';
 import { getDeviceIcon } from './getDeviceIcon';
 
 const styles = createStaticStyles(({ css }) => ({
@@ -67,11 +68,10 @@ interface DeviceItemProps {
 
 const DeviceItem = memo<DeviceItemProps>(({ device, isCurrent, onSelect, selected }) => {
   const { t } = useTranslation('setting');
-  const utils = lambdaQuery.useUtils();
 
   // Workspace devices are owner-gated + workspace-scoped on the server; personal
   // devices stay userId-scoped. Route by the device's own scope.
-  const onRemoveSuccess = () => utils.device.listDevices.invalidate();
+  const onRemoveSuccess = () => refreshDeviceList();
   const removePersonal = lambdaQuery.device.removeDevice.useMutation({
     onSuccess: onRemoveSuccess,
   });
