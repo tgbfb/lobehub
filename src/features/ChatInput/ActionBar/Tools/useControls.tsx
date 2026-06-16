@@ -1274,7 +1274,16 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
           configureConfig: { onConfigure: () => setEditingConnectorDbId(connector.id) },
           deleteConfig: {
             displayName: title,
-            onDelete: () => deleteConnector(connector.id),
+            onDelete: async () => {
+              await deleteConnector(connector.id);
+              // Mirror removeComposioServer: drop the identifier from agent.plugins so
+              // no orphaned pin survives the connector deletion.
+              try {
+                await togglePlugin(connector.identifier, false);
+              } catch (error) {
+                console.error('[Connector] Failed to unpin plugin after delete:', error);
+              }
+            },
           },
           icon,
           id: connector.identifier,
@@ -1283,7 +1292,7 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
           title,
         });
       }),
-    [customConnectors, t, createManagedSkillItem, deleteConnector],
+    [customConnectors, t, createManagedSkillItem, deleteConnector, togglePlugin],
   );
 
   // Skills list items (including LobeHub Skill and Composio)

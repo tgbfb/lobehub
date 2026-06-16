@@ -741,6 +741,10 @@ const AgentTool = memo<AgentToolProps>(
       if (cleanupDoneRef.current) return;
       if (validIdentifiers.size === 0) return;
       if (plugins.length === 0) return;
+      // Don't prune until the connector store has loaded — connector identifiers
+      // are absent from validIdentifiers until fetchConnectors() resolves, so
+      // running cleanup before that would incorrectly mark enabled connectors as stale.
+      if (!isConnectorsInit) return;
 
       // Defer cleanup to avoid race with async data loading (SWR, Composio, etc.)
       const timer = setTimeout(() => {
