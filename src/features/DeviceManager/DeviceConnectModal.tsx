@@ -128,7 +128,7 @@ const DeviceConnectModal = memo<DeviceConnectModalProps>(({ onClose, open, initi
   }, [open, initialTab, isWorkspace]);
 
   const connectCommand = isWorkspace
-    ? `lh connect --workspace ${workspaceId ?? '<workspace-id>'}`
+    ? `lh connect --workspace ${workspaceId ?? '<workspace-id>'} --daemon`
     : 'lh connect --daemon';
 
   const cliSteps = (
