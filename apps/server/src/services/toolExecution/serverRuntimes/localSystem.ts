@@ -18,7 +18,14 @@ export const localSystemRuntime: ServerRuntimeRegistration = {
     for (const api of LocalSystemManifest.api) {
       proxy[api.name] = async (args: any) => {
         return deviceGateway.executeToolCall(
-          { deviceId: context.activeDeviceId!, userId: context.userId! },
+          {
+            deviceId: context.activeDeviceId!,
+            userId: context.userId!,
+            // Workspace devices live under the `workspace:<id>` principal in
+            // the gateway, so the relay needs the workspaceId to address the
+            // right DO pool. Personal device runs leave it undefined.
+            workspaceId: context.workspaceId,
+          },
           {
             apiName: api.name,
             arguments: JSON.stringify(args),
