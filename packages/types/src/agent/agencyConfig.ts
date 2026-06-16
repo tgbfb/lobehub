@@ -1,3 +1,5 @@
+import type { WorkingDirConfigValue } from '../device';
+
 /**
  * Heterogeneous agent provider configuration.
  * When set, the assistant delegates execution to an external agent runtime
@@ -78,17 +80,21 @@ export interface LobeAgentAgencyConfig {
    */
   verifyRubricId?: string;
   /**
-   * Per-device working directory chosen for this agent. Key = `deviceId` (the
-   * local machine uses its own gateway deviceId, so local and remote share one
-   * model). This is the **agent-level** cwd in the resolution precedence:
+   * Per-device working directory source chosen for this agent. Key = `deviceId`
+   * (the local machine uses its own gateway deviceId, so local and remote share
+   * one model). This is the **agent-level** source in the resolution precedence:
    *
    *   `topic.metadata.workingDirectory`
-   *     > `workingDirByDevice[targetDeviceId]`
+   *     > effective path of `workingDirByDevice[targetDeviceId]`
    *     > `device.defaultCwd`
+   *
+   * Legacy values are plain path strings. New git-aware values may carry
+   * `git.activeWorktree`; when present, that active worktree is the effective
+   * cwd while `path` remains the source/recent entry.
    *
    * Keyed per device so switching the bound device never resolves a path that
    * only exists on another machine. Persisted (server-synced) so the choice
    * follows the user across sessions / ends.
    */
-  workingDirByDevice?: Record<string, string>;
+  workingDirByDevice?: Record<string, WorkingDirConfigValue>;
 }

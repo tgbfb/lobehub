@@ -1,6 +1,8 @@
 'use client';
 
 import { isDesktop } from '@lobechat/const';
+import type { WorkingDirEntry } from '@lobechat/types';
+import { getWorkingDirEffectivePath } from '@lobechat/types';
 import { Flexbox, Icon, Popover, Tooltip } from '@lobehub/ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
 import {
@@ -293,7 +295,7 @@ const WorkingDirectoryPicker = memo<WorkingDirectoryPickerProps>(({ agentId }) =
   const { clear, commit } = useCommitWorkingDirectory(agentId);
   const removeDeviceWorkingDir = useDeviceStore((s) => s.removeDeviceWorkingDir);
 
-  const pick = async (entry: { path: string; repoType?: 'git' | 'github' }) => {
+  const pick = async (entry: WorkingDirEntry) => {
     await commit(entry);
     setOpen(false);
   };
@@ -324,7 +326,7 @@ const WorkingDirectoryPicker = memo<WorkingDirectoryPickerProps>(({ agentId }) =
           </Flexbox>
         ) : (
           recents.map((entry) => {
-            const isActive = entry.path === selectedDir;
+            const isActive = getWorkingDirEffectivePath(entry) === selectedDir;
             return (
               <Flexbox
                 horizontal
