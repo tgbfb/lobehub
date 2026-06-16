@@ -557,14 +557,20 @@ function scheduleProactiveRefresh(
   const exp = parseJwtExp(token);
   if (!exp) return null;
 
-  const refreshAt = (exp - PROACTIVE_REFRESH_BUFFER) * 1000;
-  const delay = refreshAt - Date.now();
-
-  if (delay < 0) {
-    // Already past the refresh window — refresh immediately on next tick
+  const lifetimeMs = exp * 1000 - Date.now();
+  if (lifetimeMs <= 0) {
+    // Token already expired — refresh once on next tick.
     void doRefresh();
     return null;
   }
+
+  // Refresh ahead of expiry, but never let the buffer meet or exceed the token's
+  // remaining lifetime: a buffer >= lifetime collapses the refresh window to <=0
+  // and busy-loops re-minting (e.g. a 1h token with a 1h buffer). Cap the buffer
+  // at half the remaining lifetime so a short-lived token refreshes about once per
+  // half-life instead of spinning.
+  const bufferMs = Math.min(PROACTIVE_REFRESH_BUFFER * 1000, lifetimeMs / 2);
+  const delay = lifetimeMs - bufferMs;
 
   const timer = setTimeout(() => void doRefresh(), delay);
   return () => clearTimeout(timer);
