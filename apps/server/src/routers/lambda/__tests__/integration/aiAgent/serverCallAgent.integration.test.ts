@@ -16,6 +16,7 @@ import { agentOperations, agents, messagePlugins, messages } from '@lobechat/dat
 import { getTestDB } from '@lobechat/database/test-utils';
 import { and, eq } from 'drizzle-orm';
 import OpenAI from 'openai';
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { inMemoryAgentStateManager } from '@/server/modules/AgentRuntime/InMemoryAgentStateManager';
@@ -38,7 +39,10 @@ vi.mock('@/server/services/file', () => ({
   })),
 }));
 
-let mockResponsesCreate: ReturnType<typeof vi.spyOn>;
+type MockResponseStream = ReturnType<typeof createMockResponsesStream>;
+type MockResponsesCreate = () => Promise<MockResponseStream>;
+
+let mockResponsesCreate: MockInstance<MockResponsesCreate>;
 let serverDB: LobeChatDatabase;
 let userId: string;
 let parentAgentId: string;
@@ -199,7 +203,10 @@ beforeEach(async () => {
   parentAgentId = insertedAgents[0].id;
   targetAgentId = insertedAgents[1].id;
 
-  mockResponsesCreate = vi.spyOn(OpenAI.Responses.prototype, 'create');
+  mockResponsesCreate = vi.spyOn(
+    OpenAI.Responses.prototype,
+    'create',
+  ) as unknown as MockInstance<MockResponsesCreate>;
 });
 
 afterEach(async () => {
@@ -215,9 +222,9 @@ describe('Server callAgent deferred execution', () => {
     let callCount = 0;
     mockResponsesCreate.mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return Promise.resolve(createCallAgentResponse() as any);
-      if (callCount === 2) return Promise.resolve(createFinalTextResponse(TARGET_ANSWER) as any);
-      return Promise.resolve(createFinalTextResponse(PARENT_FINAL) as any);
+      if (callCount === 1) return Promise.resolve(createCallAgentResponse());
+      if (callCount === 2) return Promise.resolve(createFinalTextResponse(TARGET_ANSWER));
+      return Promise.resolve(createFinalTextResponse(PARENT_FINAL));
     });
 
     const caller = aiAgentRouter.createCaller(createTestContext());
