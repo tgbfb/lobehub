@@ -3,6 +3,7 @@
 import { type SlashOptions } from '@lobehub/editor';
 import { type ChatInputActionsProps } from '@lobehub/editor/react';
 import { Alert, Button, Flexbox, type MenuProps } from '@lobehub/ui';
+import { createStaticStyles } from 'antd-style';
 import { type ReactNode } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +38,25 @@ import { getConversationChatInputUiState } from './utils';
 
 /** Max recent messages to feed into auto-complete context (≈10 conversation turns) */
 const MAX_CONTEXT_MESSAGES = 25;
+
+const COMPACT_COLLAPSED_HEIGHT_PX = 44;
+const COMPACT_EXPANDED_HEIGHT_PX = 320;
+
+const styles = createStaticStyles(({ css }) => ({
+  // `compact` collapses the rendered ChatInput to a single-row strip and reveals
+  // the rest (action bar, control bar, footnote) on focus-within. Consumers opt
+  // in via the `compact` prop; the rest of the editor / action / control
+  // composition stays untouched, so other chat surfaces are not affected.
+  compactSurface: css`
+    overflow: hidden;
+    max-height: ${COMPACT_COLLAPSED_HEIGHT_PX}px;
+    transition: max-height 240ms cubic-bezier(0.32, 0.72, 0, 1);
+
+    &:focus-within {
+      max-height: ${COMPACT_EXPANDED_HEIGHT_PX}px;
+    }
+  `,
+}));
 
 const toChatInputMessages = (messages: ReturnType<typeof dataSelectors.dbMessages>) =>
   messages
@@ -109,6 +129,12 @@ export interface ChatInputProps {
    * Use this to add custom UI like error alerts, MessageFromUrl, etc.
    */
   children?: ReactNode;
+  /**
+   * Collapse the rendered ChatInput to a single-line strip until the user focuses it.
+   * On focus-within the surface expands to reveal the action bar / control bar / footnote.
+   * Defaults to false — other chat surfaces stay untouched.
+   */
+  compact?: boolean;
   /**
    * Custom node to render in place of the default ControlBar
    * (Local/Cloud/Approval). When provided, replaces the default bar.
@@ -197,6 +223,7 @@ const ChatInput = memo<ChatInputProps>(
   ({
     actionBarStyle,
     allowExpand,
+    compact = false,
     disableFollowUpVariant,
     disableQueue,
     disableSend,
@@ -436,7 +463,12 @@ const ChatInput = memo<ChatInputProps>(
         onMarkdownContentChange={updateInputMessage}
         onSend={handleSend}
       >
-        {children ?? defaultContent}
+        {children ??
+          (compact ? (
+            <div className={styles.compactSurface}>{defaultContent}</div>
+          ) : (
+            defaultContent
+          ))}
       </ChatInputProvider>
     );
   },

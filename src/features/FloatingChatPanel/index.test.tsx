@@ -87,15 +87,21 @@ const mergedHooksCaptured = vi.hoisted(() => ({
 
 vi.mock('@/features/Conversation', () => ({
   ChatInput: ({
+    compact,
     leftActions,
     rightActions,
+    showControlBar,
   }: {
+    compact?: boolean;
     leftActions?: string[];
     rightActions?: string[];
+    showControlBar?: boolean;
   }) => (
     <div
+      data-compact={String(compact ?? false)}
       data-left-actions={JSON.stringify(leftActions ?? [])}
       data-right-actions={JSON.stringify(rightActions ?? [])}
+      data-show-control-bar={String(showControlBar ?? true)}
       data-testid="chat-input"
     />
   ),

@@ -1,10 +1,16 @@
 'use client';
 
+import { Flexbox } from '@lobehub/ui';
 import { memo, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 
+import FloatingChatPanel from '@/features/FloatingChatPanel';
 import { PageEditor } from '@/features/PageEditor';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
+import { useAgentStore } from '@/store/agent';
+import { useChatStore } from '@/store/chat';
+import { useUserStore } from '@/store/user';
+import { labPreferSelectors } from '@/store/user/selectors';
 
 import Header from './Header';
 import { useAgentDocumentItem } from './useAgentDocumentItem';
@@ -26,6 +32,12 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   const agentId = aid ?? '';
   const navigate = useWorkspaceAwareNavigate();
   const { item, mutate } = useAgentDocumentItem(agentId, documentId);
+
+  const activeAgentId = useAgentStore((s) => s.activeAgentId);
+  const activeTopicId = useChatStore((s) => s.activeTopicId);
+  const enableFloatingChatPanel = useUserStore(
+    labPreferSelectors.enableAgentDocumentFloatingChatPanel,
+  );
 
   const backToChat = useCallback(
     () => navigate(agentId ? `/agent/${agentId}` : '/agent'),
@@ -50,18 +62,29 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   );
 
   return (
-    <PageEditor
-      fullWidthHeader
-      header={header}
-      key={documentId}
-      pageId={documentId}
-      rightPanel={false}
-      syncPageAgentActiveState={false}
-      title={title}
-      // Persisted via the shared document save; refresh the list so the
-      // breadcrumb and working-sidebar entry pick up the new title.
-      onTitleChange={() => mutate()}
-    />
+    <Flexbox flex={1} height={'100%'} style={{ minHeight: 0, overflow: 'hidden' }} width={'100%'}>
+      <Flexbox flex={1} style={{ minHeight: 0 }} width={'100%'}>
+        <PageEditor
+          fullWidthHeader
+          header={header}
+          key={documentId}
+          pageId={documentId}
+          rightPanel={false}
+          syncPageAgentActiveState={false}
+          title={title}
+          onTitleChange={() => mutate()}
+        />
+      </Flexbox>
+      {enableFloatingChatPanel && activeAgentId && (
+        <FloatingChatPanel
+          agentDocumentId={item?.id}
+          agentId={activeAgentId}
+          documentId={documentId}
+          key={`${activeAgentId}:${activeTopicId ?? 'none'}:${documentId}`}
+          topicId={activeTopicId ?? null}
+        />
+      )}
+    </Flexbox>
   );
 });
 

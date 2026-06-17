@@ -8,15 +8,21 @@ import InputRow from './InputRow';
 
 vi.mock('@/features/Conversation', () => ({
   ChatInput: ({
+    compact,
     leftActions,
     rightActions,
+    showControlBar,
   }: {
+    compact?: boolean;
     leftActions?: string[];
     rightActions?: string[];
+    showControlBar?: boolean;
   }) => (
     <div
+      data-compact={String(compact ?? false)}
       data-left-actions={JSON.stringify(leftActions ?? [])}
       data-right-actions={JSON.stringify(rightActions ?? [])}
+      data-show-control-bar={String(showControlBar ?? true)}
       data-testid="chat-input"
     />
   ),
@@ -30,18 +36,22 @@ describe('FloatingChatPanel InputRow', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('passes empty action arrays to ChatInput while collapsed', () => {
+  it('renders ChatInput in compact mode with empty actions and no control bar while collapsed', () => {
     render(<InputRow isCollapsed onExpand={() => {}} />);
     const input = screen.getByTestId('chat-input');
+    expect(input.dataset.compact).toBe('true');
     expect(input.dataset.leftActions).toBe('[]');
     expect(input.dataset.rightActions).toBe('[]');
+    expect(input.dataset.showControlBar).toBe('false');
   });
 
-  it('passes the full action arrays to ChatInput while expanded', () => {
+  it('renders ChatInput at full size with all actions while expanded', () => {
     render(<InputRow isCollapsed={false} onExpand={() => {}} />);
     const input = screen.getByTestId('chat-input');
+    expect(input.dataset.compact).toBe('false');
     expect(input.dataset.leftActions).toBe(JSON.stringify(['typo', 'stt']));
     expect(input.dataset.rightActions).toBe(JSON.stringify(['contextWindow']));
+    expect(input.dataset.showControlBar).toBe('true');
   });
 
   it('shows the hover bar on enter and hides it on leave after a debounce delay', () => {

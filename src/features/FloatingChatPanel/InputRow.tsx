@@ -108,6 +108,7 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
         <HoverExpandBar visible={isCollapsed && hovered} onExpand={onExpand} />
         <div className={s.surface}>
           <ChatInput
+            compact={renderedCollapsed}
             leftActions={renderedCollapsed ? EMPTY_ACTIONS : EXPANDED_LEFT_ACTIONS}
             rightActions={renderedCollapsed ? EMPTY_ACTIONS : EXPANDED_RIGHT_ACTIONS}
             showControlBar={!renderedCollapsed}
