@@ -108,4 +108,54 @@ describe('FloatingChatPanel InputRow', () => {
     fireEvent.click(screen.getByTestId('floating-chat-panel-expand-button'));
     expect(onExpand).toHaveBeenCalledTimes(1);
   });
+
+  it('releases compact rendering while the row holds focus inside the collapsed strip', () => {
+    render(
+      <div>
+        <InputRow isCollapsed onExpand={() => {}} />
+        <button data-testid="outside" type="button">
+          outside
+        </button>
+      </div>,
+    );
+    const input = screen.getByTestId('chat-input');
+    expect(input.dataset.compact).toBe('true');
+
+    fireEvent.focus(screen.getByTestId('floating-chat-panel-input-row'));
+    expect(input.dataset.compact).toBe('false');
+    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo', 'stt']));
+    expect(input.dataset.rightActions).toBe(JSON.stringify(['contextWindow']));
+    expect(input.dataset.showControlBar).toBe('true');
+  });
+
+  it('restores compact rendering once focus leaves the row entirely', () => {
+    render(
+      <div>
+        <InputRow isCollapsed onExpand={() => {}} />
+        <button data-testid="outside" type="button">
+          outside
+        </button>
+      </div>,
+    );
+    const row = screen.getByTestId('floating-chat-panel-input-row');
+    fireEvent.focus(row);
+    expect(screen.getByTestId('chat-input').dataset.compact).toBe('false');
+
+    fireEvent.blur(row, { relatedTarget: screen.getByTestId('outside') });
+    expect(screen.getByTestId('chat-input').dataset.compact).toBe('true');
+  });
+
+  it('keeps compact off when focus moves between elements inside the row', () => {
+    render(
+      <div>
+        <InputRow isCollapsed onExpand={() => {}} />
+      </div>,
+    );
+    const row = screen.getByTestId('floating-chat-panel-input-row');
+    fireEvent.focus(row);
+    expect(screen.getByTestId('chat-input').dataset.compact).toBe('false');
+
+    fireEvent.blur(row, { relatedTarget: screen.getByTestId('chat-input') });
+    expect(screen.getByTestId('chat-input').dataset.compact).toBe('false');
+  });
 });

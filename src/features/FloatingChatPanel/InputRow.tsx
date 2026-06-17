@@ -1,7 +1,7 @@
 'use client';
 
 import { createGlobalStyle, createStaticStyles } from 'antd-style';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { type FocusEvent, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
 import { ChatInput } from '@/features/Conversation';
@@ -39,6 +39,20 @@ const startViewTransition = (callback: () => void) => {
   );
 };
 
+// View Transition snapshots the DOM before and after this callback. The DOM mutation
+// must commit synchronously inside it, otherwise the "after" snapshot is identical
+// to the "before" one and nothing animates.
+const commitWithViewTransition = (commit: () => void) => {
+  if (!supportsViewTransition) {
+    commit();
+    return;
+  }
+  startViewTransition(() => {
+    // eslint-disable-next-line @eslint-react/dom/no-flush-sync
+    flushSync(commit);
+  });
+};
+
 const EMPTY_ACTIONS: never[] = [];
 const EXPANDED_LEFT_ACTIONS: ('typo' | 'stt')[] = ['typo', 'stt'];
 const EXPANDED_RIGHT_ACTIONS: 'contextWindow'[] = ['contextWindow'];
@@ -53,24 +67,30 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
   const [hovered, setHovered] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [renderedCollapsed, setRenderedCollapsed] = useState(isCollapsed);
+  const [focused, setFocused] = useState(false);
+  const focusedRef = useRef(false);
 
-  // ChatInput's height changes the moment leftActions/rightActions/showControlBar flip.
-  // Wrap the React commit in a View Transition so the browser crossfades the snapshot —
-  // no fork of ChatInput required. Falls back to an instant flip where unsupported.
   useEffect(() => {
     if (renderedCollapsed === isCollapsed) return;
-    if (!supportsViewTransition) {
-      setRenderedCollapsed(isCollapsed);
-      return;
-    }
-    startViewTransition(() => {
-      // View Transition snapshots the DOM before and after this callback. The DOM mutation
-      // must commit synchronously inside it, otherwise the "after" snapshot is identical
-      // to the "before" one and nothing animates.
-      // eslint-disable-next-line @eslint-react/dom/no-flush-sync
-      flushSync(() => setRenderedCollapsed(isCollapsed));
-    });
+    commitWithViewTransition(() => setRenderedCollapsed(isCollapsed));
   }, [isCollapsed, renderedCollapsed]);
+
+  // Focus inside the collapsed strip releases the compact rendering so the action bar
+  // (Send + actions) shows while the panel itself stays collapsed. Blurring back outside
+  // the row returns to compact. View Transition makes the footer enter / leave smoothly.
+  const handleFocus = useCallback(() => {
+    if (focusedRef.current) return;
+    focusedRef.current = true;
+    commitWithViewTransition(() => setFocused(true));
+  }, []);
+
+  const handleBlur = useCallback((event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    if (!focusedRef.current) return;
+    focusedRef.current = false;
+    commitWithViewTransition(() => setFocused(false));
+  }, []);
 
   const clearHideTimer = useCallback(() => {
     if (hideTimer.current) {
@@ -95,6 +115,8 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
     if (!isCollapsed && hovered) setHovered(false);
   }, [isCollapsed, hovered]);
 
+  const effectiveCompact = renderedCollapsed && !focused;
+
   return (
     <>
       <InputRowViewTransitionStyle />
@@ -102,16 +124,18 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
         className={s.row}
         data-collapsed={isCollapsed}
         data-testid="floating-chat-panel-input-row"
+        onBlur={handleBlur}
+        onFocus={handleFocus}
         onMouseEnter={handleEnter}
         onMouseLeave={handleLeave}
       >
         <HoverExpandBar visible={isCollapsed && hovered} onExpand={onExpand} />
         <div className={s.surface}>
           <ChatInput
-            compact={renderedCollapsed}
-            leftActions={renderedCollapsed ? EMPTY_ACTIONS : EXPANDED_LEFT_ACTIONS}
-            rightActions={renderedCollapsed ? EMPTY_ACTIONS : EXPANDED_RIGHT_ACTIONS}
-            showControlBar={!renderedCollapsed}
+            compact={effectiveCompact}
+            leftActions={effectiveCompact ? EMPTY_ACTIONS : EXPANDED_LEFT_ACTIONS}
+            rightActions={effectiveCompact ? EMPTY_ACTIONS : EXPANDED_RIGHT_ACTIONS}
+            showControlBar={!effectiveCompact}
           />
         </div>
       </div>
