@@ -105,16 +105,35 @@ const DocumentExplorerTree = memo<Props>(({ agentId, data, mutate, onOpenDocumen
     [rowIdByDocumentId],
   );
 
+  const resolveNodeName = useCallback(
+    (doc: AgentDocumentItem): string => {
+      if (doc.isSkillIndex) return SKILL_INDEX_FILENAME;
+      // Never let an empty name through: a blank segment collides with its
+      // parent's path inside the tree's path store and crashes the whole panel
+      // (see ExplorerTree/adapter/normalize.ts). Fall back to a localized label.
+      return (
+        doc.title ||
+        doc.filename ||
+        t(
+          doc.isFolder
+            ? 'workingPanel.resources.tree.untitledFolder'
+            : 'workingPanel.resources.tree.untitledDocument',
+        )
+      );
+    },
+    [t],
+  );
+
   const nodes = useMemo<ExplorerTreeNode<AgentDocumentItem>[]>(
     () =>
       documents.map((doc) => ({
         data: doc,
         id: doc.id,
         isFolder: doc.isFolder,
-        name: doc.isSkillIndex ? SKILL_INDEX_FILENAME : doc.title || doc.filename || '',
+        name: resolveNodeName(doc),
         parentId: resolveParentRowId(doc.parentId),
       })),
-    [documents, resolveParentRowId],
+    [documents, resolveNodeName, resolveParentRowId],
   );
   const defaultExpandedIds = useMemo(
     () => nodes.filter((node) => node.isFolder && node.parentId == null).map((node) => node.id),
