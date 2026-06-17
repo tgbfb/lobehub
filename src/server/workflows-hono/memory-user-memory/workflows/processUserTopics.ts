@@ -1,5 +1,6 @@
 import { MemorySourceType } from '@lobechat/types';
 import { type WorkflowContext } from '@upstash/workflow';
+import { chunk } from 'es-toolkit/compat';
 
 import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { type ListTopicsForMemoryExtractorCursor } from '@/database/models/topic';
@@ -12,10 +13,9 @@ import {
   MemoryExtractionWorkflowService,
   normalizeMemoryExtractionPayload,
 } from '@/server/services/memory/userMemory/extract';
-import { forEachBatchSequential } from '@/server/services/memory/userMemory/topicBatching';
 
 const TOPIC_PAGE_SIZE = 50;
-const TOPIC_BATCH_SIZE = 4;
+const TOPIC_BATCH_SIZE = 20;
 
 const { upstashWorkflowExtraHeaders } = parseMemoryExtractionConfig();
 
@@ -121,28 +121,26 @@ export const processUserTopicsHandler = async (
 
     const cursor = 'cursor' in topicBatch ? topicBatch.cursor : undefined;
 
-    // TODO: follow the new pattern of process-topic
-    // remove the batch sequential, replace it with context.invoke(...) pattern
-    await forEachBatchSequential(ids, TOPIC_BATCH_SIZE, async (topicIds, batchIndex) => {
-      // NOTICE: We trigger via QStash instead of context.invoke because invoke only swaps the last path
-      // segment with the workflowId. If we invoked directly from /process-user-topics, child workflow
-      // URLs would inherit that base and lose the desired /process-topics/workflows prefix.
-      await context.run(
-        `memory:user-memory:extract:users:${userId}:process-topics-batch:${batchIndex}`,
-        () =>
-          MemoryExtractionWorkflowService.triggerProcessTopics(
-            userId,
-            {
-              ...buildWorkflowPayloadInput(params),
-              topicCursor: undefined,
-              topicIds,
+    const topicBatches = chunk(ids, TOPIC_BATCH_SIZE);
+    await Promise.all(
+      topicBatches.map((topicIds, batchIndex) =>
+        context.run(
+          `memory:user-memory:extract:users:${userId}:process-topics-batch:${batchIndex}`,
+          () =>
+            MemoryExtractionWorkflowService.triggerProcessTopics(
               userId,
-              userIds: [userId],
-            },
-            { extraHeaders: upstashWorkflowExtraHeaders },
-          ),
-      );
-    });
+              {
+                ...buildWorkflowPayloadInput(params),
+                topicCursor: undefined,
+                topicIds,
+                userId,
+                userIds: [userId],
+              },
+              { extraHeaders: upstashWorkflowExtraHeaders },
+            ),
+        ),
+      ),
+    );
 
     if (!topicsFromPayload && cursor) {
       await context.run(

@@ -13,7 +13,7 @@ import {
 } from '@/server/services/memory/userMemory/extract';
 
 const USER_PAGE_SIZE = 50;
-const USER_BATCH_SIZE = 10;
+const USER_BATCH_SIZE = 20;
 
 const { upstashWorkflowExtraHeaders } = parseMemoryExtractionConfig();
 
@@ -64,6 +64,16 @@ export const processUsersHandler = async (
   const cursor = 'cursor' in userBatch ? userBatch.cursor : undefined;
 
   const batches = chunk(ids, USER_BATCH_SIZE);
+  if (params.dryRun) {
+    return {
+      batches: batches.length,
+      dryRun: true,
+      nextCursor: cursor ? cursor.id : null,
+      processedUsers: ids.length,
+      scheduledBatches: 0,
+    };
+  }
+
   await Promise.all(
     batches.map((userIds) =>
       context.run(`memory:user-memory:extract:users:process-topic-batches`, () =>
