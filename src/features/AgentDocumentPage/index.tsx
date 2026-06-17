@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 
 import FloatingChatPanel from '@/features/FloatingChatPanel';
 import { PageEditor } from '@/features/PageEditor';
+import WideScreenContainer from '@/features/WideScreenContainer';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
@@ -76,13 +77,15 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
         />
       </Flexbox>
       {enableFloatingChatPanel && activeAgentId && (
-        <FloatingChatPanel
-          agentDocumentId={item?.id}
-          agentId={activeAgentId}
-          documentId={documentId}
-          key={`${activeAgentId}:${activeTopicId ?? 'none'}:${documentId}`}
-          topicId={activeTopicId ?? null}
-        />
+        <WideScreenContainer>
+          <FloatingChatPanel
+            agentDocumentId={item?.id}
+            agentId={activeAgentId}
+            documentId={documentId}
+            key={`${activeAgentId}:${activeTopicId ?? 'none'}:${documentId}`}
+            topicId={activeTopicId ?? null}
+          />
+        </WideScreenContainer>
       )}
     </Flexbox>
   );

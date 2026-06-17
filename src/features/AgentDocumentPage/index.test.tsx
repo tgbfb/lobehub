@@ -25,6 +25,12 @@ vi.mock('@/features/PageEditor', () => ({
   ),
 }));
 
+vi.mock('@/features/WideScreenContainer', () => ({
+  default: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="wide-screen-container">{children}</div>
+  ),
+}));
+
 vi.mock('./Header', () => ({
   default: ({ documentId }: { documentId?: string }) => (
     <div data-document-id={documentId} data-testid="header" />
@@ -106,11 +112,13 @@ describe('AgentDocumentPage', () => {
     expect(screen.queryByTestId('floating-chat-panel')).toBeNull();
   });
 
-  it('renders FloatingChatPanel below the editor when the lab feature is enabled', () => {
+  it('renders FloatingChatPanel inside a width-clamped container below the editor', () => {
     mockUserState.current.preference.lab.enableAgentDocumentFloatingChatPanel = true;
     render(<AgentDocumentPage documentId="docs_abc" />);
 
-    expect(screen.getByTestId('floating-chat-panel')).toBeDefined();
+    const container = screen.getByTestId('wide-screen-container');
+    const panel = screen.getByTestId('floating-chat-panel');
+    expect(container).toContainElement(panel);
     expect(panelProps.current).toMatchObject({
       agentDocumentId: 'agent-document-1',
       agentId: 'active-agent',
