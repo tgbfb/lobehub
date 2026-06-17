@@ -44,6 +44,16 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
     border-radius: 12px;
 
     background: ${cssVar.colorBgContainer};
+
+    transition:
+      border-color 240ms cubic-bezier(0.32, 0.72, 0, 1),
+      background 240ms cubic-bezier(0.32, 0.72, 0, 1);
+
+    /* Collapsed strip should sit flush against the page — only the expanded sheet earns the card surface. */
+    &[data-collapsed='true'] {
+      border-color: transparent;
+      background: transparent;
+    }
   `,
   sheetSeamless: css`
     border: none;
