@@ -8,8 +8,6 @@ import { ChatInput } from '@/features/Conversation';
 
 import HoverExpandBar from './HoverExpandBar';
 
-const HOVER_HIDE_DELAY_MS = 200;
-
 const styles = createStaticStyles(({ css }) => ({
   row: css`
     position: relative;
@@ -64,8 +62,6 @@ export interface InputRowProps {
 
 const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
   const s = styles;
-  const [hovered, setHovered] = useState(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [renderedCollapsed, setRenderedCollapsed] = useState(isCollapsed);
   const [focused, setFocused] = useState(false);
   const focusedRef = useRef(false);
@@ -92,29 +88,6 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
     commitWithViewTransition(() => setFocused(false));
   }, []);
 
-  const clearHideTimer = useCallback(() => {
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-    }
-  }, []);
-
-  const handleEnter = useCallback(() => {
-    clearHideTimer();
-    setHovered(true);
-  }, [clearHideTimer]);
-
-  const handleLeave = useCallback(() => {
-    clearHideTimer();
-    hideTimer.current = setTimeout(() => setHovered(false), HOVER_HIDE_DELAY_MS);
-  }, [clearHideTimer]);
-
-  useEffect(() => clearHideTimer, [clearHideTimer]);
-
-  useEffect(() => {
-    if (!isCollapsed && hovered) setHovered(false);
-  }, [isCollapsed, hovered]);
-
   const effectiveCompact = renderedCollapsed && !focused;
 
   return (
@@ -126,10 +99,8 @@ const InputRow = memo<InputRowProps>(({ isCollapsed, onExpand }) => {
         data-testid="floating-chat-panel-input-row"
         onBlur={handleBlur}
         onFocus={handleFocus}
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
       >
-        <HoverExpandBar visible={isCollapsed && hovered} onExpand={onExpand} />
+        <HoverExpandBar visible={isCollapsed && focused} onExpand={onExpand} />
         <div className={s.surface}>
           <ChatInput
             compact={effectiveCompact}

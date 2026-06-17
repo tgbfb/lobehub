@@ -1,8 +1,8 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import InputRow from './InputRow';
 
@@ -33,9 +33,6 @@ vi.mock('@lobehub/ui', () => ({
 }));
 
 describe('FloatingChatPanel InputRow', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
   it('renders ChatInput in compact mode with empty actions and no control bar while collapsed', () => {
     render(<InputRow isCollapsed onExpand={() => {}} />);
     const input = screen.getByTestId('chat-input');
@@ -54,7 +51,7 @@ describe('FloatingChatPanel InputRow', () => {
     expect(input.dataset.showControlBar).toBe('true');
   });
 
-  it('shows the hover bar on enter and hides it on leave after a debounce delay', () => {
+  it('keeps the expand bar hidden while collapsed and unfocused — hover alone never reveals it', () => {
     render(<InputRow isCollapsed onExpand={() => {}} />);
     const row = screen.getByTestId('floating-chat-panel-input-row');
     const bar = screen.getByTestId('floating-chat-panel-hover-bar');
@@ -62,49 +59,42 @@ describe('FloatingChatPanel InputRow', () => {
     expect(bar.getAttribute('aria-hidden')).toBe('true');
 
     fireEvent.mouseEnter(row);
-    expect(bar.getAttribute('aria-hidden')).toBe('false');
-
-    fireEvent.mouseLeave(row);
-    expect(bar.getAttribute('aria-hidden')).toBe('false');
-
-    act(() => {
-      vi.advanceTimersByTime(199);
-    });
-    expect(bar.getAttribute('aria-hidden')).toBe('false');
-
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
     expect(bar.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('cancels a pending hide when the cursor re-enters', () => {
-    render(<InputRow isCollapsed onExpand={() => {}} />);
+  it('reveals the expand bar once the collapsed strip takes focus', () => {
+    render(
+      <div>
+        <InputRow isCollapsed onExpand={() => {}} />
+        <button data-testid="outside" type="button">
+          outside
+        </button>
+      </div>,
+    );
     const row = screen.getByTestId('floating-chat-panel-input-row');
     const bar = screen.getByTestId('floating-chat-panel-hover-bar');
 
-    fireEvent.mouseEnter(row);
-    fireEvent.mouseLeave(row);
-    fireEvent.mouseEnter(row);
-
-    act(() => {
-      vi.advanceTimersByTime(500);
-    });
+    fireEvent.focus(row);
     expect(bar.getAttribute('aria-hidden')).toBe('false');
+
+    fireEvent.blur(row, { relatedTarget: screen.getByTestId('outside') });
+    expect(bar.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('keeps the hover bar hidden in expanded state regardless of hover', () => {
+  it('keeps the expand bar hidden while the panel is already expanded', () => {
     render(<InputRow isCollapsed={false} onExpand={() => {}} />);
     const row = screen.getByTestId('floating-chat-panel-input-row');
     const bar = screen.getByTestId('floating-chat-panel-hover-bar');
 
-    fireEvent.mouseEnter(row);
+    fireEvent.focus(row);
     expect(bar.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('fires onExpand when the hover-bar expand button is clicked', () => {
+  it('fires onExpand when the expand button is clicked', () => {
     const onExpand = vi.fn();
     render(<InputRow isCollapsed onExpand={onExpand} />);
+    const row = screen.getByTestId('floating-chat-panel-input-row');
+    fireEvent.focus(row);
     fireEvent.click(screen.getByTestId('floating-chat-panel-expand-button'));
     expect(onExpand).toHaveBeenCalledTimes(1);
   });
