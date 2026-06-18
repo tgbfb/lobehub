@@ -5,11 +5,11 @@ import { memo, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 
 import FloatingChatPanel from '@/features/FloatingChatPanel';
+import { useDocumentChatTopic } from '@/features/FloatingChatPanel/useDocumentChatTopic';
 import { PageEditor } from '@/features/PageEditor';
 import WideScreenContainer from '@/features/WideScreenContainer';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useAgentStore } from '@/store/agent';
-import { useChatStore } from '@/store/chat';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors } from '@/store/user/selectors';
 
@@ -35,10 +35,14 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   const { item, mutate, skillBundle } = useAgentDocumentItem(agentId, documentId);
 
   const activeAgentId = useAgentStore((s) => s.activeAgentId);
-  const activeTopicId = useChatStore((s) => s.activeTopicId);
   const enableFloatingChatPanel = useUserStore(
     labPreferSelectors.enableAgentDocumentFloatingChatPanel,
   );
+  const chatAgentId = activeAgentId ?? agentId;
+  const { topicId: docChatTopicId } = useDocumentChatTopic({
+    agentId: enableFloatingChatPanel ? chatAgentId : undefined,
+    documentId: enableFloatingChatPanel ? documentId : undefined,
+  });
 
   const backToChat = useCallback(
     () => navigate(agentId ? `/agent/${agentId}` : '/agent'),
@@ -87,14 +91,15 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
           onTitleChange={() => mutate()}
         />
       </Flexbox>
-      {enableFloatingChatPanel && activeAgentId && (
+      {enableFloatingChatPanel && chatAgentId && docChatTopicId && (
         <WideScreenContainer>
           <FloatingChatPanel
             agentDocumentId={item?.id}
-            agentId={activeAgentId}
+            agentId={chatAgentId}
             documentId={documentId}
-            key={`${activeAgentId}:${activeTopicId ?? 'none'}:${documentId}`}
-            topicId={activeTopicId ?? null}
+            key={`${chatAgentId}:${docChatTopicId}:${documentId}`}
+            scope="main"
+            topicId={docChatTopicId}
           />
         </WideScreenContainer>
       )}

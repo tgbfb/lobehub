@@ -106,10 +106,23 @@ vi.mock('@/features/Conversation', () => ({
     />
   ),
   ChatList: () => null,
-  ConversationProvider: ({ children, context, hooks }: any) => {
+  ConversationProvider: ({
+    children,
+    context,
+    hooks,
+    skipFetch,
+    hasInitMessages,
+    messages,
+  }: any) => {
     mergedHooksCaptured.current = hooks;
     return (
-      <div data-context={JSON.stringify(context)} data-testid="provider">
+      <div
+        data-context={JSON.stringify(context)}
+        data-has-init-messages={String(hasInitMessages ?? false)}
+        data-has-messages-prop={String(messages !== undefined)}
+        data-skip-fetch={String(skipFetch ?? false)}
+        data-testid="provider"
+      >
         {children}
       </div>
     );
@@ -208,6 +221,24 @@ describe('FloatingChatPanel', () => {
       threadId: null,
       topicId: 'topic-1',
     });
+  });
+
+  it('hands message loading to ConversationProvider when scope is main', () => {
+    const { getByTestId } = render(
+      <FloatingChatPanel agentId="agent-1" scope="main" topicId="topic-1" />,
+    );
+    const provider = getByTestId('provider');
+    expect(provider.dataset.skipFetch).toBe('false');
+    expect(provider.dataset.hasInitMessages).toBe('false');
+    expect(provider.dataset.hasMessagesProp).toBe('false');
+  });
+
+  it('keeps the thread-scope panel managing its own message slice', () => {
+    const { getByTestId } = render(<FloatingChatPanel agentId="agent-1" topicId="topic-1" />);
+    const provider = getByTestId('provider');
+    expect(provider.dataset.skipFetch).toBe('true');
+    expect(provider.dataset.hasInitMessages).toBe('true');
+    expect(provider.dataset.hasMessagesProp).toBe('true');
   });
 
   it('anchors a new thread on the topic last main message when one is present', () => {

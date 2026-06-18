@@ -104,11 +104,17 @@ export interface FloatingChatPanelProps {
   onSnapPointChange?: (point: number) => void;
   open?: boolean;
   /**
-   * Conversation scope. Defaults to `'thread'` for ephemeral side-chat usage.
-   * When `'thread'` and `threadId` is absent, the context is marked `isNew`
-   * so a fresh thread can be created on first send (caller must supply
-   * `sourceMessageId` + `threadType` via `hooks` / context override if real
-   * thread persistence is required).
+   * Conversation scope.
+   *
+   * - `'main'` (recommended for doc-anchored chat): the panel is the canonical
+   *   surface for the supplied `topicId`. Messages are loaded by
+   *   `ConversationProvider`'s own fetch and persist through the standard
+   *   main-scope pipeline. The caller must guarantee `topicId` is defined.
+   * - `'thread'` (legacy in-chat portal): the panel owns an isolated thread
+   *   under the supplied `topicId`. When `threadId` is absent, the context is
+   *   marked `isNew` and a fresh thread is created on first send, anchored on
+   *   the topic's latest main message. The panel manages its own message slice
+   *   to avoid dumping the parent topic history into the side panel.
    */
   scope?: 'main' | 'thread';
   snapPoints?: number[];
@@ -150,19 +156,22 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     useSingleInstanceGuard();
     const { t } = useTranslation('chat');
 
+    const isMainScope = scope === 'main';
+
     const storePortalThreadId = useChatStore((s) => s.portalThreadId);
     const effectiveThreadId = threadId ?? storePortalThreadId ?? null;
 
     useEffect(() => {
+      if (isMainScope) return;
       if (threadId) return;
       if (useChatStore.getState().portalThreadId) {
         useChatStore.setState({ portalThreadId: undefined });
       }
-    }, [threadId]);
+    }, [isMainScope, threadId]);
 
-    const isCreatingNewThread = scope === 'thread' && !effectiveThreadId;
+    const isCreatingNewThread = !isMainScope && !effectiveThreadId;
     const sourceMessageId = useChatStore((s) => {
-      if (!isCreatingNewThread || !topicId) return undefined;
+      if (isMainScope || !isCreatingNewThread || !topicId) return undefined;
       const mainKey = messageMapKey({ agentId, topicId });
       const mainMessages = s.dbMessagesMap[mainKey];
       if (!mainMessages?.length) return undefined;
@@ -178,13 +187,13 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
         agentId,
         ...(agentDocumentId ? { agentDocumentId } : {}),
         ...(documentId ? { documentId } : {}),
-        ...(isCreatingNewThread && sourceMessageId
+        ...(!isMainScope && isCreatingNewThread && sourceMessageId
           ? { isNew: true, sourceMessageId, threadType: ThreadType.Standalone }
-          : isCreatingNewThread
+          : !isMainScope && isCreatingNewThread
             ? { isNew: true }
             : {}),
         scope,
-        threadId: effectiveThreadId,
+        threadId: isMainScope ? null : effectiveThreadId,
         topicId,
       }),
       [
@@ -193,6 +202,7 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
         documentId,
         effectiveThreadId,
         isCreatingNewThread,
+        isMainScope,
         scope,
         sourceMessageId,
         topicId,
@@ -203,11 +213,15 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     const rawMessages = useChatStore((s) => s.dbMessagesMap[chatKey]);
     const replaceMessages = useChatStore((s) => s.replaceMessages);
 
-    const messages = useMemo(() => {
+    // `'thread'` scope owns its message slice externally — see the inline note
+    // on the ConversationProvider below. `'main'` scope hands message loading
+    // off to the provider entirely and is uninterested in this derivation.
+    const threadMessages = useMemo(() => {
+      if (isMainScope) return undefined;
       if (!effectiveThreadId) return [];
       if (!rawMessages) return rawMessages;
       return rawMessages.filter((m) => m.threadId === effectiveThreadId);
-    }, [rawMessages, effectiveThreadId]);
+    }, [isMainScope, rawMessages, effectiveThreadId]);
 
     const operationState = useOperationState(context);
     const defaultActionsBar = useActionsBarConfig();
@@ -300,21 +314,30 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       width,
     };
 
+    // Doc-anchored side chat (`'thread'`) owns its messages via the external
+    // `messages` prop (filtered from `dbMessagesMap` above). Letting
+    // ConversationProvider fire its own `useFetchMessages` here would pull the
+    // main-topic history from the server and drop it into this panel —
+    // exactly the parent dump A-mode is meant to avoid.
+    //
+    // `'main'` scope is the inverse: the panel IS the canonical surface for
+    // the topic. Let ConversationProvider fetch + manage messages normally.
+    const providerProps = isMainScope
+      ? {}
+      : {
+          hasInitMessages: true as const,
+          messages: threadMessages ?? [],
+          onMessagesChange: handleMessagesChange,
+          skipFetch: true as const,
+        };
+
     return (
       <ConversationProvider
-        // Doc-anchored side chat owns its messages via the external
-        // `messages` prop (filtered from `dbMessagesMap` above). Letting
-        // ConversationProvider fire its own `useFetchMessages` here would
-        // pull the main-topic history from the server and drop it into
-        // this panel — exactly the parent dump A-mode is meant to avoid.
-        hasInitMessages
-        skipFetch
         actionsBar={resolvedActionsBar}
         context={context}
         hooks={mergedHooks}
-        messages={messages ?? []}
         operationState={operationState}
-        onMessagesChange={handleMessagesChange}
+        {...providerProps}
       >
         <div
           className={styles.panel}
