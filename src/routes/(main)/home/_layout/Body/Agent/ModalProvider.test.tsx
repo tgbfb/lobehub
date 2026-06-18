@@ -154,7 +154,6 @@ describe('AgentModalProvider', () => {
 
     expect(mocks.navigate).toHaveBeenCalledWith(
       '/settings/skill?tab=skill&skill=product-requirements-writer',
-      { escape: true },
     );
   });
 });
