@@ -423,7 +423,7 @@ export const getWorkflowSummaryText = (blocks: AssistantContentBlock[]): string 
 
   // Append "across N tools" when the list is truncated — otherwise it duplicates the visible list.
   if (displayedEntries.length < totalKinds) {
-    toolsText += ` ${t('workflow.summaryMoreTools', {
+    toolsText += ` ${t('workflow.summaryAcrossTools', {
       count: totalKinds,
       defaultValue: 'across {{count}} tools',
       ns: 'chat',
