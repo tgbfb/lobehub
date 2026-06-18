@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Abonelik puanlarınız tükendi, bu özelliği kullanamazsınız. Lütfen kredi yükleyin veya özel model API yapılandırın.",
   "response.SystemTimeNotMatchError": "Üzgünüz, sistem saatiniz sunucuyla eşleşmiyor. Lütfen sistem saatinizi kontrol edip tekrar deneyin.",
   "response.UnknownChatFetchError": "Üzgünüz, bilinmeyen bir istek hatası oluştu. Lütfen aşağıdaki bilgileri kontrol edin veya tekrar deneyin.",
+  "response.WorkspaceFrozen": "Bu çalışma alanı dondurulmuş ve istekler çalıştırılamıyor. Sorunu çözmek için lütfen çalışma alanı sahibine başvurun.",
   "stt.responseError": "Hizmet isteği başarısız oldu, lütfen yapılandırmayı kontrol edin veya tekrar deneyin",
   "supervisor.decisionFailed": "Grup yöneticisi çalışamıyor. Lütfen doğru model, API Anahtarı ve API uç noktasının ayarlandığından emin olun.",
   "testConnectionFailed": "Bağlantı testi başarısız: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Dosya depolama alanınız plan sınırına ulaştı. Lütfen planınızı yükseltin veya yer açmak için kullanılmayan dosyaları silin.",
   "upload.title": "Dosya yükleme başarısız oldu. Lütfen ağ bağlantınızı kontrol edin veya daha sonra tekrar deneyin",
   "upload.unknownError": "Hata nedeni: {{reason}}",
-  "upload.uploadFailed": "Dosya yükleme başarısız oldu."
+  "upload.uploadFailed": "Dosya yükleme başarısız oldu.",
+  "workspaceFrozen.contactSupport": "Destek ile iletişime geçin",
+  "workspaceFrozen.descriptionMember": "Bu çalışma alanındaki etkinlik duraklatıldı. Durumu gözden geçirmek için çalışma alanı sahibine başvurun veya çalışmaya devam etmek için başka bir çalışma alanına geçin.",
+  "workspaceFrozen.descriptionOwner": "Bu çalışma alanı risk kontrolü tarafından donduruldu ve geçici olarak kullanılamıyor. Durumu gözden geçirmek ve dondurmayı kaldırmak için destek ile iletişime geçin.",
+  "workspaceFrozen.title": "Çalışma alanı donduruldu"
 }

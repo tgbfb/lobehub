@@ -1043,6 +1043,7 @@
   "workingPanel.resources.deleteTitle": "Delete document?",
   "workingPanel.resources.deleteTitleMulti": "حذف {{count}} مورد؟",
   "workingPanel.resources.empty": "هنوز سندی وجود ندارد. اسناد مرتبط با این عامل در اینجا نمایش داده می‌شوند.",
+  "workingPanel.resources.emptyDocuments": "هنوز هیچ سندی وجود ندارد. یکی را با + بالا ایجاد کنید.",
   "workingPanel.resources.error": "Failed to load resources",
   "workingPanel.resources.filter.documents": "اسناد",
   "workingPanel.resources.filter.skills": "مهارت‌ها",

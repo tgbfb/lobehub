@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "您的訂閱點數已用盡，無法使用此功能。請儲值點數或設定自訂模型 API 以繼續使用。",
   "response.SystemTimeNotMatchError": "很抱歉，您的系統時間與伺服器不匹配，請檢查您的系統時間後重試",
   "response.UnknownChatFetchError": "很抱歉，遇到未知請求錯誤，請根據以下資訊排查或重試",
+  "response.WorkspaceFrozen": "此工作區已被凍結，無法執行請求。請聯繫工作區擁有者以解決問題。",
   "stt.responseError": "服務請求失敗，請檢查配置或重試",
   "supervisor.decisionFailed": "群組主持人無法工作。請檢查你的主持人設定，確保配置了正確的模型、API Key 和 API 位址。",
   "testConnectionFailed": "測試連線失敗：{{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "您的檔案儲存空間已達到方案上限。請升級您的方案或刪除未使用的檔案以釋放空間。",
   "upload.title": "檔案上傳失敗，請檢查網路連線或稍後再試",
   "upload.unknownError": "錯誤原因: {{reason}}",
-  "upload.uploadFailed": "檔案上傳失敗"
+  "upload.uploadFailed": "檔案上傳失敗",
+  "workspaceFrozen.contactSupport": "聯繫支援",
+  "workspaceFrozen.descriptionMember": "此工作區的活動已被暫停。請聯繫工作區擁有者以檢視狀態，或切換到其他工作區繼續工作。",
+  "workspaceFrozen.descriptionOwner": "此工作區因風險控制已被凍結，暫時無法使用。請聯繫支援以檢視狀態並申請解凍。",
+  "workspaceFrozen.title": "工作區已被凍結"
 }

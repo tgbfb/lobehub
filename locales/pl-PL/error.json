@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Wyczerpałeś punkty subskrypcji i nie możesz korzystać z tej funkcji. Doładuj konto lub skonfiguruj własny model API.",
   "response.SystemTimeNotMatchError": "Przepraszamy, czas systemowy nie zgadza się z czasem serwera. Sprawdź ustawienia czasu i spróbuj ponownie.",
   "response.UnknownChatFetchError": "Przepraszamy, wystąpił nieznany błąd żądania. Sprawdź szczegóły poniżej lub spróbuj ponownie.",
+  "response.WorkspaceFrozen": "Ten obszar roboczy jest zamrożony i nie można wykonywać żądań. Skontaktuj się z właścicielem obszaru roboczego, aby rozwiązać problem.",
   "stt.responseError": "Błąd żądania usługi. Sprawdź konfigurację lub spróbuj ponownie.",
   "supervisor.decisionFailed": "Gospodarz grupy nie działa. Sprawdź konfigurację modelu, klucza API i punktu końcowego.",
   "testConnectionFailed": "Test połączenia nie powiódł się: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Limit przestrzeni dyskowej w Twoim planie został osiągnięty. Zaktualizuj plan lub usuń nieużywane pliki, aby zwolnić miejsce.",
   "upload.title": "Przesyłanie pliku nie powiodło się. Sprawdź połączenie sieciowe lub spróbuj ponownie później.",
   "upload.unknownError": "Powód błędu: {{reason}}",
-  "upload.uploadFailed": "Przesyłanie pliku nie powiodło się."
+  "upload.uploadFailed": "Przesyłanie pliku nie powiodło się.",
+  "workspaceFrozen.contactSupport": "Skontaktuj się z pomocą techniczną",
+  "workspaceFrozen.descriptionMember": "Działalność w tym obszarze roboczym została wstrzymana. Skontaktuj się z właścicielem obszaru roboczego, aby sprawdzić status, lub przełącz się na inny obszar roboczy, aby kontynuować pracę.",
+  "workspaceFrozen.descriptionOwner": "Ten obszar roboczy został zamrożony przez kontrolę ryzyka i jest tymczasowo niedostępny. Skontaktuj się z pomocą techniczną, aby sprawdzić status i poprosić o odblokowanie.",
+  "workspaceFrozen.title": "Obszar roboczy jest zamrożony"
 }

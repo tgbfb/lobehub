@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Ihr Abonnement ist aufgebraucht. Bitte Guthaben aufladen oder API konfigurieren.",
   "response.SystemTimeNotMatchError": "Ihre Systemzeit stimmt nicht mit dem Server überein. Bitte Zeit prüfen.",
   "response.UnknownChatFetchError": "Unbekannter Fehler bei der Anfrage. Bitte prüfen Sie die Details.",
+  "response.WorkspaceFrozen": "Dieser Arbeitsbereich ist eingefroren und kann keine Anfragen ausführen. Bitte kontaktieren Sie den Eigentümer des Arbeitsbereichs, um das Problem zu lösen.",
   "stt.responseError": "Dienstanfrage fehlgeschlagen. Bitte Konfiguration prüfen.",
   "supervisor.decisionFailed": "Der Gruppen-Host funktioniert nicht. Bitte Host-Konfiguration prüfen.",
   "testConnectionFailed": "Verbindungstest fehlgeschlagen: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Ihr Dateispeicher hat das Limit Ihres Tarifs erreicht. Bitte upgraden Sie Ihren Tarif oder löschen Sie nicht verwendete Dateien, um Speicherplatz freizugeben.",
   "upload.title": "Datei-Upload fehlgeschlagen. Bitte Netzwerk prüfen oder später erneut versuchen.",
   "upload.unknownError": "Fehlerursache: {{reason}}",
-  "upload.uploadFailed": "Datei-Upload fehlgeschlagen."
+  "upload.uploadFailed": "Datei-Upload fehlgeschlagen.",
+  "workspaceFrozen.contactSupport": "Support kontaktieren",
+  "workspaceFrozen.descriptionMember": "Die Aktivität in diesem Arbeitsbereich wurde pausiert. Kontaktieren Sie den Eigentümer des Arbeitsbereichs, um den Status zu überprüfen, oder wechseln Sie zu einem anderen Arbeitsbereich, um weiterzuarbeiten.",
+  "workspaceFrozen.descriptionOwner": "Dieser Arbeitsbereich wurde aus Risikogründen eingefroren und ist vorübergehend nicht verfügbar. Kontaktieren Sie den Support, um den Status zu überprüfen und eine Entsperrung anzufordern.",
+  "workspaceFrozen.title": "Arbeitsbereich ist eingefroren"
 }

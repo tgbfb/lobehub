@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "ご利用のサブスクリプションポイントが上限に達したため、この機能はご利用いただけません。引き続きご利用いただくには、クレジットを追加するか、カスタムモデルAPIを設定してください。",
   "response.SystemTimeNotMatchError": "システム時刻がサーバーと一致しません。システム時刻を調整してから再試行してください",
   "response.UnknownChatFetchError": "リクエストが失敗しました（不明なエラー）。以下の情報に基づいてトラブルシューティングを行うか、再試行してください",
+  "response.WorkspaceFrozen": "このワークスペースは凍結されており、リクエストを実行することができません。問題を解決するためにワークスペースの所有者に連絡してください。",
   "stt.responseError": "リクエストが失敗しました。設定を確認してから再試行してください",
   "supervisor.decisionFailed": "グループホストの実行に失敗しました。ホスト設定（モデル、API キーと API アドレス）を確認してから再試行してください",
   "testConnectionFailed": "接続テストに失敗しました：{{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "ファイルストレージがご利用中のプランの上限に達しました。プランをアップグレードするか、未使用のファイルを削除して空き容量を確保してください。",
   "upload.title": "アップロードが完了できませんでした",
   "upload.unknownError": "原因：{{reason}}",
-  "upload.uploadFailed": "アップロードが完了できませんでした"
+  "upload.uploadFailed": "アップロードが完了できませんでした",
+  "workspaceFrozen.contactSupport": "サポートに連絡",
+  "workspaceFrozen.descriptionMember": "このワークスペースでの活動は一時停止されています。ワークスペースの所有者に連絡して状況を確認するか、別のワークスペースに切り替えて作業を続けてください。",
+  "workspaceFrozen.descriptionOwner": "このワークスペースはリスク管理によって凍結され、一時的に利用できません。状況を確認し、凍結解除を依頼するためにサポートに連絡してください。",
+  "workspaceFrozen.title": "ワークスペースが凍結されています"
 }

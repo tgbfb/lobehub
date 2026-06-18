@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Je abonnementspunten zijn op. Vul je tegoed aan of configureer een aangepaste model-API om verder te gaan.",
   "response.SystemTimeNotMatchError": "Sorry, je systeemtijd komt niet overeen met de server. Controleer je tijdinstellingen en probeer opnieuw.",
   "response.UnknownChatFetchError": "Sorry, er is een onbekende fout opgetreden bij het verzoek. Controleer de informatie hieronder of probeer opnieuw.",
+  "response.WorkspaceFrozen": "Deze werkruimte is bevroren en kan geen verzoeken uitvoeren. Neem contact op met de eigenaar van de werkruimte om het probleem op te lossen.",
   "stt.responseError": "Serviceverzoek mislukt. Controleer de configuratie of probeer opnieuw.",
   "supervisor.decisionFailed": "De groepshost functioneert niet. Controleer of het juiste model, API-sleutel en eindpunt zijn ingesteld.",
   "testConnectionFailed": "Testverbinding mislukt: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Je bestandsopslag heeft de limiet van je abonnement bereikt. Upgrade je abonnement of verwijder ongebruikte bestanden om ruimte vrij te maken.",
   "upload.title": "Uploaden van bestand mislukt. Controleer je netwerkverbinding of probeer later opnieuw.",
   "upload.unknownError": "Foutreden: {{reason}}",
-  "upload.uploadFailed": "Uploaden van bestand mislukt."
+  "upload.uploadFailed": "Uploaden van bestand mislukt.",
+  "workspaceFrozen.contactSupport": "Neem contact op met ondersteuning",
+  "workspaceFrozen.descriptionMember": "Activiteit in deze werkruimte is gepauzeerd. Neem contact op met de eigenaar van de werkruimte om de status te bekijken, of schakel over naar een andere werkruimte om door te werken.",
+  "workspaceFrozen.descriptionOwner": "Deze werkruimte is bevroren door risicobeheersing en is tijdelijk niet beschikbaar. Neem contact op met ondersteuning om de status te bekijken en een verzoek in te dienen om de werkruimte te deblokkeren.",
+  "workspaceFrozen.title": "Werkruimte is bevroren"
 }

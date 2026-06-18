@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Has agotado tus puntos de suscripción. Recarga créditos o configura una API personalizada.",
   "response.SystemTimeNotMatchError": "Lo sentimos, la hora de tu sistema no coincide con la del servidor.",
   "response.UnknownChatFetchError": "Lo sentimos, ocurrió un error desconocido en la solicitud.",
+  "response.WorkspaceFrozen": "Este espacio de trabajo está congelado y no puede ejecutar solicitudes. Por favor, contacta al propietario del espacio de trabajo para resolver el problema.",
   "stt.responseError": "Error en la solicitud del servicio. Verifica la configuración.",
   "supervisor.decisionFailed": "El anfitrión del grupo no puede funcionar. Verifica la configuración del modelo y API Key.",
   "testConnectionFailed": "Error al probar la conexión: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Has alcanzado el límite de almacenamiento de tu plan. Por favor, actualiza tu plan o elimina archivos que no uses para liberar espacio.",
   "upload.title": "Error al subir el archivo. Verifica tu conexión o inténtalo más tarde.",
   "upload.unknownError": "Motivo del error: {{reason}}",
-  "upload.uploadFailed": "Error al subir el archivo."
+  "upload.uploadFailed": "Error al subir el archivo.",
+  "workspaceFrozen.contactSupport": "Contactar soporte",
+  "workspaceFrozen.descriptionMember": "La actividad en este espacio de trabajo ha sido pausada. Contacta al propietario del espacio de trabajo para revisar el estado, o cambia a otro espacio de trabajo para seguir trabajando.",
+  "workspaceFrozen.descriptionOwner": "Este espacio de trabajo fue congelado por control de riesgos y está temporalmente no disponible. Contacta al soporte para revisar el estado y solicitar el descongelamiento.",
+  "workspaceFrozen.title": "El espacio de trabajo está congelado"
 }

@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "구독 포인트가 모두 소진되어 이 기능을 사용할 수 없습니다. 계속 사용하려면 크레딧을 충전하거나 사용자 지정 모델 API를 설정해 주세요.",
   "response.SystemTimeNotMatchError": "시스템 시간이 서버와 일치하지 않습니다. 시스템 시간을 조정한 후 다시 시도하세요",
   "response.UnknownChatFetchError": "요청이 실패했습니다(알 수 없는 오류). 다음 정보를 기반으로 문제를 해결하거나 다시 시도하세요",
+  "response.WorkspaceFrozen": "이 워크스페이스는 동결되어 요청을 실행할 수 없습니다. 문제를 해결하려면 워크스페이스 소유자에게 문의하세요.",
   "stt.responseError": "요청이 실패했습니다. 설정을 확인한 후 다시 시도하세요",
   "supervisor.decisionFailed": "그룹 호스트 실행에 실패했습니다. 호스트 설정(모델, API 키 및 API 주소)을 확인한 후 다시 시도하세요",
   "testConnectionFailed": "연결 테스트에 실패했습니다: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "파일 저장 용량이 현재 요금제의 한도에 도달했습니다. 요금제를 업그레이드하거나 사용하지 않는 파일을 삭제하여 공간을 확보해 주세요.",
   "upload.title": "업로드를 완료할 수 없습니다",
   "upload.unknownError": "원인: {{reason}}",
-  "upload.uploadFailed": "업로드를 완료할 수 없습니다"
+  "upload.uploadFailed": "업로드를 완료할 수 없습니다",
+  "workspaceFrozen.contactSupport": "지원팀에 문의하기",
+  "workspaceFrozen.descriptionMember": "이 워크스페이스의 활동이 일시 중단되었습니다. 워크스페이스 소유자에게 상태를 검토하도록 요청하거나 다른 워크스페이스로 전환하여 작업을 계속하세요.",
+  "workspaceFrozen.descriptionOwner": "이 워크스페이스는 위험 관리에 의해 동결되었으며 일시적으로 사용할 수 없습니다. 상태를 검토하고 동결 해제를 요청하려면 지원팀에 문의하세요.",
+  "workspaceFrozen.title": "워크스페이스가 동결되었습니다"
 }

@@ -1043,6 +1043,7 @@
   "workingPanel.resources.deleteTitle": "Delete document?",
   "workingPanel.resources.deleteTitleMulti": "Supprimer {{count}} éléments ?",
   "workingPanel.resources.empty": "Aucun document pour l’instant. Les documents associés à cet agent apparaîtront ici.",
+  "workingPanel.resources.emptyDocuments": "Aucun document pour le moment. Créez-en un avec le + ci-dessus.",
   "workingPanel.resources.error": "Failed to load resources",
   "workingPanel.resources.filter.documents": "Documents",
   "workingPanel.resources.filter.skills": "Compétences",

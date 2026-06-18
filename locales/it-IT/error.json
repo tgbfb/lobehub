@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Hai esaurito i punti del tuo abbonamento e non puoi usare questa funzione. Ricarica i crediti o configura una API personalizzata.",
   "response.SystemTimeNotMatchError": "Spiacenti, l'orario del tuo sistema non corrisponde a quello del server. Verifica l'orologio e riprova.",
   "response.UnknownChatFetchError": "Spiacenti, si è verificato un errore sconosciuto nella richiesta. Verifica le informazioni seguenti o riprova.",
+  "response.WorkspaceFrozen": "Questo spazio di lavoro è bloccato e non può eseguire richieste. Contatta il proprietario dello spazio di lavoro per risolvere il problema.",
   "stt.responseError": "Richiesta al servizio fallita. Verifica la configurazione o riprova.",
   "supervisor.decisionFailed": "L'host del gruppo non è operativo. Verifica la configurazione del modello, della chiave API e dell'endpoint.",
   "testConnectionFailed": "Connessione di test fallita: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Lo spazio di archiviazione dei tuoi file ha raggiunto il limite previsto dal piano. Aggiorna il tuo piano oppure elimina i file non utilizzati per liberare spazio.",
   "upload.title": "Caricamento file fallito. Controlla la connessione o riprova più tardi.",
   "upload.unknownError": "Motivo dell'errore: {{reason}}",
-  "upload.uploadFailed": "Caricamento file fallito."
+  "upload.uploadFailed": "Caricamento file fallito.",
+  "workspaceFrozen.contactSupport": "Contatta il supporto",
+  "workspaceFrozen.descriptionMember": "L'attività in questo spazio di lavoro è stata sospesa. Contatta il proprietario dello spazio di lavoro per verificare lo stato, oppure passa a un altro spazio di lavoro per continuare a lavorare.",
+  "workspaceFrozen.descriptionOwner": "Questo spazio di lavoro è stato bloccato dal controllo dei rischi ed è temporaneamente non disponibile. Contatta il supporto per verificare lo stato e richiedere lo sblocco.",
+  "workspaceFrozen.title": "Lo spazio di lavoro è bloccato"
 }

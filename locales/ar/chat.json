@@ -1043,6 +1043,7 @@
   "workingPanel.resources.deleteTitle": "Delete document?",
   "workingPanel.resources.deleteTitleMulti": "حذف {{count}} عنصرًا؟",
   "workingPanel.resources.empty": "لا توجد مستندات بعد. ستظهر المستندات المرتبطة بهذا الوكيل هنا.",
+  "workingPanel.resources.emptyDocuments": "لا توجد مستندات حتى الآن. قم بإنشاء واحد باستخدام + أعلاه.",
   "workingPanel.resources.error": "Failed to load resources",
   "workingPanel.resources.filter.documents": "مستندات",
   "workingPanel.resources.filter.skills": "المهارات",

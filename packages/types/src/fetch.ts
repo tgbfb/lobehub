@@ -7,6 +7,7 @@ export const ChatErrorType = {
   FreePlanLimit: 'FreePlanLimit', // Free plan usage limit
   SubscriptionPlanLimit: 'SubscriptionPlanLimit', // Subscription user limit exceeded
   InsufficientBudgetForModel: 'InsufficientBudgetForModel', // Has credits but not enough for estimated model cost
+  WorkspaceFrozen: 'WorkspaceFrozen', // Workspace is frozen (risk control) and cannot spend
   SubscriptionKeyMismatch: 'SubscriptionKeyMismatch', // Subscription key mismatch
 
   SupervisorDecisionFailed: 'SupervisorDecisionFailed', // Supervisor decision failed

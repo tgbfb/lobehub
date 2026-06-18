@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Votre quota d'abonnement est épuisé. Veuillez recharger votre crédit ou configurer une API personnalisée.",
   "response.SystemTimeNotMatchError": "Désolé, l'heure de votre système ne correspond pas à celle du serveur. Veuillez la corriger et réessayer.",
   "response.UnknownChatFetchError": "Désolé, une erreur inconnue s'est produite. Veuillez consulter les informations ci-dessous ou réessayer.",
+  "response.WorkspaceFrozen": "Cet espace de travail est gelé et ne peut pas exécuter de requêtes. Veuillez contacter le propriétaire de l'espace de travail pour résoudre le problème.",
   "stt.responseError": "Échec de la requête du service, veuillez vérifier la configuration ou réessayer",
   "supervisor.decisionFailed": "L'hôte du groupe ne fonctionne pas. Veuillez vérifier la configuration du modèle, de la clé API et de l'URL.",
   "testConnectionFailed": "Échec du test de connexion : {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Votre espace de stockage a atteint la limite de votre forfait. Veuillez mettre à niveau votre forfait ou supprimer les fichiers inutilisés pour libérer de l’espace.",
   "upload.title": "Échec du téléversement. Veuillez vérifier votre connexion ou réessayer plus tard.",
   "upload.unknownError": "Raison de l'erreur : {{reason}}",
-  "upload.uploadFailed": "Échec du téléversement du fichier."
+  "upload.uploadFailed": "Échec du téléversement du fichier.",
+  "workspaceFrozen.contactSupport": "Contacter le support",
+  "workspaceFrozen.descriptionMember": "L'activité dans cet espace de travail a été suspendue. Contactez le propriétaire de l'espace de travail pour examiner le statut, ou passez à un autre espace de travail pour continuer à travailler.",
+  "workspaceFrozen.descriptionOwner": "Cet espace de travail a été gelé par le contrôle des risques et est temporairement indisponible. Contactez le support pour examiner le statut et demander le dégel.",
+  "workspaceFrozen.title": "L'espace de travail est gelé"
 }

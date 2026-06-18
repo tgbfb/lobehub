@@ -1043,6 +1043,7 @@
   "workingPanel.resources.deleteTitle": "Delete document?",
   "workingPanel.resources.deleteTitleMulti": "{{count}} öğeyi silmek istiyor musunuz?",
   "workingPanel.resources.empty": "Henüz belge yok. Bu ajanla ilişkili belgeler burada görünecek.",
+  "workingPanel.resources.emptyDocuments": "Henüz belge yok. Yukarıdaki + ile bir tane oluşturun.",
   "workingPanel.resources.error": "Failed to load resources",
   "workingPanel.resources.filter.documents": "Belgeler",
   "workingPanel.resources.filter.skills": "Beceriler",

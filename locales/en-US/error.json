@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "Your subscription points have been exhausted, and you cannot use this feature. Please top up credits or configure a custom model API to continue using it.",
   "response.SystemTimeNotMatchError": "Sorry, your system time does not match the server. Please check your system time and try again.",
   "response.UnknownChatFetchError": "Sorry, an unknown request error occurred. Please check the information below or try again.",
+  "response.WorkspaceFrozen": "This workspace is frozen and cannot run requests. Please contact the workspace owner to resolve the issue.",
   "stt.responseError": "Service request failed, please check the configuration or try again",
   "supervisor.decisionFailed": "The group host is unable to function. Please check your host configuration to ensure the correct model, API Key, and API endpoint are set.",
   "testConnectionFailed": "Test connection failed: {{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "Your file storage has reached the plan limit. Please upgrade your plan or delete unused files to free up space.",
   "upload.title": "File upload failed. Please check your network connection or try again later",
   "upload.unknownError": "Error reason: {{reason}}",
-  "upload.uploadFailed": "File upload failed."
+  "upload.uploadFailed": "File upload failed.",
+  "workspaceFrozen.contactSupport": "Contact support",
+  "workspaceFrozen.descriptionMember": "Activity in this workspace has been paused. Contact the workspace owner to review the status, or switch to another workspace to keep working.",
+  "workspaceFrozen.descriptionOwner": "This workspace was frozen by risk control and is temporarily unavailable. Contact support to review the status and request to unfreeze.",
+  "workspaceFrozen.title": "Workspace is frozen"
 }

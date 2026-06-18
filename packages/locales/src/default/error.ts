@@ -175,6 +175,14 @@ export default {
     'The model "{{model}}" is no longer available. Please pick a current model from the model selector.',
   'response.UnknownChatFetchError':
     'Sorry, an unknown request error occurred. Please check the information below or try again.',
+  'response.WorkspaceFrozen':
+    'This workspace is frozen and cannot run requests. Please contact the workspace owner to resolve the issue.',
+  'workspaceFrozen.contactSupport': 'Contact support',
+  'workspaceFrozen.descriptionMember':
+    'Activity in this workspace has been paused. Contact the workspace owner to review the status, or switch to another workspace to keep working.',
+  'workspaceFrozen.descriptionOwner':
+    'This workspace was frozen by risk control and is temporarily unavailable. Contact support to review the status and request to unfreeze.',
+  'workspaceFrozen.title': 'Workspace is frozen',
   'stt.responseError': 'Service request failed, please check the configuration or try again',
   'supervisor.decisionFailed':
     'The group host is unable to function. Please check your host configuration to ensure the correct model, API Key, and API endpoint are set.',

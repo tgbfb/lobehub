@@ -99,6 +99,7 @@
   "response.SubscriptionPlanLimitUltimate": "您的订阅积分已用尽，无法使用此功能。请充值积分或配置自定义模型 API 以继续使用。",
   "response.SystemTimeNotMatchError": "系统时间与服务器不一致。请校准系统时间后重试",
   "response.UnknownChatFetchError": "请求失败（未知错误）。请根据以下信息排查或重试",
+  "response.WorkspaceFrozen": "工作区已冻结，暂时无法处理请求。请联系工作区所有者处理",
   "stt.responseError": "请求失败。请检查配置后重试",
   "supervisor.decisionFailed": "群组主持人运行失败。请检查主持人配置（模型、API Key 与 API 地址）后重试",
   "testConnectionFailed": "测试连接失败：{{error}}",
@@ -149,5 +150,9 @@
   "upload.storageLimitExceeded": "文件存储空间已达到当前套餐上限，请升级套餐或删除不需要的文件以释放空间。",
   "upload.title": "上传未能完成",
   "upload.unknownError": "原因：{{reason}}",
-  "upload.uploadFailed": "上传未能完成"
+  "upload.uploadFailed": "上传未能完成",
+  "workspaceFrozen.contactSupport": "联系客服",
+  "workspaceFrozen.descriptionMember": "此工作区的活动已被暂停。请联系工作区所有者了解状态，或切换到其他工作区继续使用",
+  "workspaceFrozen.descriptionOwner": "此工作区已被风控系统冻结，暂时无法使用。请联系客服处理后申请解冻",
+  "workspaceFrozen.title": "工作区已冻结"
 }

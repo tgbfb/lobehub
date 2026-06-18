@@ -1043,6 +1043,7 @@
   "workingPanel.resources.deleteTitle": "Delete document?",
   "workingPanel.resources.deleteTitleMulti": "{{count}} items verwijderen?",
   "workingPanel.resources.empty": "Nog geen documenten. Documenten die bij deze agent horen, verschijnen hier.",
+  "workingPanel.resources.emptyDocuments": "Nog geen documenten. Maak er een met de + hierboven.",
   "workingPanel.resources.error": "Failed to load resources",
   "workingPanel.resources.filter.documents": "Documenten",
   "workingPanel.resources.filter.skills": "Vaardigheden",
