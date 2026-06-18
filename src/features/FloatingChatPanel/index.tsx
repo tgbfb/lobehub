@@ -1,5 +1,6 @@
 'use client';
 
+import { type UIChatMessage } from '@lobechat/types';
 import { ActionIcon } from '@lobehub/ui';
 import { FloatingSheet, type FloatingSheetProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
@@ -20,6 +21,7 @@ import { useOperationState } from '@/hooks/useOperationState';
 import { useActionsBarConfig } from '@/routes/(main)/agent/features/Conversation/useActionsBarConfig';
 import { useAgentStore } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
+import { useChatStore } from '@/store/chat';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import ChatBody from './ChatBody';
@@ -154,6 +156,21 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
 
     const chatKey = useMemo(() => messageMapKey(context), [context]);
 
+    // ConversationProvider runs an isolated message store per panel — read the
+    // shared chat store's `dbMessagesMap` for this key and wire the standard
+    // `messages` / `onMessagesChange` sync pattern (mirrors `ConversationArea`
+    // in the main agent route). Without this loop the lifecycle's
+    // `chatStore.replaceMessages` after a send wouldn't propagate back into
+    // the panel's local message slice and the UI would stay empty.
+    const messages = useChatStore((s) => s.dbMessagesMap[chatKey]);
+    const replaceMessages = useChatStore((s) => s.replaceMessages);
+    const handleMessagesChange = useCallback(
+      (next: UIChatMessage[], ctx: ConversationContext) => {
+        replaceMessages(next, { context: ctx });
+      },
+      [replaceMessages],
+    );
+
     const operationState = useOperationState(context);
     const defaultActionsBar = useActionsBarConfig();
     const resolvedActionsBar = actionsBar ?? defaultActionsBar;
@@ -241,8 +258,11 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       <ConversationProvider
         actionsBar={resolvedActionsBar}
         context={context}
+        hasInitMessages={!!messages}
         hooks={mergedHooks}
+        messages={messages}
         operationState={operationState}
+        onMessagesChange={handleMessagesChange}
       >
         <div
           className={styles.panel}

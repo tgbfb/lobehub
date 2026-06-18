@@ -155,12 +155,24 @@ vi.mock('@/store/chat/utils/messageMapKey', () => ({
   messageMapKey: (ctx: any) => `${ctx.agentId}:${ctx.topicId}:${ctx.threadId}`,
 }));
 
+const mockChatState = vi.hoisted(() => ({
+  current: {
+    dbMessagesMap: {} as Record<string, Array<{ id: string }>>,
+    replaceMessages: vi.fn(),
+  },
+}));
+vi.mock('@/store/chat', () => ({
+  useChatStore: (selector: any) => selector(mockChatState.current),
+}));
+
 describe('FloatingChatPanel', () => {
   beforeEach(() => {
     __resetFloatingChatPanelRegistry();
     sheetHandlers.current.onOpenChange = undefined;
     sheetHandlers.current.onSnapPointChange = undefined;
     mergedHooksCaptured.current = undefined;
+    mockChatState.current.dbMessagesMap = {};
+    mockChatState.current.replaceMessages = vi.fn();
   });
 
   it('builds a main-scope context anchored on the supplied topicId', () => {
@@ -194,12 +206,21 @@ describe('FloatingChatPanel', () => {
     });
   });
 
-  it('hands message loading to ConversationProvider — no skipFetch / external messages', () => {
+  it('lets ConversationProvider drive the fetch when the chat store has no slice yet', () => {
     const { getByTestId } = render(<FloatingChatPanel agentId="agent-1" topicId="topic-1" />);
     const provider = getByTestId('provider');
     expect(provider.dataset.skipFetch).toBe('false');
     expect(provider.dataset.hasInitMessages).toBe('false');
-    expect(provider.dataset.hasMessagesProp).toBe('false');
+  });
+
+  it('syncs the chat store slice into ConversationProvider when the topic already has messages', () => {
+    mockChatState.current.dbMessagesMap = {
+      'agent-1:topic-1:null': [{ id: 'msg-1' }],
+    };
+    const { getByTestId } = render(<FloatingChatPanel agentId="agent-1" topicId="topic-1" />);
+    const provider = getByTestId('provider');
+    expect(provider.dataset.hasInitMessages).toBe('true');
+    expect(provider.dataset.hasMessagesProp).toBe('true');
   });
 
   it('forwards title and headerActions to floating panel header', () => {
