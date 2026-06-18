@@ -27,20 +27,37 @@ function buildJudgeUserPrompt(
   criteria: string,
   actual: string,
   expected: string | undefined,
+  input: string | undefined,
 ): string {
-  const parts = [`[Criteria]\n${criteria}`, `[Output]\n${actual}`];
+  const parts = [`[Criteria]\n${criteria}`];
+  // Surface the task input (e.g. the prompt/draft/context the output responds
+  // to) so the judge can score the output against what it was supposed to do,
+  // not just against the criteria text in isolation.
+  if (input) {
+    parts.push(`[Input]\n${input}`);
+  }
+  parts.push(`[Output]\n${actual}`);
   if (expected) {
     parts.push(`[Expected]\n${expected}`);
   }
   return parts.join('\n\n');
 }
 
-export const matchLLMRubric = async (
-  actual: string,
-  expected: string | undefined,
-  rubric: EvalBenchmarkRubric,
-  context?: MatchContext,
-): Promise<MatchResult> => {
+export interface MatchLLMRubricParams {
+  actual: string;
+  context?: MatchContext;
+  expected?: string;
+  input?: string;
+  rubric: EvalBenchmarkRubric;
+}
+
+export const matchLLMRubric = async ({
+  actual,
+  context,
+  expected,
+  input,
+  rubric,
+}: MatchLLMRubricParams): Promise<MatchResult> => {
   if (!context?.generateObject) {
     return { passed: false, reason: 'LLM judge not available', score: 0 };
   }
@@ -57,7 +74,7 @@ export const matchLLMRubric = async (
     const result = await context.generateObject({
       messages: [
         { content: cfg.systemRole || DEFAULT_SYSTEM_ROLE, role: 'system' },
-        { content: buildJudgeUserPrompt(criteria, actual, expected), role: 'user' },
+        { content: buildJudgeUserPrompt(criteria, actual, expected, input), role: 'user' },
       ],
       model,
       provider: cfg.provider,
