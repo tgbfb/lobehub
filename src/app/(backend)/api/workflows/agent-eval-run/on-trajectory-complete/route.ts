@@ -1,28 +1,26 @@
-import debug from 'debug';
 import { NextResponse } from 'next/server';
 
-import { AgentEvalRunModel } from '@/database/models/agentEval';
-import { getServerDB } from '@/database/server';
-import { AgentEvalRunService } from '@/server/services/agentEvalRun';
-import {
-  AgentEvalRunWorkflow,
-  type OnTrajectoryCompletePayload,
-} from '@/server/workflows/agentEvalRun';
-import { resolveAgentEvalRunWorkspace } from '@/server/workflows/agentEvalRun/utils';
+import type { OnTrajectoryCompletePayload } from '@/server/workflows/agentEvalRun';
 
-const log = debug('lobe-server:workflows:on-trajectory-complete');
+// Force dynamic so Next.js does not statically analyse this route at build time.
+// The import chain (AgentEvalRunWorkflow → qstashClient, AgentEvalRunService → MCPService)
+// contains module-level singletons that throw ERR_INVALID_ARG_TYPE during Turbopack's
+// page-data collection phase. Lazy imports below defer all initialisation to request time.
+export const dynamic = 'force-dynamic';
 
-/**
- * On-trajectory-complete webhook handler
- *
- * Receives a POST from the AgentRuntimeService completion webhook after an
- * agent operation finishes (success or error). Checks whether all test cases
- * for the run are done and, if so, triggers the finalize-run workflow.
- *
- * This is a plain Next.js route handler (NOT an Upstash workflow / serve()).
- */
 export async function POST(req: Request) {
+  const { default: debug } = await import('debug');
+  const log = debug('lobe-server:workflows:on-trajectory-complete');
+
   try {
+    const { AgentEvalRunModel } = await import('@/database/models/agentEval');
+    const { getServerDB } = await import('@/database/server');
+    const { AgentEvalRunService } = await import('@/server/services/agentEvalRun');
+    const { AgentEvalRunWorkflow } = await import('@/server/workflows/agentEvalRun');
+    const { resolveAgentEvalRunWorkspace } = await import(
+      '@/server/workflows/agentEvalRun/utils'
+    );
+
     const body = (await req.json()) as OnTrajectoryCompletePayload;
     const {
       runId,
