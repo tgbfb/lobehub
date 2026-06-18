@@ -73,6 +73,7 @@ export class DeviceModel {
           platform: params.platform,
         },
         target: [devices.userId, devices.deviceId],
+        targetWhere: sql`${devices.workspaceId} IS NULL`,
       })
       .returning();
 

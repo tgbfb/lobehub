@@ -56,8 +56,15 @@ export const devices = pgTable(
     ...timestamps,
   },
   (t) => [
-    /** One row per (user, machine); register() upserts on this target */
-    uniqueIndex('devices_user_id_device_id_unique').on(t.userId, t.deviceId),
+    /**
+     * One row per (user, machine) for PERSONAL devices; register() upserts on
+     * this target (partial → ON CONFLICT must repeat the
+     * `WHERE workspace_id IS NULL` predicate). Workspace rows are excluded so
+     * `user_id` is not part of their identity (see workspace partial below).
+     */
+    uniqueIndex('devices_user_id_device_id_unique')
+      .on(t.userId, t.deviceId)
+      .where(sql`${t.workspaceId} IS NULL`),
     /**
      * One row per (workspace, machine) for enrolled devices, regardless of which
      * admin ran the enrollment. registerWorkspaceDevice() upserts on this target

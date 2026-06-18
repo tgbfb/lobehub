@@ -6,7 +6,7 @@
   },
   "dialect": "postgresql",
   "enums": {},
-  "id": "0fbb2267-1bbf-45b7-87e4-50392d90387f",
+  "id": "1ed377b0-c3c3-4a65-9c22-b2cf137aeb34",
   "policies": {},
   "prevId": "ae7b7028-ea77-4a93-80e1-f9d0fb314f14",
   "roles": {},
@@ -6154,6 +6154,7 @@
             }
           ],
           "isUnique": true,
+          "where": "\"devices\".\"workspace_id\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
