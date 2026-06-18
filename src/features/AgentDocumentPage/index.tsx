@@ -5,7 +5,6 @@ import { useParams } from 'react-router-dom';
 
 import { PageEditor } from '@/features/PageEditor';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
-import { agentDocumentService } from '@/services/agentDocument';
 
 import Header from './Header';
 import { useAgentDocumentItem } from './useAgentDocumentItem';
@@ -34,27 +33,10 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   );
 
   // A skill index doc is stored as `SKILL.md`; show the skill name (bundle title) instead.
+  const isSkillIndex = !!skillBundle;
   const title = skillBundle
     ? skillBundle.title || skillBundle.filename || item?.title || item?.filename
     : item?.title || item?.filename;
-
-  // Persist title edits to the right row: for a skill the visible title is the
-  // bundle name, so rename the bundle; otherwise the shared page save already
-  // wrote the document's own title and we just refresh the list.
-  const handleTitleChange = useCallback(
-    (nextTitle: string) => {
-      const bundleRowId = skillBundle?.id;
-      const trimmed = nextTitle.trim();
-      if (bundleRowId && agentId && trimmed) {
-        agentDocumentService
-          .renameDocument({ agentId, id: bundleRowId, newTitle: trimmed })
-          .finally(() => mutate());
-        return;
-      }
-      mutate();
-    },
-    [agentId, mutate, skillBundle?.id],
-  );
 
   const header = useMemo(
     () => (
@@ -76,13 +58,18 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
       fullWidthHeader
       header={header}
       key={documentId}
+      // A skill index's visible name is the bundle title; renaming must go
+      // through the skill APIs, so lock the page title/emoji here. A plain
+      // title save would overwrite the `SKILL.md` filename and desync the
+      // bundle (and the bundle rename API rejects managed skill docs anyway).
+      metaReadOnly={isSkillIndex}
       pageId={documentId}
       rightPanel={false}
       syncPageAgentActiveState={false}
       title={title}
       // Refresh the list so the breadcrumb and working-sidebar entry pick up
-      // the new title (and rename the bundle when this is a skill index doc).
-      onTitleChange={handleTitleChange}
+      // the new title after the shared page save persists it.
+      onTitleChange={() => mutate()}
     />
   );
 });
