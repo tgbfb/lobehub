@@ -216,6 +216,7 @@ const FileUpload = memo(() => {
           label: (
             <CheckboxItem
               checked={item.enabled}
+              hasPadding={false}
               id={item.id}
               label={item.name}
               onUpdate={async (id, enabled) => {
@@ -234,6 +235,7 @@ const FileUpload = memo(() => {
           label: (
             <CheckboxItem
               checked={item.enabled}
+              hasPadding={false}
               id={item.id}
               label={item.name}
               onUpdate={async (id, enabled) => {
