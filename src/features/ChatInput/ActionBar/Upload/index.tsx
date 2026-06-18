@@ -48,9 +48,19 @@ const MENU_ICON_SIZE = 20;
 // "View More" rows. The icon slot is the aria-hidden span inside each item's content.
 const menuLayout = css`
   & [role='menuitem'] span[aria-hidden='false'] {
+    flex: none;
+
     width: ${MENU_ICON_SIZE}px;
+    min-width: ${MENU_ICON_SIZE}px;
+    max-width: ${MENU_ICON_SIZE}px;
     height: ${MENU_ICON_SIZE}px;
     margin-inline-end: 8px;
+  }
+
+  & [role='menuitem'] span[aria-hidden='false'] > * {
+    flex: none;
+    width: ${MENU_ICON_SIZE}px;
+    height: ${MENU_ICON_SIZE}px;
   }
 `;
 
