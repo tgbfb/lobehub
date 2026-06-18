@@ -1,5 +1,4 @@
 // Context Provider exports
-export { ActiveTopicDocumentContextInjector } from './ActiveTopicDocumentContextInjector';
 export { AgentBuilderContextInjector } from './AgentBuilderContextInjector';
 export {
   AGENT_DOCUMENT_INJECTION_POSITIONS,
@@ -46,7 +45,6 @@ export { TopicReferenceContextInjector } from './TopicReferenceContextInjector';
 export { UserMemoryInjector } from './UserMemoryInjector';
 
 // Re-export types
-export type { ActiveTopicDocumentContextInjectorConfig } from './ActiveTopicDocumentContextInjector';
 export type {
   AgentBuilderContext,
   AgentBuilderContextInjectorConfig,

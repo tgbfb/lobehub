@@ -121,10 +121,9 @@ export interface MessageMapContext {
 export interface ConversationContext {
   /**
    * Agent document row id (`agent_documents.id`) that the user is currently
-   * viewing. When set, callers can skip the `listDocumentsForTopic` reverse
-   * lookup in `ActiveTopicDocumentContextInjector` and the `<document>` block
-   * is guaranteed to carry `agent_document_id` for downstream tool calls
-   * (`readDocument`, `modifyNodes`).
+   * viewing. Forwarded into the runtime context so downstream tool calls
+   * (`readDocument`, `modifyNodes`) can resolve the row without a reverse
+   * `listDocumentsForTopic` lookup.
    */
   agentDocumentId?: string;
   agentId: string;
