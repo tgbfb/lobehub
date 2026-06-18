@@ -1,6 +1,6 @@
 {
   "bunVersion": "1.x",
-  "buildCommand": "bun run build:vercel",
+  "buildCommand": "cross-env-shell NODE_OPTIONS=--max-old-space-size=8192 \"bun run build:spa:raw && bun run build:spa:auth && bun run build:spa:copy && next build --webpack && bun run db:migrate\"",
   "headers": [
     {
       "source": "/_spa/(.*)",
