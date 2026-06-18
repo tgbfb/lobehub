@@ -98,7 +98,6 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
             agentId={chatAgentId}
             documentId={documentId}
             key={`${chatAgentId}:${docChatTopicId}:${documentId}`}
-            scope="main"
             topicId={docChatTopicId}
           />
         </WideScreenContainer>

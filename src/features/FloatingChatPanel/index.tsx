@@ -1,12 +1,11 @@
 'use client';
 
-import { ThreadType, type UIChatMessage } from '@lobechat/types';
 import { ActionIcon } from '@lobehub/ui';
 import { FloatingSheet, type FloatingSheetProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -21,7 +20,6 @@ import { useOperationState } from '@/hooks/useOperationState';
 import { useActionsBarConfig } from '@/routes/(main)/agent/features/Conversation/useActionsBarConfig';
 import { useAgentStore } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
-import { useChatStore } from '@/store/chat';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import ChatBody from './ChatBody';
@@ -103,26 +101,15 @@ export interface FloatingChatPanelProps {
   onOpenChange?: (open: boolean) => void;
   onSnapPointChange?: (point: number) => void;
   open?: boolean;
-  /**
-   * Conversation scope.
-   *
-   * - `'main'` (recommended for doc-anchored chat): the panel is the canonical
-   *   surface for the supplied `topicId`. Messages are loaded by
-   *   `ConversationProvider`'s own fetch and persist through the standard
-   *   main-scope pipeline. The caller must guarantee `topicId` is defined.
-   * - `'thread'` (legacy in-chat portal): the panel owns an isolated thread
-   *   under the supplied `topicId`. When `threadId` is absent, the context is
-   *   marked `isNew` and a fresh thread is created on first send, anchored on
-   *   the topic's latest main message. The panel manages its own message slice
-   *   to avoid dumping the parent topic history into the side panel.
-   */
-  scope?: 'main' | 'thread';
   snapPoints?: number[];
-  /** Opens an existing thread when set; otherwise the panel starts ephemeral. */
-  threadId?: string | null;
   title?: ReactNode;
-  /** Topic identifier. `null` means a new / unpersisted conversation. */
-  topicId: string | null;
+  /**
+   * Topic identifier. Must be the doc-anchored topic resolved through
+   * `useDocumentChatTopic` so the panel renders the conversation tied to the
+   * `(documentId, agentId)` pair instead of whatever topic happens to be
+   * active. Callers should gate on a non-null value before rendering.
+   */
+  topicId: string;
   variant?: 'elevated' | 'embedded';
   width?: number | string;
 }
@@ -131,9 +118,8 @@ export interface FloatingChatPanelProps {
  * FloatingChatPanel
  *
  * Reusable floating conversation panel — composes `ChatList` + `ChatInput`
- * inside a `FloatingSheet`. Consumers provide conversation coordinates via
- * flat `agentId` / `topicId` / `threadId` props; the panel builds its own
- * `ConversationContext` internally.
+ * inside a `FloatingSheet`. The conversation is always main-scope on the
+ * supplied `topicId`; `ConversationProvider` owns message loading.
  *
  * Single instance per page (see `./guard.ts`).
  */
@@ -141,10 +127,8 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
   ({
     agentId,
     topicId,
-    threadId = null,
     documentId,
     agentDocumentId,
-    scope = 'thread',
     actionsBar,
     hooks,
 
@@ -156,83 +140,23 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     useSingleInstanceGuard();
     const { t } = useTranslation('chat');
 
-    const isMainScope = scope === 'main';
-
-    const storePortalThreadId = useChatStore((s) => s.portalThreadId);
-    const effectiveThreadId = threadId ?? storePortalThreadId ?? null;
-
-    useEffect(() => {
-      if (isMainScope) return;
-      if (threadId) return;
-      if (useChatStore.getState().portalThreadId) {
-        useChatStore.setState({ portalThreadId: undefined });
-      }
-    }, [isMainScope, threadId]);
-
-    const isCreatingNewThread = !isMainScope && !effectiveThreadId;
-    const sourceMessageId = useChatStore((s) => {
-      if (isMainScope || !isCreatingNewThread || !topicId) return undefined;
-      const mainKey = messageMapKey({ agentId, topicId });
-      const mainMessages = s.dbMessagesMap[mainKey];
-      if (!mainMessages?.length) return undefined;
-      for (let i = mainMessages.length - 1; i >= 0; i -= 1) {
-        const msg = mainMessages[i]!;
-        if (!msg.threadId) return msg.id;
-      }
-      return undefined;
-    });
-
     const context = useMemo<ConversationContext>(
       () => ({
         agentId,
         ...(agentDocumentId ? { agentDocumentId } : {}),
         ...(documentId ? { documentId } : {}),
-        ...(!isMainScope && isCreatingNewThread && sourceMessageId
-          ? { isNew: true, sourceMessageId, threadType: ThreadType.Standalone }
-          : !isMainScope && isCreatingNewThread
-            ? { isNew: true }
-            : {}),
-        scope,
-        threadId: isMainScope ? null : effectiveThreadId,
+        scope: 'main',
+        threadId: null,
         topicId,
       }),
-      [
-        agentId,
-        agentDocumentId,
-        documentId,
-        effectiveThreadId,
-        isCreatingNewThread,
-        isMainScope,
-        scope,
-        sourceMessageId,
-        topicId,
-      ],
+      [agentId, agentDocumentId, documentId, topicId],
     );
 
     const chatKey = useMemo(() => messageMapKey(context), [context]);
-    const rawMessages = useChatStore((s) => s.dbMessagesMap[chatKey]);
-    const replaceMessages = useChatStore((s) => s.replaceMessages);
-
-    // `'thread'` scope owns its message slice externally — see the inline note
-    // on the ConversationProvider below. `'main'` scope hands message loading
-    // off to the provider entirely and is uninterested in this derivation.
-    const threadMessages = useMemo(() => {
-      if (isMainScope) return undefined;
-      if (!effectiveThreadId) return [];
-      if (!rawMessages) return rawMessages;
-      return rawMessages.filter((m) => m.threadId === effectiveThreadId);
-    }, [isMainScope, rawMessages, effectiveThreadId]);
 
     const operationState = useOperationState(context);
     const defaultActionsBar = useActionsBarConfig();
     const resolvedActionsBar = actionsBar ?? defaultActionsBar;
-
-    const handleMessagesChange = useMemo(
-      () => (next: UIChatMessage[], ctx: ConversationContext) => {
-        replaceMessages(next, { context: ctx });
-      },
-      [replaceMessages],
-    );
 
     const [isCollapsed, setIsCollapsed] = useState(true);
     const [activeSnapPoint, setActiveSnapPoint] = useState<number>(MID_SNAP_POINT);
@@ -258,8 +182,7 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
     const chatFollowUpHooks = useChatFollowUp({
       agentChatConfig,
       conversationKey: chatKey,
-      threadId: effectiveThreadId ?? undefined,
-      topicId: topicId ?? undefined,
+      topicId,
     });
 
     const mergedHooks = useMemo<ConversationHooks>(
@@ -314,30 +237,12 @@ const FloatingChatPanel = memo<FloatingChatPanelProps>(
       width,
     };
 
-    // Doc-anchored side chat (`'thread'`) owns its messages via the external
-    // `messages` prop (filtered from `dbMessagesMap` above). Letting
-    // ConversationProvider fire its own `useFetchMessages` here would pull the
-    // main-topic history from the server and drop it into this panel —
-    // exactly the parent dump A-mode is meant to avoid.
-    //
-    // `'main'` scope is the inverse: the panel IS the canonical surface for
-    // the topic. Let ConversationProvider fetch + manage messages normally.
-    const providerProps = isMainScope
-      ? {}
-      : {
-          hasInitMessages: true as const,
-          messages: threadMessages ?? [],
-          onMessagesChange: handleMessagesChange,
-          skipFetch: true as const,
-        };
-
     return (
       <ConversationProvider
         actionsBar={resolvedActionsBar}
         context={context}
         hooks={mergedHooks}
         operationState={operationState}
-        {...providerProps}
       >
         <div
           className={styles.panel}

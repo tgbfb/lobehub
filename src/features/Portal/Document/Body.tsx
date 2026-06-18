@@ -391,7 +391,6 @@ const DocumentBody = memo(() => {
           agentId={activeAgentId}
           documentId={documentId ?? undefined}
           key={`${activeAgentId}:${docChatTopicId}:${documentId ?? 'none'}`}
-          scope="main"
           topicId={docChatTopicId}
         />
       )}

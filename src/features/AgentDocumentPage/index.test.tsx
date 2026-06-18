@@ -131,7 +131,6 @@ describe('AgentDocumentPage', () => {
       agentDocumentId: 'agent-document-1',
       agentId: 'active-agent',
       documentId: 'docs_abc',
-      scope: 'main',
       topicId: 'doc-topic-1',
     });
   });
@@ -149,7 +148,6 @@ describe('AgentDocumentPage', () => {
     render(<AgentDocumentPage documentId="docs_abc" />);
     expect(panelProps.current).toMatchObject({
       agentId: 'agent-from-url',
-      scope: 'main',
       topicId: 'doc-topic-1',
     });
   });
