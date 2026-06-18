@@ -304,7 +304,7 @@ describe('FloatingChatPanel', () => {
     expect(sheet.dataset.activeSnap).toBe('420');
     expect(getByTestId('floating-chat-panel').dataset.collapsed).toBe('false');
     const input = getByTestId('chat-input');
-    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo', 'stt']));
+    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo']));
     expect(input.dataset.rightActions).toBe(JSON.stringify(['contextWindow']));
   });
 

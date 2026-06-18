@@ -52,7 +52,7 @@ const commitWithViewTransition = (commit: () => void) => {
 };
 
 const EMPTY_ACTIONS: never[] = [];
-const EXPANDED_LEFT_ACTIONS: ('typo' | 'stt')[] = ['typo', 'stt'];
+const EXPANDED_LEFT_ACTIONS: 'typo'[] = ['typo'];
 const EXPANDED_RIGHT_ACTIONS: 'contextWindow'[] = ['contextWindow'];
 
 export interface InputRowProps {

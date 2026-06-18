@@ -46,7 +46,7 @@ describe('FloatingChatPanel InputRow', () => {
     render(<InputRow isCollapsed={false} onExpand={() => {}} />);
     const input = screen.getByTestId('chat-input');
     expect(input.dataset.compact).toBe('false');
-    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo', 'stt']));
+    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo']));
     expect(input.dataset.rightActions).toBe(JSON.stringify(['contextWindow']));
     expect(input.dataset.showControlBar).toBe('true');
   });
@@ -113,7 +113,7 @@ describe('FloatingChatPanel InputRow', () => {
 
     fireEvent.focus(screen.getByTestId('floating-chat-panel-input-row'));
     expect(input.dataset.compact).toBe('false');
-    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo', 'stt']));
+    expect(input.dataset.leftActions).toBe(JSON.stringify(['typo']));
     expect(input.dataset.rightActions).toBe(JSON.stringify(['contextWindow']));
     expect(input.dataset.showControlBar).toBe('true');
   });
