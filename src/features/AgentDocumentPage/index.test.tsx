@@ -70,13 +70,6 @@ vi.mock('@/features/FloatingChatPanel', () => ({
   },
 }));
 
-const mockAgentState = vi.hoisted(() => ({
-  current: { activeAgentId: 'active-agent' },
-}));
-vi.mock('@/store/agent', () => ({
-  useAgentStore: (selector: any) => selector(mockAgentState.current),
-}));
-
 const mockUserState = vi.hoisted(() => ({
   current: {
     preference: { lab: { enableAgentDocumentFloatingChatPanel: false } },
@@ -95,7 +88,6 @@ vi.mock('@/store/user/selectors', () => ({
 
 describe('AgentDocumentPage', () => {
   beforeEach(() => {
-    mockAgentState.current.activeAgentId = 'active-agent';
     mockUserState.current.preference.lab.enableAgentDocumentFloatingChatPanel = false;
     docChatTopicState.current = {
       error: undefined,
@@ -120,7 +112,7 @@ describe('AgentDocumentPage', () => {
     expect(screen.queryByTestId('floating-chat-panel')).toBeNull();
   });
 
-  it('renders FloatingChatPanel anchored to the doc-scoped topic resolved by the hook', () => {
+  it('renders FloatingChatPanel anchored on the URL agent + doc-scoped topic', () => {
     mockUserState.current.preference.lab.enableAgentDocumentFloatingChatPanel = true;
     render(<AgentDocumentPage documentId="docs_abc" />);
 
@@ -129,7 +121,7 @@ describe('AgentDocumentPage', () => {
     expect(container).toContainElement(panel);
     expect(panelProps.current).toMatchObject({
       agentDocumentId: 'agent-document-1',
-      agentId: 'active-agent',
+      agentId: 'agent-from-url',
       documentId: 'docs_abc',
       topicId: 'doc-topic-1',
     });
@@ -140,15 +132,5 @@ describe('AgentDocumentPage', () => {
     docChatTopicState.current = { error: undefined, isLoading: true, topicId: undefined };
     render(<AgentDocumentPage documentId="docs_abc" />);
     expect(screen.queryByTestId('floating-chat-panel')).toBeNull();
-  });
-
-  it('falls back to the route agent id when activeAgentId is not yet hydrated', () => {
-    mockUserState.current.preference.lab.enableAgentDocumentFloatingChatPanel = true;
-    mockAgentState.current.activeAgentId = undefined as unknown as string;
-    render(<AgentDocumentPage documentId="docs_abc" />);
-    expect(panelProps.current).toMatchObject({
-      agentId: 'agent-from-url',
-      topicId: 'doc-topic-1',
-    });
   });
 });

@@ -9,7 +9,6 @@ import { useDocumentChatTopic } from '@/features/FloatingChatPanel/useDocumentCh
 import { PageEditor } from '@/features/PageEditor';
 import WideScreenContainer from '@/features/WideScreenContainer';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
-import { useAgentStore } from '@/store/agent';
 import { useUserStore } from '@/store/user';
 import { labPreferSelectors } from '@/store/user/selectors';
 
@@ -34,11 +33,13 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   const navigate = useWorkspaceAwareNavigate();
   const { item, mutate, skillBundle } = useAgentDocumentItem(agentId, documentId);
 
-  const activeAgentId = useAgentStore((s) => s.activeAgentId);
   const enableFloatingChatPanel = useUserStore(
     labPreferSelectors.enableAgentDocumentFloatingChatPanel,
   );
-  const chatAgentId = activeAgentId ?? agentId;
+  // The route owns the agent — `useChatStore.activeAgentId` can be a different
+  // agent (the user's main chat context). Pulling that one would 404 the
+  // doc-anchored topic lookup whenever the active agent doesn't own this doc.
+  const chatAgentId = agentId;
   const { topicId: docChatTopicId } = useDocumentChatTopic({
     agentId: enableFloatingChatPanel ? chatAgentId : undefined,
     documentId: enableFloatingChatPanel ? documentId : undefined,
