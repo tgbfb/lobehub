@@ -82,16 +82,26 @@ const runMigrations = async () => {
       await neonMigrate(serverDB, { migrationsFolder });
     }
   } catch (err: unknown) {
-    const e = err as { routine?: string; message?: string };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = err as any;
 
     // pg_search deprecated on Neon for new projects since March 19, 2026.
     // CheckAllowedExtension is a C-level error that bypasses PL/pgSQL exception handlers,
     // so it always surfaces at the JS level. Fall back to a custom runner that skips
     // pg_search/BM25 statements but marks every migration applied to unblock the rest.
-    if (
-      e.routine === 'CheckAllowedExtension' ||
-      e.message?.includes('extension "pg_search" is not available')
-    ) {
+    //
+    // Match by multiple fields because neon-serverless may wrap the NeonDbError differently
+    // across driver versions (routine may be on the error itself or a nested cause).
+    const isPgSearchError =
+      e?.routine === 'CheckAllowedExtension' ||
+      e?.cause?.routine === 'CheckAllowedExtension' ||
+      e?.file === 'allowed_extensions.c' ||
+      e?.cause?.file === 'allowed_extensions.c' ||
+      e?.hint?.includes('deprecated') ||
+      e?.cause?.hint?.includes('deprecated') ||
+      String(e?.message ?? '').includes('extension "pg_search" is not available');
+
+    if (isPgSearchError) {
       console.warn(
         '⚠️  pg_search is not available on this database (deprecated on Neon since March 19, 2026).',
         '\n    BM25 full-text search will be disabled.',
